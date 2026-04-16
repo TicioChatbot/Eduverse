@@ -1,18 +1,23 @@
 """
-services/gemma.py — Google Gemini AI service for EduVerse v3
+services/gemma.py — EduVerse v5.0: Gemma 4 + Deterministic Geometry Engine
 
-Key improvements:
-- System prompt now teaches the AI about dynamic behaviors (orbit, flow)
-- Scientific fidelity rules (relative sizing, correct ordering)
-- Inline schema includes the behavior object
-- Temperature lowered for more consistent outputs
+Architecture:
+  - Gemma 4 (gemma-4-27b-it) handles CONCEPTS: what objects exist, their educational
+    meaning, descriptions, and semantic relationships.
+  - Python SceneArchetypeEngine handles ALL geometry: positions, behaviors, sizes,
+    and spatial coherence. The AI never touches coordinates.
+
+Why this split:
+  - LLMs are bad at spatial reasoning (random positions, collisions, etc.)
+  - Gemma 4 is excellent at educational content and naming
+  - Result: 100% coherent scenes + rich educational descriptions every time
 """
 
 import json
 import logging
 import math
 import unicodedata
-from typing import Optional
+from typing import Optional, List
 
 from google import genai
 from google.genai import types
@@ -22,189 +27,428 @@ from app.models.workshop import Workshop
 
 logger = logging.getLogger(__name__)
 
-# ─────────────────────────────────────────────────────────
-#  SYSTEM PROMPT v3 — Behaviors + Scientific Fidelity
-# ─────────────────────────────────────────────────────────
-SYSTEM_PROMPT = """Eres EduVerse AI. Generas talleres educativos 3D inmersivos para Roblox.
+# ─────────────────────────────────────────────────────────────────────────────
+#  GEMMA 4 CONCEPT PROMPT
+#  The AI only answers "WHAT" — never "WHERE" or "HOW BIG"
+#  Geometry, positions, sizes, and behaviors are 100% handled in Python.
+# ─────────────────────────────────────────────────────────────────────────────
+CONCEPT_PROMPT = """Eres EduVerse AI, experto en educación para bachillerato colombiano (14-17 años).
 
-Tu respuesta es JSON puro válido (SIN markdown, SIN texto extra, SIN ```json```).
+Tu trabajo es CONCEPTUALIZAR un taller educativo 3D. Tú defines LOS CONCEPTOS y sus relaciones.
+La geometría, posiciones y animaciones las maneja otro sistema — tú NO las defines.
 
-═══════════════════ ESTRUCTURA JSON REQUERIDA ═══════════════════
+RESPONDE EN JSON PURO (sin markdown, sin código, sin texto extra).
+
+═══════════ ESTRUCTURA ═══════════
 
 {
-  "topic": "...",
-  "scene_title": "Título atractivo",
-  "scene_description": "Una frase",
+  "topic": "tema exacto",
+  "scene_title": "Título atractivo y emotivo (máx 6 palabras)",
+  "scene_description": "1 frase que inspire al estudiante",
+  "archetype": "solar_system" | "atom" | "cell" | "building" | "ecosystem" | "historical" | "abstract",
   "objects": [ ...ver abajo... ],
   "quiz": [ ...ver abajo... ]
 }
 
-═══════════════════ OBJETOS ═══════════════════
+═══════════ ARCHETYPE ═══════════
 
-Cada objeto REQUIERE:
+Selecciona el archetype que mejor describe el tema:
+- "solar_system": planetas, estrellas, sistemas astronómicos
+- "atom": átomos, moléculas, química
+- "cell": biología celular, organismos
+- "building": arquitectura, ingeniería civil, estructuras
+- "ecosystem": ecosistemas, naturaleza, cadenas alimenticias
+- "historical": eventos históricos, líneas de tiempo, geografía
+- "abstract": conceptos abstractos, matemáticas, filosofía, otros
+
+El archetype determina AUTOMÁTICAMENTE cómo se posicionan los objetos en el espacio 3D.
+
+═══════════ OBJETOS ═══════════
+
+MÍNIMO 7, MÁXIMO 12 objetos. Cada objeto:
 {
-  "name": "NombreUnico sin espacios clave (ej: Sol, ElectronA, BaseEdificio)",
-  "shape": "cube" | "sphere" | "cylinder" | "wedge",
-  "color": "#HEX o nombre CSS (red, blue, gold, orange, gray, silver, brown, teal)",
-  "size": {"x": N, "y": N, "z": N},       ← SOLO x,y,z. NUNCA radius/height/width
-  "position": {"x": N, "y": N, "z": N},
-  "label": "2-3 palabras para etiqueta",
-  "description": "1-2 frases educativas para mostrar de cerca",
-  "behavior": { "type": "...", "params": {...} }
+  "name": "NombreClave (sin espacios, sin paréntesis, sin descripciones)",
+  "role": "center" | "primary" | "secondary" | "detail",
+  "semantic_group": "string que agrupa elementos relacionados (ej: 'planeta', 'electron', 'muro')",
+  "color_hint": "descripción del color en español (ej: 'azul oceánico', 'naranja ardiente', 'gris concreto')",
+  "label": "Nombre para mostrar (2-4 palabras, puede tener espacios)",
+  "description": "Descripción educativa de 2-3 frases. Qué es, por qué importa, dato curioso.",
+  "shape_hint": "esfera" | "cubo" | "cilindro" | "cuña" | "anillo"
 }
 
-═══════════ BEHAVIORS — ÚSALOS SIEMPRE ═══════════
+ROLES:
+- "center": El objeto principal (1 por escena). Ej: Sol, Núcleo, Célula madre, Edificio principal.
+- "primary": Objetos de primer nivel. Ej: Planetas mayores, Electrones de valencia, Organelas mayores.
+- "secondary": Objetos de segundo nivel. Ej: Lunas, Iones, Organelas menores.
+- "detail": Detalles de ambiente. Ej: Asteroides, Partículas, Detalles decorativos.
 
-• "static"     → Sin movimiento. Solo para estructuras fijas como bases/pisos.
-• "rotate"     → Gira en Y.         params: {"speed": 1.5}
-• "float"      → Sube y baja.       params: {"amplitude": 1.5, "speed": 1.0}
-• "pulse"      → Respira.           params: {"intensity": 0.06, "speed": 0.8}
-• "orbit"      → Orbita a un objeto (center DEBE ser "name" exacto de otro objeto).
-                                    params: {"center": "Sol", "radius": 12, "speed": 0.5}
-• "flow"       → Va y viene hacia otro. params: {"target": "Celula", "speed": 0.8}
-• "grow_shrink"→ Crece y encoge.    params: {"min_scale": 0.7, "max_scale": 1.3, "speed": 1}
-
-REGLA ABSOLUTA: MÍNIMO 60% de objetos con behavior NO static.
-
-═══════════ GUÍA POR TEMA ═══════════
-
-ASTRONOMÍA (planetas, sol, galaxias):
-  - Centro (Sol, Estrella) → "pulse" {"intensity":0.04}
-  - Planetas → "orbit" con radios crecientes (8, 15, 22, 29, 36, 43...)
-  - Lunas → "orbit" alrededor del PLANETA (no del sol)
-  - Nombres: usa exactamente Sol, Mercurio, Venus, Tierra, Marte, Jupiter, Saturno, Urano, Neptuno
-
-QUÍMICA (átomos, moléculas):
-  - Núcleo → "pulse" {"intensity":0.05}
-  - Electrones → "orbit" al núcleo con radios 3, 5, 7
-  - Moléculas → "float" o "flow"
-
-BIOLOGÍA (células, ecosistemas):
-  - Célula central → "pulse"
-  - Organelos → "float" o "orbit" alrededor de la célula
-  - Nutrientes/fluidos → "flow" hacia la célula
-
-FÍSICA (fuerzas, energía):
-  - Partículas → "float" con energía alta
-  - Ondas → "grow_shrink"
-  - Objetos en movimiento → "flow" entre puntos
-
-INGENIERÍA / ARQUITECTURA:
-  CRÍTICO: Los edificios tienen CAPAS VERTICALES. Usa Y creciente.
-  - Base/Cimientos (y=1, grande): "static", shape="cube", color="gray"
-  - Pilares (y=5, delgados): "static", shape="cylinder", color="silver"
-  - Cuerpo/Muros (y=8): "static", shape="cube"
-  - Ventanas (y=8, pequeños): "float" {"amplitude":0.1} para dar vida
-  - Techo (y=14): "static", shape="cube" o "wedge"
-  - Grúa/Maquinaria: "rotate" {"speed":0.5}
-  - Trabajadores/Elementos vivos: "float"
-  - Materiales (cubos pequeños): "flow" entre zonas
-
-HISTORIA / GEOGRAFÍA / CONCEPTOS ABSTRACTOS:
-  - Divide en elementos clave del tema
-  - Usa float para conceptos "abstractos" o dinámicos
-  - Coloca en grilla 3x3 con distancia de 10 studs entre sí
-  - El elemento más importante al centro, más grande
-  - Al menos 3 objetos deben tener algún behavior
-
-═══════════ POSICIONAMIENTO ═══════════
-
-El escenario mide 80x80 studs centrado en (0,0,0).
-
-GRID RECOMENDADA:   X: -30, -15, 0, 15, 30
-                    Z: -20, -10, 0, 10, 20
-                    Y: 1 (suelo), 5, 10, 15, 20
-
-REGLAS:
-- Objeto principal en (0, Y, 0). Objetos orbitantes ignoran posición (orbit la calcula).
-- NUNCA dos objetos con mismas X,Z.
-- Arquitectura: apila en Y (edificio en capas), no en X,Z.
-- Astronomía: usa position para el SOL solamente (0,5,0). Planetas ignoran position.
-
-═══════════ FIDELIDAD CIENTÍFICA ═══════════
-
-- Tamaños relativos: Sol>Júpiter>Tierra>Mercurio. Célula>Organelo>Molécula.
-- Colores con significado: hidrógeno=white, oxígeno=red, carbono=black, nitrógeno=blue.
-- Para QUÍMICA: usa size pequeño (1-3) y radios de órbita pequeños (2-6).
-- Para ASTRONOMÍA: usa size grande y radios grandes (8-60).
-- Mínimo 7 objetos, máximo 14.
+NOMBRES ESPECIALES (si el tema los requiere, úsalos EXACTAMENTE — hay modelos 3D para ellos):
+- Sistema solar: usa "Sun", "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Moon"
+- Humanos: usa "Person" para representar personas
 
 ═══════════ QUIZ ═══════════
 
-EXACTAMENTE 4 preguntas, cada una con EXACTAMENTE 4 opciones.
-"correct_index": 0, 1, 2, o 3 (número, no string).
-"difficulty": "easy" | "medium" | "hard".
-"feedback": explica por qué al estilo "¡Correcto! Porque..."
-Al menos 1 pregunta visual: "Observa el objeto más grande en la escena..."
+EXACTAMENTE 4 preguntas. Cada pregunta:
+{
+  "question": "Pregunta clara y específica",
+  "options": ["Opción A", "Opción B", "Opción C", "Opción D"],
+  "correct_index": 0,
+  "difficulty": "easy" | "medium" | "hard",
+  "feedback": "¡[Correcto/Incorrecto]! Explicación en 1-2 frases con lenguaje juvenil."
+}
+
+Al menos 1 pregunta visual: "Observa los objetos de la escena..."
 """
 
-# ─────────────────────────────────────────────────────────
-#  MINIMAL SCHEMA — inline, no $ref
-# ─────────────────────────────────────────────────────────
-MINIMAL_SCHEMA = {
-    "type": "object",
-    "required": ["topic", "scene_title", "objects", "quiz"],
-    "properties": {
-        "topic": {"type": "string"},
-        "scene_title": {"type": "string"},
-        "scene_description": {"type": "string"},
-        "objects": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "required": ["name", "shape", "color", "size", "position"],
-                "properties": {
-                    "name": {"type": "string"},
-                    "shape": {"type": "string", "enum": ["cube", "sphere", "cylinder", "wedge"]},
-                    "color": {"type": "string"},
-                    "size": {
-                        "type": "object",
-                        "required": ["x", "y", "z"],
-                        "properties": {
-                            "x": {"type": "number"},
-                            "y": {"type": "number"},
-                            "z": {"type": "number"},
-                        },
-                    },
-                    "position": {
-                        "type": "object",
-                        "required": ["x", "y", "z"],
-                        "properties": {
-                            "x": {"type": "number"},
-                            "y": {"type": "number"},
-                            "z": {"type": "number"},
-                        },
-                    },
-                    "label": {"type": "string"},
-                    "description": {"type": "string"},
-                    "behavior": {
-                        "type": "object",
-                        "properties": {
-                            "type": {"type": "string"},
-                            "params": {"type": "object"},
-                        },
-                    },
-                },
-            },
-        },
-        "quiz": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "required": ["question", "options", "correct_index", "feedback"],
-                "properties": {
-                    "question": {"type": "string"},
-                    "options": {"type": "array", "items": {"type": "string"}},
-                    "correct_index": {"type": "integer"},
-                    "feedback": {"type": "string"},
-                    "difficulty": {"type": "string"},
-                },
-            },
-        },
-    },
+# ─────────────────────────────────────────────────────────────────────────────
+#  COLOR RESOLVER  — turns color hints into hex codes
+# ─────────────────────────────────────────────────────────────────────────────
+COLOR_MAP = {
+    # Azules
+    "azul": "#4488FF", "azul oceánico": "#0066AA", "azul cielo": "#87CEEB",
+    "azul oscuro": "#003399", "azul claro": "#66AAFF", "azul marino": "#001F5B",
+    # Rojos / Naranjas
+    "rojo": "#FF4444", "naranja": "#FF8800", "naranja ardiente": "#FF6600",
+    "rojo oscuro": "#990000", "coral": "#FF7F50", "magenta": "#FF00FF",
+    # Amarillos / Dorados
+    "amarillo": "#FFEE00", "dorado": "#FFD700", "oro": "#FFD700",
+    "amarillo solar": "#FFF176",
+    # Verdes
+    "verde": "#44CC66", "verde lima": "#32CD32", "verde oscuro": "#006400",
+    "verde esmeralda": "#50C878", "cian": "#00FFFF", "turquesa": "#40E0D0",
+    # Morados / Rosas
+    "morado": "#9B59B6", "violeta": "#8A2BE2", "rosa": "#FF69B4",
+    "rosa oscuro": "#C71585", "lila": "#B39DDB",
+    # Neutros
+    "blanco": "#FFFFFF", "gris": "#808080", "gris claro": "#C0C0C0",
+    "gris oscuro": "#404040", "plateado": "#C0C0C0", "plata": "#C0C0C0",
+    "negro": "#111111",
+    # Marrones
+    "marrón": "#8B4513", "café": "#8B4513", "beige": "#F5F5DC",
+    "tierra": "#964B00", "concreto": "#9E9E9E", "cemento": "#8D8D8D",
+    # Especiales
+    "rojo marciano": "#C1440E", "azul tierra": "#1B6CA8",
+    "dorado joviano": "#C4A24A",
+}
+
+def resolve_color(hint: str) -> str:
+    if not hint:
+        return "#AAAAAA"
+    h = hint.lower().strip()
+    # Exact match
+    if h in COLOR_MAP:
+        return COLOR_MAP[h]
+    # Partial match
+    for key, val in COLOR_MAP.items():
+        if key in h or h in key:
+            return val
+    # Default
+    return "#AAAAAA"
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  ARCHETYPE GEOMETRY ENGINE  (100% deterministic — no AI)
+# ─────────────────────────────────────────────────────────────────────────────
+KNOWN_ASSETS = {
+    "sun", "mercury", "venus", "earth", "mars", "jupiter",
+    "saturn", "uranus", "neptune", "moon", "person",
+}
+
+def _apply_solar_system(objects: list) -> list:
+    """Orbital concentric layout. Center=Sun, rings outward for planets."""
+    center_index = 0
+    for i, o in enumerate(objects):
+        if o.get("role") == "center":
+            center_index = i
+            break
+    
+    orbit_radius = 10
+    orbit_step   = 8
+    moon_radius  = 4
+    
+    primaries   = [o for o in objects if o["role"] == "primary"]
+    secondaries = [o for o in objects if o["role"] == "secondary"]
+    details     = [o for o in objects if o["role"] == "detail"]
+    
+    # Center object (Sun/Star)
+    objects[center_index]["position"]  = {"x": 0, "y": 5, "z": 0}
+    objects[center_index]["size"]      = {"x": 9, "y": 9, "z": 9}
+    objects[center_index]["behavior"]  = {"type": "pulse", "params": {"intensity": 0.04, "speed": 0.6}}
+    objects[center_index]["shape"]     = "sphere"
+    
+    # Planets orbit the center in increasing radii
+    center_name = objects[center_index]["name"]
+    for idx, obj in enumerate(primaries):
+        r = orbit_radius + idx * orbit_step
+        speed = max(0.08, 0.55 - idx * 0.06)
+        s = max(1.5, 5.0 - idx * 0.4)
+        obj["position"]  = {"x": r, "y": 5, "z": 0}
+        obj["size"]      = {"x": s, "y": s, "z": s}
+        obj["behavior"]  = {"type": "orbit", "params": {
+            "center": center_name, "radius": r, "speed": speed}}
+        obj["shape"]     = "sphere"
+    
+    # Moons orbit their closest planet
+    if primaries and secondaries:
+        planet_name = primaries[0]["name"]  # Usually Earth
+        for idx, obj in enumerate(secondaries):
+            obj["position"]  = {"x": 0, "y": 5, "z": 0}
+            obj["size"]      = {"x": 1.5, "y": 1.5, "z": 1.5}
+            obj["behavior"]  = {"type": "orbit", "params": {
+                "center": planet_name, "radius": moon_radius + idx * 2, "speed": 1.5}}
+            obj["shape"]     = "sphere"
+    
+    # Details: scattered asteroids floating
+    for idx, obj in enumerate(details):
+        angle = (idx * 2.39996)  # golden angle
+        r = orbit_radius + len(primaries) * orbit_step + 4 + idx * 3
+        obj["position"]  = {"x": math.cos(angle) * r, "y": 4, "z": math.sin(angle) * r}
+        obj["size"]      = {"x": 0.8, "y": 0.8, "z": 0.8}
+        obj["behavior"]  = {"type": "float", "params": {"amplitude": 0.5, "speed": 0.3}}
+        obj["shape"]     = "sphere"
+    
+    return objects
+
+
+def _apply_atom(objects: list) -> list:
+    """Nucleus at center. Electrons in shells."""
+    center = next((o for o in objects if o["role"] == "center"), objects[0])
+    center["position"] = {"x": 0, "y": 5, "z": 0}
+    center["size"]     = {"x": 5, "y": 5, "z": 5}
+    center["behavior"] = {"type": "pulse", "params": {"intensity": 0.08, "speed": 1.2}}
+    center["shape"]    = "sphere"
+    
+    primaries   = [o for o in objects if o["role"] in ("primary",) and o is not center]
+    secondaries = [o for o in objects if o["role"] == "secondary" and o is not center]
+    
+    for idx, obj in enumerate(primaries):
+        r = 5 + idx * 3
+        speed = 1.5 + idx * 0.3
+        obj["position"]  = {"x": r, "y": 5, "z": 0}
+        obj["size"]      = {"x": 1.2, "y": 1.2, "z": 1.2}
+        obj["behavior"]  = {"type": "orbit", "params": {
+            "center": center["name"], "radius": r, "speed": speed}}
+        obj["shape"]     = "sphere"
+    
+    for idx, obj in enumerate(secondaries):
+        r = 5 + len(primaries) * 3 + idx * 2.5
+        obj["position"]  = {"x": r, "y": 5, "z": 0}
+        obj["size"]      = {"x": 0.8, "y": 0.8, "z": 0.8}
+        obj["behavior"]  = {"type": "orbit", "params": {
+            "center": center["name"], "radius": r, "speed": 2.5 + idx * 0.4}}
+        obj["shape"]     = "sphere"
+    
+    return objects
+
+
+def _apply_cell(objects: list) -> list:
+    """Cell wall at center, organelles orbit loosely."""
+    center = next((o for o in objects if o["role"] == "center"), objects[0])
+    center["position"] = {"x": 0, "y": 5, "z": 0}
+    center["size"]     = {"x": 10, "y": 10, "z": 10}
+    center["behavior"] = {"type": "pulse", "params": {"intensity": 0.03, "speed": 0.5}}
+    center["shape"]    = "sphere"
+    
+    others = [o for o in objects if o is not center]
+    for idx, obj in enumerate(others):
+        angle = idx * (2 * math.pi / max(len(others), 1))
+        r = 6 + (idx % 3) * 3
+        obj["position"]  = {"x": math.cos(angle) * r, "y": 5 + math.sin(angle) * 2, "z": math.sin(angle) * r}
+        obj["size"]      = {"x": 1.5, "y": 1.5, "z": 1.5}
+        role = obj.get("role", "primary")
+        if role == "primary":
+            obj["behavior"] = {"type": "orbit", "params": {
+                "center": center["name"], "radius": r, "speed": 0.3}}
+        else:
+            obj["behavior"] = {"type": "float", "params": {"amplitude": 1.0, "speed": 0.4}}
+        obj["shape"] = "sphere"
+    
+    return objects
+
+
+def _apply_building(objects: list) -> list:
+    """Layered vertical architecture. Base at Y=1, walls at Y=5, roof at Y=10."""
+    y_cursor = 0.5
+    x_offset = 0
+    STATIC_PARTS = ["base", "muro", "pared", "piso", "suelo", "cimiento",
+                    "columna", "pilar", "techo", "cubierta", "foundation",
+                    "wall", "floor", "roof", "pillar"]
+    
+    by_role = {"center": [], "primary": [], "secondary": [], "detail": []}
+    for o in objects:
+        by_role.get(o.get("role", "primary"), by_role["primary"]).append(o)
+    
+    center = by_role["center"] or by_role["primary"][:1]
+    primaries   = by_role["primary"]
+    secondaries = by_role["secondary"]
+    details     = by_role["detail"]
+    
+    # center = main building body
+    for obj in center:
+        obj["position"] = {"x": 0, "y": 6, "z": 0}
+        obj["size"]     = {"x": 8, "y": 12, "z": 8}
+        obj["behavior"] = {"type": "static", "params": {}}
+        obj["shape"]    = "cube"
+    
+    # primaries: structural elements stacked
+    layer_y = [1, 5, 9, 13]
+    for idx, obj in enumerate(primaries):
+        nl = obj["name"].lower()
+        is_static = any(kw in nl for kw in STATIC_PARTS)
+        y = layer_y[min(idx, len(layer_y) - 1)]
+        obj["position"] = {"x": 0, "y": y, "z": 0}
+        obj["size"]     = {"x": 10, "y": 2, "z": 10} if "base" in nl or "piso" in nl else {"x": 7, "y": 8, "z": 7}
+        obj["behavior"] = {"type": "static", "params": {}} if is_static else \
+                          {"type": "rotate", "params": {"speed": 0.5}}
+        obj["shape"]    = "cube"
+    
+    # secondaries: floating details around the building
+    for idx, obj in enumerate(secondaries):
+        angle = idx * (2 * math.pi / max(len(secondaries), 1))
+        obj["position"] = {"x": math.cos(angle) * 12, "y": 4, "z": math.sin(angle) * 12}
+        obj["size"]     = {"x": 2, "y": 2, "z": 2}
+        nl = obj["name"].lower()
+        if any(kw in nl for kw in ["grua", "crane", "ventilador", "fan"]):
+            obj["behavior"] = {"type": "rotate", "params": {"speed": 1.0}}
+        elif any(kw in nl for kw in ["obrero", "worker", "persona", "person"]):
+            obj["behavior"] = {"type": "float", "params": {"amplitude": 0.5, "speed": 0.4}}
+        else:
+            obj["behavior"] = {"type": "float", "params": {"amplitude": 0.8, "speed": 0.5}}
+        obj["shape"] = "cube"
+    
+    # details: materials/particles flowing
+    for idx, obj in enumerate(details):
+        obj["position"] = {"x": -15 + idx * 5, "y": 2, "z": -10}
+        obj["size"]     = {"x": 1, "y": 1, "z": 1}
+        obj["behavior"] = {"type": "flow", "params": {
+            "target": center[0]["name"] if center else objects[0]["name"],
+            "speed": 0.6 + idx * 0.1}}
+        obj["shape"]    = "cube"
+    
+    return objects
+
+
+def _apply_ecosystem(objects: list) -> list:
+    """Grid with food chain flow. Center = keystone species."""
+    center = next((o for o in objects if o["role"] == "center"), objects[0])
+    center["position"] = {"x": 0, "y": 4, "z": 0}
+    center["size"]     = {"x": 4, "y": 4, "z": 4}
+    center["behavior"] = {"type": "float", "params": {"amplitude": 1.0, "speed": 0.6}}
+    center["shape"]    = "sphere"
+    
+    others = [o for o in objects if o is not center]
+    rings = [
+        [o for o in others if o["role"] == "primary"],
+        [o for o in others if o["role"] == "secondary"],
+        [o for o in others if o["role"] == "detail"],
+    ]
+    radii = [10, 18, 25]
+    for ring_idx, ring in enumerate(rings):
+        r = radii[ring_idx]
+        for idx, obj in enumerate(ring):
+            angle = idx * (2 * math.pi / max(len(ring), 1))
+            obj["position"] = {"x": math.cos(angle) * r, "y": 3, "z": math.sin(angle) * r}
+            obj["size"]     = {"x": 2.5, "y": 2.5, "z": 2.5}
+            obj["behavior"] = {"type": "float", "params": {"amplitude": 0.8 - ring_idx * 0.2, "speed": 0.5}}
+            obj["shape"]    = "sphere"
+    
+    return objects
+
+
+def _apply_grid(objects: list) -> list:
+    """Generic grid layout — for historical, abstract, and other topics."""
+    cols = 4
+    spacing = 14
+    center = next((o for o in objects if o["role"] == "center"), None)
+    if center:
+        center["position"] = {"x": 0, "y": 6, "z": 0}
+        center["size"]     = {"x": 5, "y": 5, "z": 5}
+        center["behavior"] = {"type": "pulse", "params": {"intensity": 0.05, "speed": 0.7}}
+        center["shape"]    = "cube"
+    
+    others = [o for o in objects if o is not center]
+    for idx, obj in enumerate(others):
+        col  = idx % cols
+        row  = idx // cols
+        x    = (col - cols / 2 + 0.5) * spacing
+        z    = (row - 1) * spacing
+        obj["position"] = {"x": x, "y": 4, "z": z}
+        obj["size"]     = {"x": 3, "y": 3, "z": 3}
+        role = obj.get("role", "primary")
+        if role == "primary":
+            obj["behavior"] = {"type": "float", "params": {"amplitude": 1.0, "speed": 0.5}}
+        elif role == "secondary":
+            obj["behavior"] = {"type": "rotate", "params": {"speed": 0.8}}
+        else:
+            obj["behavior"] = {"type": "float", "params": {"amplitude": 0.5, "speed": 0.3}}
+        obj["shape"] = "cube"
+    
+    return objects
+
+
+ARCHETYPE_ENGINES = {
+    "solar_system": _apply_solar_system,
+    "atom":         _apply_atom,
+    "cell":         _apply_cell,
+    "building":     _apply_building,
+    "ecosystem":    _apply_ecosystem,
+    "historical":   _apply_grid,
+    "abstract":     _apply_grid,
 }
 
 
+def _shape_hint_to_roblox(hint: str) -> str:
+    m = {"esfera": "sphere", "cubo": "cube", "cilindro": "cylinder", "cuña": "wedge", "anillo": "sphere"}
+    return m.get((hint or "").lower(), "sphere")
+
+
+def run_archetype_engine(raw: dict) -> dict:
+    """
+    Takes raw AI output (concepts only) and injects all geometry.
+    Returns fully-formed workshop dict ready for the Workshop model.
+    """
+    archetype  = raw.get("archetype", "abstract")
+    ai_objects = raw.get("objects", [])
+    
+    # Add missing fields before geometry engine runs
+    for obj in ai_objects:
+        obj.setdefault("role",          "primary")
+        obj.setdefault("color_hint",    "gris claro")
+        obj.setdefault("shape_hint",    "esfera")
+        obj.setdefault("label",         obj.get("name", "?"))
+        obj.setdefault("description",   "")
+        obj.setdefault("name",          "Unknown")
+    
+    # Run the archetype engine
+    engine = ARCHETYPE_ENGINES.get(archetype, _apply_grid)
+    ai_objects = engine(ai_objects)
+    
+    # Convert to Workshop-compatible object list
+    final_objects = []
+    for obj in ai_objects:
+        color = resolve_color(obj.get("color_hint", ""))
+        final_objects.append({
+            "name":        obj["name"],
+            "shape":       _shape_hint_to_roblox(obj.get("shape_hint") or obj.get("shape", "esfera")),
+            "color":       color,
+            "size":        obj.get("size",     {"x": 3, "y": 3, "z": 3}),
+            "position":    obj.get("position", {"x": 0, "y": 4, "z": 0}),
+            "label":       obj.get("label",    obj["name"]),
+            "description": obj.get("description", ""),
+            "behavior":    obj.get("behavior", {"type": "static", "params": {}}),
+        })
+    
+    return {
+        "topic":             raw.get("topic", "?"),
+        "scene_title":       raw.get("scene_title", raw.get("topic", "?")),
+        "scene_description": raw.get("scene_description", ""),
+        "objects":           final_objects,
+        "quiz":              raw.get("quiz", []),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  GEMMA SERVICE
+# ─────────────────────────────────────────────────────────────────────────────
 class GemmaService:
     def __init__(self):
         if not settings.GOOGLE_API_KEY:
@@ -212,232 +456,59 @@ class GemmaService:
         self.client = genai.Client(api_key=settings.GOOGLE_API_KEY)
 
     async def generate_workshop(self, topic: str, model_name: Optional[str] = None) -> Workshop:
-        model = model_name or settings.AI_MODEL_NAME
+        model  = model_name or settings.AI_MODEL_NAME
         prompt = (
-            f"Genera un taller educativo 3D inmersivo sobre: {topic}\n"
-            f"Nivel: Bachillerato colombiano (14-17 años).\n"
-            f"USA BEHAVIORS DINÁMICOS (orbit, flow) cuando el tema lo permita.\n"
-            f"RECUERDA: size con x/y/z, quiz con 4 opciones, behavior con type+params."
+            f"Genera un taller educativo 3D inmersivo para bachillerato colombiano sobre: {topic}\n"
+            f"Sé específico, educativo y emotivo. Usa el archetype más apropiado.\n"
+            f"Para nombres de objetos: sin espacios, sin paréntesis (bien: 'SolCentral', mal: 'Sol (Estrella)').\n"
+            f"Mínimo 7, máximo 12 objetos. EXACTAMENTE 4 preguntas de quiz."
         )
 
         MAX_RETRIES = 3
-        last_error = None
+        last_error  = None
 
         for attempt in range(1, MAX_RETRIES + 1):
             try:
-                logger.info(f"[Gemma] Attempt {attempt}/{MAX_RETRIES} — '{topic}'")
+                logger.info(f"[Gemma4] Attempt {attempt}/{MAX_RETRIES} — '{topic}' — model={model}")
                 response = self.client.models.generate_content(
                     model=model,
                     config=types.GenerateContentConfig(
                         response_mime_type="application/json",
-                        response_schema=MINIMAL_SCHEMA,
-                        system_instruction=SYSTEM_PROMPT,
-                        temperature=0.4,
+                        system_instruction=CONCEPT_PROMPT,
+                        temperature=0.6,
                         max_output_tokens=8192,
                     ),
                     contents=prompt,
                 )
 
-                raw = response.text
-                logger.debug(f"[Gemma] Raw (first 300 chars): {raw[:300]}")
+                raw  = response.text
+                logger.debug(f"[Gemma4] Raw (first 500 chars): {raw[:500]}")
 
                 data = json.loads(raw)
-                break  # Success — exit retry loop
+                break
 
             except json.JSONDecodeError as e:
+                logger.warning(f"[Gemma4] Attempt {attempt}: JSON parse error — {e}")
                 last_error = e
-                logger.warning(f"[Gemma] JSON parse error (attempt {attempt}): {e}")
-                if attempt == MAX_RETRIES:
-                    raise RuntimeError(f"JSON malformado tras {MAX_RETRIES} intentos: {e}")
                 continue
+            except Exception as e:
+                logger.error(f"[Gemma4] Attempt {attempt}: API error — {e}")
+                last_error = e
+                if attempt < MAX_RETRIES:
+                    continue
+                raise RuntimeError(f"Gemma4 API failed after {MAX_RETRIES} attempts: {e}")
+        else:
+            raise RuntimeError(f"Failed to get valid JSON after {MAX_RETRIES} attempts: {last_error}")
 
-        try:
-            workshop = Workshop.model_validate(data)
+        # ── Run deterministic geometry engine ──────────────────────────────
+        resolved = run_archetype_engine(data)
+        logger.info(
+            f"[Gemma4] ✅ '{resolved['scene_title']}' "
+            f"| archetype={data.get('archetype','?')} "
+            f"| {len(resolved['objects'])} objects"
+        )
 
-            # ── Behavior Enrichment ──────────────────────────────────────────────
-            workshop = self._enrich_behaviors(workshop)
-
-            # ── Geometry & Collision Resolution ──────────────────────────────────
-            # Ensure proper spacing and scale
-            workshop = self._resolve_geometry(workshop)
-
-            behavior_counts = {}
-            for obj in workshop.objects:
-                bt = obj.behavior.type
-                behavior_counts[bt] = behavior_counts.get(bt, 0) + 1
-
-            logger.info(
-                f"[Gemma] ✅ '{workshop.scene_title}' | "
-                f"{len(workshop.objects)} objects | {len(workshop.quiz)} quiz | "
-                f"behaviors: {behavior_counts}"
-            )
-            return workshop
-
-        except Exception as e:
-            logger.error(f"[Gemma] Error: {e}")
-            raise RuntimeError(str(e))
-
-    def _enrich_behaviors(self, workshop: "Workshop") -> "Workshop":
-        """
-        Post-processing: inject semantic behaviors based on name keywords.
-        Uses normalization to handle accents (Júpiter → jupiter).
-        """
-        from app.models.workshop import ObjectBehavior
-        import unicodedata
-
-        def normalize(s):
-            return "".join(c for c in unicodedata.normalize('NFD', s)
-                           if unicodedata.category(c) != 'Mn').lower()
-
-        # ── Keyword Tables (comprehensive) ──────────────────────────────
-        ORBIT_KW  = [
-            # Astronomy
-            "electron", "planeta", "planet", "mercurio", "venus", "tierra", "marte",
-            "jupiter", "saturno", "urano", "neptuno", "luna", "satelite",
-            # Chemistry
-            "proton", "neutron", "ion",
-        ]
-        FLOW_KW   = [
-            # Chemistry / Biology
-            "agua", "water", "co2", "dioxido", "glucosa", "glucose",
-            "oxigeno", "oxygen", "molecula", "molecule",
-            "nutriente", "foton", "photon", "sangre", "blood", "linfa",
-            # Architecture
-            "material", "concreto", "cemento", "ladrillo", "brick", "caja", "box",
-            "cargo", "carga", "supply",
-        ]
-        FLOAT_KW  = [
-            # Nature
-            "nube", "cloud", "gas", "vapor", "burbuja", "bubble",
-            "particula", "particle", "polvo", "dust", "humo", "smoke",
-            # Biology
-            "organelo", "organelle", "mitocondria", "ribosom", "vacuola",
-            # Architecture / Engineering
-            "trabajador", "worker", "obrero", "persona", "person", "figura",
-            "ventana", "window", "cristal", "glass",
-            # Abstract
-            "idea", "concepto", "concept", "dato", "data", "energia", "energy",
-        ]
-        PULSE_KW  = [
-            # Astronomy
-            "sol", "sun", "nucleo", "nucleus", "celula", "cell", "estrella", "star",
-            # Architecture
-            "corazon", "heart", "centro", "center", "hub", "fuente", "source",
-        ]
-        ROTATE_KW = [
-            # Astronomy
-            "tierra", "earth", "hoja", "leaf",
-            # Engineering / Architecture
-            "grua", "crane", "turbina", "turbine", "motor", "engranaje", "gear",
-            "helice", "propeller", "ventilador", "fan", "rueda", "wheel",
-            "aspa", "blade", "rotor",
-            # Biology
-            "cilios", "flagelo",
-        ]
-        GROW_KW   = [
-            "onda", "wave", "pulso", "pulse2", "explosion", "bang",
-            "vibra", "vibration", "resonancia",
-        ]
-
-        # Identify center (largest object)
-        center_name = None
-        largest_vol = 0
-        for obj in workshop.objects:
-            vol = obj.size.x * obj.size.y * obj.size.z
-            if vol > largest_vol:
-                largest_vol = vol
-                center_name = obj.name
-
-        orbit_index = 0
-        for obj in workshop.objects:
-            if obj.behavior.type != "static":
-                continue
-
-            nl = normalize(obj.name)
-
-            if any(kw in nl for kw in PULSE_KW):
-                obj.behavior = ObjectBehavior(type="pulse", params={"intensity": 0.06, "speed": 0.8})
-                logger.info(f"[Enrich] {obj.name} → pulse")
-
-            elif any(kw in nl for kw in ORBIT_KW):
-                orbit_index += 1
-                radius = 5 + orbit_index * 3
-                # Find explicit pulse center if exists
-                best_center = center_name
-                for o in workshop.objects:
-                    if any(kw in normalize(o.name) for kw in PULSE_KW) and o.name != obj.name:
-                        best_center = o.name
-                        break
-                obj.behavior = ObjectBehavior(
-                    type="orbit",
-                    params={"center": best_center, "radius": radius,
-                            "speed": max(0.2, 0.7 - orbit_index * 0.06), "plane": "xz"}
-                )
-                logger.info(f"[Enrich] {obj.name} → orbit (center={best_center}, r={radius})")
-
-            elif any(kw in nl for kw in FLOW_KW):
-                obj.behavior = ObjectBehavior(type="flow", params={"target": center_name, "speed": 0.8})
-                logger.info(f"[Enrich] {obj.name} → flow")
-
-            elif any(kw in nl for kw in FLOAT_KW):
-                obj.behavior = ObjectBehavior(type="float", params={"amplitude": 1.2, "speed": 0.7})
-                logger.info(f"[Enrich] {obj.name} → float")
-
-            elif any(kw in nl for kw in ROTATE_KW):
-                obj.behavior = ObjectBehavior(type="rotate", params={"speed": 1.2})
-                logger.info(f"[Enrich] {obj.name} → rotate")
-
-            elif any(kw in nl for kw in GROW_KW):
-                obj.behavior = ObjectBehavior(
-                    type="grow_shrink",
-                    params={"min_scale": 0.7, "max_scale": 1.3, "speed": 1.0}
-                )
-                logger.info(f"[Enrich] {obj.name} → grow_shrink")
-
-            else:
-                # Fallback: give gentle float to anything that isn't obviously structural
-                STATIC_STRUCT = ["base", "muro", "pared", "piso", "suelo", "techo",
-                                 "cubierta", "pilar", "columna", "cimiento",
-                                 "foundation", "wall", "floor", "roof"]
-                if not any(kw in nl for kw in STATIC_STRUCT):
-                    obj.behavior = ObjectBehavior(
-                        type="float",
-                        params={"amplitude": 0.8, "speed": 0.5}
-                    )
-                    logger.info(f"[Enrich] {obj.name} → float (fallback)")
-
-        return workshop
-
-    def _resolve_geometry(self, workshop: "Workshop") -> "Workshop":
-        """
-        Garantiza que no haya colisiones y que los espacios sean adecuados.
-        Distribuye objetos en órbitas concéntricas sin solapamiento.
-        """
-        # 1. Separar órbitas concéntricas (mínimo 7 studs entre ellas)
-        occupied_radii = []
-        for obj in workshop.objects:
-            if obj.behavior.type == "orbit":
-                r = obj.behavior.params.get("radius", 10)
-                # Si este radio está demasiado cerca de otro, empujarlo
-                for occupied in occupied_radii:
-                    if abs(r - occupied) < 7:
-                        r = occupied + 7
-                obj.behavior.params["radius"] = r
-                occupied_radii.append(r)
-
-        # 2. Evitar colisiones de objetos estáticos (distribución circular)
-        static_count = 0
-        for obj in workshop.objects:
-            # Si el objeto es estático y está en (0,0) [default de IA], lo movemos
-            if obj.behavior.type == "static" and obj.position.x == 0 and obj.position.z == 0:
-                # El primero se queda cerca del centro, el resto se expande
-                if static_count > 0:
-                    angle = (static_count * 1.5)
-                    dist = 14 + (static_count * 3)
-                    obj.position.x = math.cos(angle) * dist
-                    obj.position.z = math.sin(angle) * dist
-                static_count += 1
-        return workshop
+        return Workshop(**resolved)
 
 
 # Module-level singleton

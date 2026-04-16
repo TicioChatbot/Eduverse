@@ -152,74 +152,85 @@ local function addGlow(part, color)
 end
 
 -- ══════════════════════════════════════════════════════════
---  UI: PROXIMITY INFO CARDS (Fixed World-Space Sizing)
+--  LIBRARY SYNC (Cloning from Marketplace Assets)
+-- ══════════════════════════════════════════════════════════
+local function getLibraryAsset(name)
+    local lib = ReplicatedStorage:FindFirstChild("EduVerse_Library")
+    if lib then
+        -- Search for name exact match (e.g., "Earth")
+        local asset = lib:FindFirstChild(name)
+        if asset then return asset:Clone() end
+        
+        -- Fuzzy search if exact fails (e.g., "Jupiter" matches "JupiterModel")
+        for _, child in pairs(lib:GetChildren()) do
+            if string.find(string.lower(child.Name), string.lower(name)) then
+                return child:Clone()
+            end
+        end
+    end
+    return nil
+end
+
+-- ══════════════════════════════════════════════════════════
+--  UI: INFO CARDS 2.1 (Fixed High-Visibility)
 -- ══════════════════════════════════════════════════════════
 local function createLabel(objData, part, color)
     local name = objData.name or part.Name
     local desc = objData.description or objData.label or ""
     
-    -- ── TITLE LABEL (always visible, sits above object) ───────────
-    -- Uses StudsOffsetWorldSpace so it stays a fixed size in the world
+    -- ── TITLE LABEL (Gigantic & Readable) ───────────
     local bbTitle = Instance.new("BillboardGui", part)
     bbTitle.Name = "EduTitleLabel"
-    -- Size in STUDS so it scales naturally with world distance
-    bbTitle.Size = UDim2.new(0, 6, 0, 1.8)  -- 6 studs wide, 1.8 studs tall
-    bbTitle.SizeOffset = Vector2.new(0, 0)
-    bbTitle.StudsOffsetWorldSpace = Vector3.new(0, part.Size.Y / 2 + 2.5, 0)
-    bbTitle.MaxDistance = 120
+    bbTitle.Size = UDim2.new(0, 300, 0, 80) -- Fixed Pixel Size (Huge)
+    bbTitle.StudsOffset = Vector3.new(0, part.Size.Y / 2 + 4, 0)
+    bbTitle.MaxDistance = 150
     bbTitle.AlwaysOnTop = false
-    bbTitle.LightInfluence = 0.2
+    bbTitle.LightInfluence = 0
     
     local titleFrame = Instance.new("Frame", bbTitle)
     titleFrame.Size = UDim2.new(1, 0, 1, 0)
-    titleFrame.BackgroundColor3 = Color3.fromRGB(8, 16, 40)
-    titleFrame.BackgroundTransparency = 0.15
+    titleFrame.BackgroundColor3 = Color3.fromRGB(15, 25, 60)
+    titleFrame.BackgroundTransparency = 0.2
     titleFrame.BorderSizePixel = 0
-    Instance.new("UICorner", titleFrame).CornerRadius = UDim.new(0.3, 0)
+    Instance.new("UICorner", titleFrame).CornerRadius = UDim.new(0, 15)
     
     local stroke = Instance.new("UIStroke", titleFrame)
     stroke.Color = color
-    stroke.Thickness = 2
+    stroke.Thickness = 3
     stroke.Transparency = 0.2
     
     local titleLbl = Instance.new("TextLabel", titleFrame)
-    titleLbl.Size = UDim2.new(1, 0, 1, 0)
+    titleLbl.Size = UDim2.new(1, -20, 1, -10)
+    titleLbl.Position = UDim2.new(0, 10, 0, 5)
     titleLbl.Text = name
     titleLbl.TextColor3 = color
     titleLbl.BackgroundTransparency = 1
     titleLbl.Font = Enum.Font.GothamBold
     titleLbl.TextScaled = true
     
-    -- ── DESC LABEL (only when close, world-space fixed) ───────────
+    -- ── DESC LABEL (Proximity Card) ───────────
     if desc and desc ~= "" then
         local bbDesc = Instance.new("BillboardGui", part)
         bbDesc.Name = "EduDescLabel"
-        bbDesc.Size = UDim2.new(0, 10, 0, 3)   -- 10 studs wide, 3 tall
-        bbDesc.StudsOffsetWorldSpace = Vector3.new(0, part.Size.Y / 2 + 5, 0)
-        bbDesc.MaxDistance = 25   -- Only shows when close
+        bbDesc.Size = UDim2.new(0, 450, 0, 140)
+        bbDesc.StudsOffset = Vector3.new(0, part.Size.Y / 2 + 10, 0)
+        bbDesc.MaxDistance = 35 -- Only visible when close
         bbDesc.AlwaysOnTop = false
-        bbDesc.LightInfluence = 0.2
         
         local descFrame = Instance.new("Frame", bbDesc)
         descFrame.Size = UDim2.new(1, 0, 1, 0)
-        descFrame.BackgroundColor3 = Color3.fromRGB(5, 12, 35)
-        descFrame.BackgroundTransparency = 0.05
-        descFrame.BorderSizePixel = 0
-        Instance.new("UICorner", descFrame).CornerRadius = UDim.new(0.15, 0)
+        descFrame.BackgroundColor3 = Color3.fromRGB(10, 15, 45)
+        descFrame.BackgroundTransparency = 0.1
+        Instance.new("UICorner", descFrame).CornerRadius = UDim.new(0, 18)
         
         local dStroke = Instance.new("UIStroke", descFrame)
-        dStroke.Color = color
+        dStroke.Color = Color3.new(1, 1, 1)
         dStroke.Thickness = 1.5
-        dStroke.Transparency = 0.4
-        
-        local pad = Instance.new("UIPadding", descFrame)
-        pad.PaddingLeft = UDim.new(0.05, 0)
-        pad.PaddingRight = UDim.new(0.05, 0)
-        pad.PaddingTop = UDim.new(0.08, 0)
-        pad.PaddingBottom = UDim.new(0.08, 0)
+        dStroke.Transparency = 0.5
         
         local descLbl = Instance.new("TextLabel", descFrame)
-        descLbl.Size = UDim2.new(1, 0, 1, 0)
+        descLbl.Size = UDim2.new(1, -30, 1, -20)
+        descLbl.Position = UDim2.new(0, 15, 0, 10)
         descLbl.Text = desc
         descLbl.TextColor3 = Color3.new(1, 1, 1)
         descLbl.BackgroundTransparency = 1
@@ -411,56 +422,84 @@ local function renderWorkshop(data)
 
     -- ── PHASE 1: CREATION & REGISTRY ──────────────────────
     for i, obj in ipairs(objects) do
-        local part   = Instance.new("Part")
-        part.Anchored  = true
-        part.CanCollide = false
-        part.Name      = obj.name or ("Object_" .. i)
+        local part = getLibraryAsset(obj.name)
+        local isLibraryAsset = (part ~= nil)
+        
+        if not part then
+            part = Instance.new("Part")
+            -- Shape
+            local shape = (obj.shape or ""):lower()
+            if shape == "sphere" then
+                part.Shape = Enum.PartType.Ball
+            elseif shape == "cylinder" then
+                part.Shape = Enum.PartType.Cylinder
+            else
+                part.Shape = Enum.PartType.Block
+            end
 
-        -- Shape
-        local shape = (obj.shape or ""):lower()
-        if shape == "sphere" then
-            part.Shape = Enum.PartType.Ball
-        elseif shape == "cylinder" then
-            part.Shape = Enum.PartType.Cylinder
+            -- Size
+            local sz  = obj.size or {x=3, y=3, z=3}
+            part.Size = Vector3.new(sz.x or 3, sz.y or 3, sz.z or 3)
+            
+            -- Material & Color
+            local mat, refl = getMaterial(obj.name, topic)
+            part.Material    = mat
+            part.Reflectance = refl
+            part.Color       = hexToColor3(obj.color)
+            
+            if mat == Enum.Material.Neon then
+                addGlow(part, part.Color)
+            end
         else
-            part.Shape = Enum.PartType.Block
+            -- If it's a Model from library, we need a 'PrimaryPart' or similar to move it
+            if part:IsA("Model") then
+                if not part.PrimaryPart then
+                    -- Create dummy primary part if missing
+                    local p = part:FindFirstChildWhichIsA("BasePart")
+                    if p then part.PrimaryPart = p end
+                end
+            end
         end
 
-        -- Size
-        local sz  = obj.size or {x=3, y=3, z=3}
-        local sxv = math.max(tonumber(sz.x) or 3, 0.5)
-        local syv = math.max(tonumber(sz.y) or 3, 0.5)
-        local szv = math.max(tonumber(sz.z) or 3, 0.5)
-        part.Size = Vector3.new(sxv, syv, szv)
-
-        -- Color
-        local color = hexToColor3(obj.color)
-        part.Color  = color
-
-        -- Position (Y must be at least half height above ground)
-        local p    = obj.position or {x=0, y=5, z=0}
-        local finalY = math.max(tonumber(p.y) or 5, syv / 2 + 0.5)
-        local finalPos = Vector3.new(tonumber(p.x) or 0, finalY, tonumber(p.z) or 0)
-
-        -- Material & Glow
-        local mat, refl = getMaterial(part.Name, topic)
-        part.Material    = mat
-        part.Reflectance = refl
-
-        -- Glow for stars and neon objects
-        if mat == Enum.Material.Neon then
-            addGlow(part, color)
+        part.Name = obj.name or ("Object_" .. i)
+        part.Anchored = true
+        part.CanCollide = false
+        
+        -- Position logic
+        local p = obj.position or {x=0, y=5, z=0}
+        local finalPos = Vector3.new(p.x, p.y, p.z)
+        
+        -- Apply Label to the main part
+        local labelAnchor = part:IsA("Model") and (part.PrimaryPart or part:FindFirstChildWhichIsA("BasePart")) or part
+        if labelAnchor then
+            createLabel(obj, labelAnchor, hexToColor3(obj.color))
         end
-
-        -- Info card (world-space, correct sizing)
-        createLabel(obj, part, color)
 
         -- Drop from sky animation
-        part.Position = Vector3.new(finalPos.X, CONFIG.SPAWN_HEIGHT + i * 5, finalPos.Z)
-        part.Parent   = folder
+        local startPos = Vector3.new(finalPos.X, CONFIG.SPAWN_HEIGHT + i * 5, finalPos.Z)
+        if part:IsA("Model") then
+            part:PivotTo(CFrame.new(startPos))
+        else
+            part.Position = startPos
+        end
+        
+        part.Parent = folder
 
         local tinfo = TweenInfo.new(CONFIG.LAND_TIME, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-        TweenService:Create(part, tinfo, {Position = finalPos}):Play()
+        if part:IsA("Model") then
+            -- For models, we tween a CFrame value then PivotTo every frame
+            task.spawn(function()
+                local val = Instance.new("CFrameValue")
+                val.Value = part:GetPivot()
+                val.Changed:Connect(function() part:PivotTo(val.Value) end)
+                local t = TweenService:Create(val, tinfo, {Value = CFrame.new(finalPos)})
+                t:Play()
+                t.Completed:Wait()
+                val:Destroy()
+            end)
+        else
+            TweenService:Create(part, tinfo, {Position = finalPos}):Play()
+        end
 
         objectRegistry[part.Name] = part
         table.insert(pendingList, {

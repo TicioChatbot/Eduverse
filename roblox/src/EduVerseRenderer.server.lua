@@ -1,17 +1,18 @@
 --[[
-    EduVerseRenderer.server.lua — v5.1 "Asset-Native Experience"
+    EduVerseRenderer.server.lua — v5.2 "Visual Recovery & Scaling"
 
     INSTALAR EN: ServerScriptService
 
-    NEW in v5.1:
+    NEW in v5.2:
     ============
-    - SCENE OFFSET: All objects spawn at Z=-90 away from SpawnLocation
-    - ASSET LIBRARY: Improved fuzzy match handles "The Moon", "Teacher's desk"
-    - PERSON GUIDE: Auto-spawns "Person" asset as scene guide at a fixed position
-    - LABEL FIX: Title = 240x60px always readable. Desc = 400x130px only when < 18 studs.
-    - PROXIMITY GLOW: Objects emit a SelectionBox highlight when player is nearby
-    - SELF-ROTATION: All orbiting/moving bodies rotate on their own axis
-    - SMART MATERIALS per object type
+    - MODEL SCALING ALGORITHM: Uses GetExtentsSize() y ScaleTo() para evitar 
+      The Moon/Tree gigantes. ¡Ahora respetan el tamaño de la física!
+    - SANITIZER: Elimina Scripts, LocalScripts y Dialogs de los modelos
+      del Marketplace (corrige el "?" persistente).
+    - STUDS UI: Los Billboards de texto ahora escalan físicamente en SCALED
+      (studs). Significa que se alejan en perspectiva en vez de taparlo todo.
+    - NATIVE HIGHLIGHTS: Adiós a los 'wireframes' rotos. Usamos el objeto
+      Highlight nativo para destellos de proximidad premium.
 ]]
 
 local HttpService       = game:GetService("HttpService")
@@ -91,23 +92,15 @@ local function getLibraryAsset(name)
     
     local queryNorm = normalizeName(name)
     
-    -- Recurse through all children (and subfolders)
     local function searchIn(folder)
         for _, child in pairs(folder:GetChildren()) do
             if child:IsA("Folder") then
                 local found = searchIn(child)
                 if found then return found end
             else
-                -- Exact name match
-                if child.Name == name then
-                    return child:Clone()
-                end
-                -- Normalized fuzzy match
+                if child.Name == name then return child:Clone() end
                 local childNorm = normalizeName(child.Name)
-                if childNorm == queryNorm then
-                    return child:Clone()
-                end
-                -- Substring match (e.g. "Moon" finds "The Moon")
+                if childNorm == queryNorm then return child:Clone() end
                 if childNorm:find(queryNorm, 1, true) or queryNorm:find(childNorm, 1, true) then
                     return child:Clone()
                 end
@@ -136,8 +129,8 @@ local function getMaterial(name)
     if n:find("nucleus") or n:find("nucleo") or n:find("atom") or n:find("electron") then
         return Enum.Material.Neon, 0
     end
-    if n:find("flask") or n:find("glass") or n:find("cristal") then
-        return Enum.Material.Glass, 0.15
+    if n:find("flask") or n:find("glass") or n:find("cristal") or n:find("cellmembrane") or n:find("animalcell") then
+        return Enum.Material.Glass, 0.4
     end
     if n:find("base") or n:find("muro") or n:find("piso") or n:find("concreto") or n:find("cemento") then
         return Enum.Material.Concrete, 0
@@ -146,7 +139,7 @@ local function getMaterial(name)
         return Enum.Material.Metal, 0.2
     end
     if n:find("tree") or n:find("arbol") or n:find("leaf") or n:find("hoja") then
-        return Enum.Material.SmoothPlastic, 0
+        return Enum.Material.Wood, 0
     end
     return Enum.Material.SmoothPlastic, 0.1
 end
@@ -154,27 +147,6 @@ end
 -- ══════════════════════════════════════════════════════════
 --  VFX: TRAILS & GLOW
 -- ══════════════════════════════════════════════════════════
-local function addTrail(part, color)
-    local att0 = Instance.new("Attachment", part)
-    att0.Position = Vector3.new(0, part.Size.Y/2, 0)
-    local att1 = Instance.new("Attachment", part)
-    att1.Position = Vector3.new(0, -part.Size.Y/2, 0)
-    local trail = Instance.new("Trail", part)
-    trail.Attachment0 = att0
-    trail.Attachment1 = att1
-    trail.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, color),
-        ColorSequenceKeypoint.new(1, Color3.new(1,1,1)),
-    })
-    trail.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0.3),
-        NumberSequenceKeypoint.new(0.7, 0.8),
-        NumberSequenceKeypoint.new(1, 1),
-    })
-    trail.Lifetime = 1.8
-    trail.MinLength = 0.05
-end
-
 local function addPointLight(part, color)
     local light = Instance.new("PointLight", part)
     light.Color = color
@@ -184,19 +156,28 @@ local function addPointLight(part, color)
 end
 
 -- ══════════════════════════════════════════════════════════
---  UI: INFO LABELS v5.1 — Fixed sizes, correct distances
+--  UI: INFO LABELS v5.2 — STUDS SCALED
 -- ══════════════════════════════════════════════════════════
 local function createLabel(objData, anchorPart, color)
     local displayName = objData.label or objData.name or "?"
     local desc        = objData.description or ""
-    local partH       = anchorPart.Size.Y
+    
+    -- Calulate 3D size relative to object so it looks right
+    local sz = objData.size or {x=3,y=3,z=3}
+    local partH = anchorPart.Size.Y
+    
+    -- STUDS: Width follows the object scale, bounded for sanity
+    local titleW = math.clamp(sz.x * 2.5, 4, 16)
+    local titleH = titleW * 0.25
+    local descW  = math.clamp(sz.x * 3.5, 6, 22)
+    local descH  = descW * 0.4
 
-    -- ── TITLE LABEL (always visible up to 100 studs) ─────────
+    -- ── TITLE LABEL (Scale Studs) ─────────
     local bbT = Instance.new("BillboardGui", anchorPart)
     bbT.Name            = "EduTitle"
-    bbT.Size            = UDim2.new(0, 240, 0, 60)
-    bbT.StudsOffset     = Vector3.new(0, partH / 2 + 4, 0)
-    bbT.MaxDistance     = 100
+    bbT.Size            = UDim2.new(titleW, 0, titleH, 0)
+    bbT.StudsOffset     = Vector3.new(0, partH / 2 + (titleH*0.8), 0)
+    bbT.MaxDistance     = 80
     bbT.AlwaysOnTop     = false
     bbT.LightInfluence  = 0
 
@@ -205,13 +186,13 @@ local function createLabel(objData, anchorPart, color)
     tFrame.BackgroundColor3       = Color3.fromRGB(12, 20, 50)
     tFrame.BackgroundTransparency = 0.15
     tFrame.BorderSizePixel        = 0
-    Instance.new("UICorner", tFrame).CornerRadius = UDim.new(0, 12)
+    Instance.new("UICorner", tFrame).CornerRadius = UDim.new(0.2, 0)
     local s = Instance.new("UIStroke", tFrame)
     s.Color = color; s.Thickness = 2.5; s.Transparency = 0.2
 
     local tLbl = Instance.new("TextLabel", tFrame)
-    tLbl.Size                 = UDim2.new(1, -16, 1, -8)
-    tLbl.Position             = UDim2.new(0, 8, 0, 4)
+    tLbl.Size                 = UDim2.new(0.9, 0, 0.8, 0)
+    tLbl.Position             = UDim2.new(0.05, 0, 0.1, 0)
     tLbl.Text                 = displayName
     tLbl.TextColor3           = color
     tLbl.BackgroundTransparency = 1
@@ -219,13 +200,13 @@ local function createLabel(objData, anchorPart, color)
     tLbl.TextScaled           = true
     tLbl.TextWrapped          = true
 
-    -- ── DESCRIPTION CARD (only < 18 studs) ───────────────────
+    -- ── DESCRIPTION CARD (Scale Studs, proximity limited) ────
     if desc and desc ~= "" then
         local bbD = Instance.new("BillboardGui", anchorPart)
         bbD.Name           = "EduDesc"
-        bbD.Size           = UDim2.new(0, 400, 0, 130)
-        bbD.StudsOffset    = Vector3.new(0, partH / 2 + 12, 0)
-        bbD.MaxDistance    = 18  -- only when very close
+        bbD.Size           = UDim2.new(descW, 0, descH, 0)
+        bbD.StudsOffset    = Vector3.new(0, partH / 2 + (descH*0.8) + titleH, 0)
+        bbD.MaxDistance    = 25  -- Studs to appear
         bbD.AlwaysOnTop    = false
         bbD.LightInfluence = 0
 
@@ -234,18 +215,13 @@ local function createLabel(objData, anchorPart, color)
         dFrame.BackgroundColor3       = Color3.fromRGB(8, 14, 40)
         dFrame.BackgroundTransparency = 0.08
         dFrame.BorderSizePixel        = 0
-        Instance.new("UICorner", dFrame).CornerRadius = UDim.new(0, 14)
+        Instance.new("UICorner", dFrame).CornerRadius = UDim.new(0.1, 0)
         local ds = Instance.new("UIStroke", dFrame)
         ds.Color = Color3.new(1,1,1); ds.Thickness = 1.2; ds.Transparency = 0.5
 
-        local pad = Instance.new("UIPadding", dFrame)
-        pad.PaddingLeft   = UDim.new(0, 12)
-        pad.PaddingRight  = UDim.new(0, 12)
-        pad.PaddingTop    = UDim.new(0, 8)
-        pad.PaddingBottom = UDim.new(0, 8)
-
         local dLbl = Instance.new("TextLabel", dFrame)
-        dLbl.Size                   = UDim2.new(1, 0, 1, 0)
+        dLbl.Size                   = UDim2.new(0.9, 0, 0.8, 0)
+        dLbl.Position               = UDim2.new(0.05, 0, 0.1, 0)
         dLbl.Text                   = desc
         dLbl.TextColor3             = Color3.new(0.95, 0.95, 1)
         dLbl.BackgroundTransparency = 1
@@ -257,59 +233,64 @@ local function createLabel(objData, anchorPart, color)
 end
 
 -- ══════════════════════════════════════════════════════════
---  PROXIMITY GLOW SYSTEM
+--  PROXIMITY GLOW SYSTEM (Native Highlight)
 -- ══════════════════════════════════════════════════════════
 local PROXIMITY_RANGE = 20
-local selectionBoxes  = {}
+local highlights      = {}
 
 local function startProximityWatcher()
     task.spawn(function()
         while true do
-            task.wait(0.5)
-            for part, box in pairs(selectionBoxes) do
-                if not part or not part.Parent then
-                    selectionBoxes[part] = nil
-                elseif box and box.Parent then
+            task.wait(0.3)
+            for partOrModel, hl in pairs(highlights) do
+                if not partOrModel or not partOrModel.Parent then
+                    highlights[partOrModel] = nil
+                elseif hl and hl.Parent then
                     local closest = false
                     for _, player in pairs(Players:GetPlayers()) do
                         local char = player.Character
                         local root = char and char:FindFirstChild("HumanoidRootPart")
                         if root then
-                            local dist = (root.Position - part.Position).Magnitude
-                            if dist < PROXIMITY_RANGE then
+                            local worldPos
+                            if partOrModel:IsA("Model") then
+                                worldPos = partOrModel:GetPivot().Position
+                            else
+                                worldPos = partOrModel.Position
+                            end
+                            if (root.Position - worldPos).Magnitude < PROXIMITY_RANGE then
                                 closest = true
                                 break
                             end
                         end
                     end
-                    box.Visible = closest
+                    hl.Enabled = closest
                 end
             end
         end
     end)
 end
 
-local function addProximityGlow(part, color)
-    local box = Instance.new("SelectionBox", part)
-    box.Adornee     = part
-    box.Color3      = color
-    box.LineThickness = 0.04
-    box.SurfaceTransparency = 0.9
-    box.Visible     = false
-    selectionBoxes[part] = box
+local function addProximityGlow(partOrModel, color)
+    local hl = Instance.new("Highlight")
+    hl.Adornee = partOrModel
+    hl.FillColor = color
+    hl.FillTransparency = 0.6
+    hl.OutlineColor = Color3.new(1, 1, 1)
+    hl.OutlineTransparency = 0.1
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Enabled = false
+    hl.Parent = partOrModel
+    highlights[partOrModel] = hl
 end
 
 -- ══════════════════════════════════════════════════════════
---  BEHAVIOR ENGINE v5.1
+--  BEHAVIOR ENGINE v5.2
 -- ══════════════════════════════════════════════════════════
 local SELF_ROT_SPEEDS = {
-    ["sun"] = 0,  ["sol"] = 0,     -- Stars don't self-rotate (pulse instead)
-    ["jupiter"] = 4.0, ["saturn"] = 3.5, ["saturno"] = 3.5,
-    ["uranus"] = 2.5,  ["urano"] = 2.5, ["neptune"] = 2.5, ["neptuno"] = 2.5,
-    ["earth"] = 1.8,   ["tierra"] = 1.8, ["mars"] = 1.5, ["marte"] = 1.5,
-    ["venus"] = 1.2,   ["mercury"] = 0.8, ["mercurio"] = 0.8,
-    ["moon"] = 0.5,    ["luna"] = 0.5,
-    ["electron"] = 8.0, ["proton"] = 4.0, ["neutron"] = 4.0,
+    ["sun"] = 0, ["sol"] = 0,
+    ["jupiter"] = 4.0, ["saturn"] = 3.5, ["uranus"] = 2.5, ["neptune"] = 2.5,
+    ["earth"] = 1.8, ["mars"] = 1.5, ["venus"] = 1.2, ["mercury"] = 0.8,
+    ["moon"] = 0.5, ["electron"] = 8.0,
 }
 
 local function getSelfRot(name, bType)
@@ -318,17 +299,13 @@ local function getSelfRot(name, bType)
     for kw, speed in pairs(SELF_ROT_SPEEDS) do
         if n:find(kw) then return speed end
     end
-    -- Default for any moving object
     if bType == "orbit" or bType == "rotate" then return 1.2 end
     return 0
 end
 
 local function getPrimaryPart(obj)
     if obj:IsA("BasePart") then return obj end
-    if obj:IsA("Model") then
-        return obj.PrimaryPart
-            or obj:FindFirstChildWhichIsA("BasePart")
-    end
+    if obj:IsA("Model") then return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart") end
     return nil
 end
 
@@ -361,7 +338,6 @@ local function startBehavior(obj, behavior, selfRot)
         end
 
         local basePos = getPos()
-        local baseSz  = (getPrimaryPart(obj) and getPrimaryPart(obj).Size) or Vector3.new(3,3,3)
 
         if bType == "rotate" then
             local speed = tonumber(params.speed) or 1.5
@@ -385,10 +361,21 @@ local function startBehavior(obj, behavior, selfRot)
             end
 
         elseif bType == "pulse" then
+            -- Note: Model:ScaleTo relies on base scale, pulse on Models requires storing original scale
             local intensity = tonumber(params.intensity) or 0.06
             local speed     = tonumber(params.speed) or 0.8
-            local pp = getPrimaryPart(obj)
-            if pp then
+            if obj:IsA("Model") then
+                local currentS = 1.0
+                while obj and obj.Parent do
+                    t += dt * speed
+                    local scaleFrame = 1 + math.sin(t) * intensity
+                    -- reverse previous scale then apply new
+                    obj:ScaleTo(scaleFrame)
+                    task.wait()
+                end
+            else
+                local pp = getPrimaryPart(obj)
+                local baseSz = pp.Size
                 while obj and obj.Parent do
                     t += dt * speed
                     local scale = 1 + math.sin(t) * intensity
@@ -397,26 +384,12 @@ local function startBehavior(obj, behavior, selfRot)
                 end
             end
 
-        elseif bType == "grow_shrink" then
-            local minS  = tonumber(params.min_scale) or 0.7
-            local maxS  = tonumber(params.max_scale) or 1.3
-            local speed = tonumber(params.speed) or 1.0
-            local pp = getPrimaryPart(obj)
-            if pp then
-                while obj and obj.Parent do
-                    t += dt * speed
-                    local alpha = (math.sin(t) + 1) / 2
-                    pp.Size = baseSz * (minS + (maxS - minS) * alpha)
-                    task.wait()
-                end
-            end
-
         elseif bType == "orbit" then
             local centerName = params.center
             local radius     = tonumber(params.radius) or 15
             local speed      = tonumber(params.speed) or 0.5
+            local centerObj  = objectRegistry[centerName]
 
-            local centerObj = objectRegistry[centerName]
             if not centerObj then
                 for _, o in pairs(objectRegistry) do
                     if o ~= obj then centerObj = o; break end
@@ -424,9 +397,6 @@ local function startBehavior(obj, behavior, selfRot)
             end
 
             if centerObj then
-                local pp = getPrimaryPart(obj)
-                if pp then addTrail(pp, pp.Color) end
-
                 while obj and obj.Parent and centerObj and centerObj.Parent do
                     t += dt * speed
                     local cp    = getPos()
@@ -444,55 +414,42 @@ local function startBehavior(obj, behavior, selfRot)
                     task.wait()
                 end
             end
-
-        elseif bType == "flow" then
-            local targetName = params.target
-            local speed      = tonumber(params.speed) or 0.8
-            local targetObj  = objectRegistry[targetName]
-            if not targetObj then
-                -- fallback: float
-                bType = "float"
-                while obj and obj.Parent do
-                    t += dt
-                    setPos(Vector3.new(basePos.X, basePos.Y + math.sin(t) * 1.5, basePos.Z))
-                    task.wait()
-                end
-                return
-            end
-            while obj and obj.Parent and targetObj and targetObj.Parent do
-                t += dt * speed * 0.5
-                local alpha = (math.sin(t) + 1) / 2
-                local tp    = (getPrimaryPart(targetObj) or targetObj).Position
-                setPos(basePos:Lerp(tp, alpha))
-                task.wait()
-            end
         end
         -- static: nothing
     end)
 end
 
 -- ══════════════════════════════════════════════════════════
---  GUIDE CHARACTER — Person asset as scene narrator
+--  GUIDE CHARACTER
 -- ══════════════════════════════════════════════════════════
 local function spawnGuide(folder, scenetitle)
     local model = getLibraryAsset("Person")
     if not model then return end
     
     model.Name = "EduGuide"
+    
+    -- DESTROY DIALOGS to fix "?" bug
+    for _, desc in pairs(model:GetDescendants()) do
+        if desc:IsA("Dialog") or desc:IsA("DialogChoice") or desc:IsA("Script") or desc:IsA("LocalScript") then
+            desc:Destroy()
+        end
+    end
+    
     model.Parent = folder
     
     if model:IsA("Model") then
+        local ext = model:GetExtentsSize()
+        model:ScaleTo(5 / math.max(ext.Y, 1)) -- Force guide to 5 studs tall
         model:PivotTo(CFrame.new(CONFIG.GUIDE_POS))
     elseif model:IsA("BasePart") then
         model.Position = CONFIG.GUIDE_POS
     end
 
-    -- Add guide title above
     local anchor = getPrimaryPart(model) or model:FindFirstChildWhichIsA("BasePart")
     if anchor then
         local bb = Instance.new("BillboardGui", anchor)
-        bb.Size         = UDim2.new(0, 260, 0, 65)
-        bb.StudsOffset  = Vector3.new(0, 4, 0)
+        bb.Size         = UDim2.new(10, 0, 2, 0)
+        bb.StudsOffset  = Vector3.new(0, 3.5, 0)
         bb.MaxDistance  = 60
         bb.LightInfluence = 0
 
@@ -500,20 +457,19 @@ local function spawnGuide(folder, scenetitle)
         fr.Size = UDim2.new(1,0,1,0)
         fr.BackgroundColor3 = Color3.fromRGB(20, 60, 20)
         fr.BackgroundTransparency = 0.2
-        fr.BorderSizePixel = 0
-        Instance.new("UICorner", fr).CornerRadius = UDim.new(0, 12)
-        local st = Instance.new("UIStroke", fr)
-        st.Color = Color3.fromRGB(80, 220, 80)
-        st.Thickness = 2
+        Instance.new("UICorner", fr).CornerRadius = UDim.new(0.2, 0)
 
         local lbl = Instance.new("TextLabel", fr)
-        lbl.Size = UDim2.new(1,-16,1,-8)
-        lbl.Position = UDim2.new(0,8,0,4)
+        lbl.Size = UDim2.new(0.9,0,0.8,0)
+        lbl.Position = UDim2.new(0.05,0,0.1,0)
         lbl.Text = "📚 Guía: " .. (scenetitle or "EduVerse")
         lbl.TextColor3 = Color3.fromRGB(180, 255, 180)
         lbl.BackgroundTransparency = 1
         lbl.Font = Enum.Font.GothamBold
         lbl.TextScaled = true
+        
+        -- Guide Proximity Glow
+        addProximityGlow(model, Color3.fromRGB(80, 255, 80))
     end
 end
 
@@ -524,12 +480,11 @@ local function clearScene()
     local old = workspace:FindFirstChild(CONFIG.SCENE_FOLDER)
     if old then old:Destroy() end
     objectRegistry = {}
-    selectionBoxes = {}
+    highlights = {}
 end
 
 local function renderWorkshop(data)
     clearScene()
-
     local folder = Instance.new("Folder", workspace)
     folder.Name  = CONFIG.SCENE_FOLDER
 
@@ -543,23 +498,35 @@ local function renderWorkshop(data)
         local assetClone  = getLibraryAsset(obj.name)
         local isAsset     = (assetClone ~= nil)
         local color       = hexToColor3(obj.color or "#AAAAAA")
-
-        -- Determine anchor part
+        local sz          = obj.size or {x=3,y=3,z=3}
         local anchorPart  = nil
 
         if assetClone then
             assetClone.Name = obj.name
-            if assetClone:IsA("Model") then
-                assetClone.PrimaryPart = assetClone.PrimaryPart
-                    or assetClone:FindFirstChildWhichIsA("BasePart")
-            end
-            -- Make anchored
+            
+            -- [1] SANITIZER: Eradicate malicious or default bugs
             for _, desc in pairs(assetClone:GetDescendants()) do
-                if desc:IsA("BasePart") then
+                if desc:IsA("Dialog") or desc:IsA("DialogChoice") or desc:IsA("Script") or desc:IsA("LocalScript") then
+                    desc:Destroy()
+                elseif desc:IsA("BasePart") then
                     desc.Anchored = true
                     desc.CanCollide = false
                 end
             end
+            
+            -- [2] MODEL SCALING ALGORITHM
+            if assetClone:IsA("Model") then
+                assetClone.PrimaryPart = assetClone.PrimaryPart or assetClone:FindFirstChildWhichIsA("BasePart")
+                local ext = assetClone:GetExtentsSize()
+                local largestSide = math.max(ext.X, ext.Y, ext.Z)
+                local targetSide  = math.max(sz.x, sz.y, sz.z)
+                if largestSide > 0.1 then
+                    assetClone:ScaleTo(targetSide / largestSide)
+                end
+            else
+                assetClone.Size = Vector3.new(sz.x, sz.y, sz.z)
+            end
+
             anchorPart = isAsset and (getPrimaryPart(assetClone) or assetClone:FindFirstChildWhichIsA("BasePart"))
         else
             -- Generate primitive
@@ -573,57 +540,42 @@ local function renderWorkshop(data)
             elseif shape == "cylinder" then part.Shape = Enum.PartType.Cylinder
             else                          part.Shape = Enum.PartType.Block end
 
-            local sz   = obj.size or {x=3,y=3,z=3}
-            part.Size  = Vector3.new(math.max(sz.x or 3, 0.5),
-                                     math.max(sz.y or 3, 0.5),
-                                     math.max(sz.z or 3, 0.5))
+            part.Size  = Vector3.new(math.max(sz.x, 0.5), math.max(sz.y, 0.5), math.max(sz.z, 0.5))
             part.Color = color
 
             local mat, refl = getMaterial(obj.name)
             part.Material    = mat
             part.Reflectance = refl
-
-            if mat == Enum.Material.Neon then
-                addPointLight(part, color)
-            end
+            if mat == Enum.Material.Neon then addPointLight(part, color) end
 
             assetClone = part
             anchorPart = part
         end
 
-        -- Position
-        local p       = obj.position or {x=0,y=5,z=-90}
-        local finalPos = Vector3.new(p.x or 0, p.y or 5, p.z or -90)
-
-        -- Spawn from sky
+        local finalPos = Vector3.new(obj.position.x or 0, obj.position.y or 5, obj.position.z or -90)
         local startPos = Vector3.new(finalPos.X, CONFIG.SPAWN_HEIGHT, finalPos.Z)
-        if assetClone:IsA("Model") then
-            assetClone:PivotTo(CFrame.new(startPos))
-        else
-            assetClone.Position = startPos
-        end
+        
+        if assetClone:IsA("Model") then assetClone:PivotTo(CFrame.new(startPos))
+        else assetClone.Position = startPos end
+        
         assetClone.Parent = folder
 
-        -- Landing tween
-        local tInfo = TweenInfo.new(CONFIG.LAND_TIME, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        -- Landing Tween
         if assetClone:IsA("Model") then
             task.spawn(function()
                 local val = Instance.new("CFrameValue")
                 val.Value = assetClone:GetPivot()
                 val.Changed:Connect(function(cf) assetClone:PivotTo(cf) end)
-                local t = TweenService:Create(val, tInfo, {Value = CFrame.new(finalPos)})
-                t:Play()
-                t.Completed:Wait()
-                val:Destroy()
+                local t = TweenService:Create(val, TweenInfo.new(CONFIG.LAND_TIME, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Value = CFrame.new(finalPos)})
+                t:Play(); t.Completed:Wait(); val:Destroy()
             end)
         else
-            TweenService:Create(assetClone, tInfo, {Position = finalPos}):Play()
+            TweenService:Create(assetClone, TweenInfo.new(CONFIG.LAND_TIME, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = finalPos}):Play()
         end
 
-        -- Labels (attach to anchor part if model)
         if anchorPart then
             createLabel(obj, anchorPart, color)
-            addProximityGlow(anchorPart, color)
+            addProximityGlow(assetClone, color)
         end
 
         objectRegistry[obj.name] = assetClone
@@ -656,7 +608,7 @@ local function renderWorkshop(data)
         quiz_count    = #(data.quiz or {}),
     })
 
-    print(string.format("[Renderer v5.1] ✅ '%s' — %d objects + Guide", title, #objects))
+    print(string.format("[Renderer v5.2] ✅ SCALED & SANITIZED Model loading OK. '%s'", title))
 end
 
 -- ══════════════════════════════════════════════════════════
@@ -664,20 +616,15 @@ end
 -- ══════════════════════════════════════════════════════════
 startProximityWatcher()
 
-print("🚀 EduVerse Cinema Engine v5.1 Active")
+print("🚀 EduVerse Cinema Engine v5.2 Active")
 while true do
-    local ok, res = pcall(function()
-        return HttpService:GetAsync(CONFIG.BACKEND_URL .. "/workshop/current")
-    end)
+    local ok, res = pcall(function() return HttpService:GetAsync(CONFIG.BACKEND_URL .. "/workshop/current") end)
     if ok then
         local ok2, data = pcall(HttpService.JSONDecode, HttpService, res)
         if ok2 and data and data.ready and data.session_id ~= activeSessionId then
             activeSessionId = data.session_id
-            print("[Renderer] New session:", activeSessionId)
             renderWorkshop(data)
         end
-    else
-        warn("[Renderer] Backend unreachable:", res)
     end
     task.wait(CONFIG.POLL_INTERVAL)
 end

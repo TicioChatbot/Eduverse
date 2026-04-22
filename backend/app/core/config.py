@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     )
 
     # Provided Keys
-    AI_MODEL_NAME: str = "gemma-4-27b-it"
+    AI_MODEL_NAME: str = "gemma-4-31b-it"
     DEBUGGING: bool = False
     FLASK_SECRET_KEY: str = "change_this_to_a_random_secret_string"
     GOOGLE_API_KEY: str = ""

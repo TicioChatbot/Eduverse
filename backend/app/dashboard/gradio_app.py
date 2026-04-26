@@ -1,16 +1,20 @@
 """
-dashboard/gradio_app.py — EduVerse Teacher Dashboard v1.0
+app.dashboard.gradio_app
+────────────────────────
 
-A Gradio UI mounted inside FastAPI at /dashboard.
-Designed for the teacher / demo scenario:
-  Tab 1 → Resumen Global        (métricas rápidas del servidor)
-  Tab 2 → Nueva Sesión          (crear taller + enviar a Roblox)
-  Tab 3 → Historial de Sesiones (todas las sesiones con reactivación)
-  Tab 4 → Resultados del Quiz   (puntajes por sesión / estudiante)
-  Tab 5 → Perfil de Estudiante  (historial cruzado de un alumno)
+EduVerse Teacher Dashboard frontend, built with Gradio.
+This module defines a web interface tailored for teachers and demonstrations,
+exposing a multi-tab application that is mounted inside the FastAPI application.
 
-This module exposes `build_gradio_app()` which returns the gr.Blocks
-object. main.py mounts it with `gr.mount_gradio_app`.
+Tabs Overview:
+  Tab 1 → Global Summary      (Server metrics and database stats)
+  Tab 2 → New Session         (Generate 3D workshops and send to Roblox)
+  Tab 3 → Session History     (Review past sessions and reactivate them)
+  Tab 4 → Quiz Results        (Session-specific student scores and metrics)
+  Tab 5 → Student Profile     (Cross-session history for a single student)
+
+The `build_gradio_app()` function returns a `gr.Blocks` instance which is 
+subsequently mounted via `gr.mount_gradio_app` in `main.py`.
 """
 
 import json

@@ -1,3 +1,12 @@
+"""
+app.core.config
+───────────────
+
+Configuration module utilizing pydantic-settings. Loads environment variables
+from a `.env` file or from the host environment to configure API keys,
+model names, and application metadata.
+"""
+
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional

@@ -1,27 +1,17 @@
 """
-db/repository.py — EduVerse Data Access Layer
+app.db.repository
+─────────────────
 
-All SQL queries live here. Services call these functions; they never
-touch raw SQL directly. This separation makes future DB swaps trivial.
+Data Access Layer for EduVerse.
 
-Public API
-──────────
-Sessions:
-    save_session(session_id, topic, scene_title, scene_description,
-                 archetype, objects_count, quiz_count, workshop_json,
-                 created_at) -> None
-    get_session(session_id)          -> dict | None
-    list_sessions(limit=100)         -> list[dict]
-    session_exists(session_id)       -> bool
+Encapsulates all raw SQL queries to ensure services remain database-agnostic.
+Provides standard CRUD operations for maintaining session histories, 
+student analytics, and global platform metrics.
 
-Answers:
-    save_answer(session_id, student_id, student_name,
-                question_index, selected_index, correct_index,
-                is_correct, timestamp) -> int
-    get_answers_for_session(session_id) -> list[dict]
-    get_session_summary(session_id)     -> dict
-    get_question_stats(session_id)      -> list[dict]
-    get_student_history(student_id)     -> list[dict]
+Public API Overview:
+    - Sessions: save_session, get_session, list_sessions, session_exists
+    - Answers: save_answer, get_answers_for_session, get_session_summary, 
+               get_question_stats, get_student_history, get_global_stats
 """
 
 import json

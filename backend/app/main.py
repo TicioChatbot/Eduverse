@@ -1,3 +1,15 @@
+"""
+app.main
+────────
+
+Entry point for the EduVerse FastAPI application. This module initializes the
+database, configures CORS middleware, registers all API routes, and mounts the
+Gradio teacher dashboard.
+
+Run this module using Uvicorn:
+    python -m uvicorn app.main:app --reload --port 8000
+"""
+
 import logging
 import gradio as gr
 from fastapi import FastAPI
@@ -22,7 +34,7 @@ init_db()
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="Backend para talleres educativos Roblox generados con IA",
+    description="Backend for AI-generated educational Roblox workshops (EduVerse).",
 )
 
 # CORS — allow dashboard iframe and Roblox HttpService

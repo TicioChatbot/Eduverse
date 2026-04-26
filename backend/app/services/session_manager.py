@@ -1,12 +1,12 @@
 """
-services/session_manager.py — Workshop session management for EduVerse v2
+app.services.session_manager
+────────────────────────────
 
-Changes from v1:
-  - Each session is now persisted to SQLite via db.repository
-  - In-memory cache is kept for fast Roblox polling (no DB hit per poll)
-  - Server restart: sessions are NOT reloaded from DB automatically
-    (intentional: teacher always generates fresh for each class)
-  - Thread-safe via a reentrant lock
+Workshop session management orchestrator.
+
+Handles the memory cache and lifecycle of workshop sessions for lightning-fast
+JSON polling from the Roblox engine. It ensures data consistency by concurrently
+persisting all new sessions to the underlying SQLite database via the repository layer.
 """
 
 import json

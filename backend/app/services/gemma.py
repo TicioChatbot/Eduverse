@@ -1,14 +1,13 @@
 """
-services/gemma.py — EduVerse v5.1: Gemma 4 + Asset-Aware Deterministic Engine
+app.services.gemma
+──────────────────
 
-What's new in v5.1:
-  - Full KNOWN_ASSETS catalog matching the user's EduVerse_Library
-  - Gemma 4 is instructed to use EXACT asset names so models are auto-loaded
-  - Cell archetype fixed: AnimalCell = outer shell, CellNucleus = center
-  - Ecosystem archetype uses Tree, Leaf, etc.
-  - Math archetype uses PiSymbol, geometric shapes
-  - Physics archetype uses Magnet, Battery, FlaskBlue
-  - Teacher's desk + Person hardcoded as scene fixtures (not AI objects)
+High-level AI orchestrator leveraging Google's Gemma 4.
+
+Translates general educational topics into deeply structured 3D blueprints
+matching the strict constraints of the deterministic SceneArchetypeEngine.
+By design, Gemma 4 only provides the conceptual framework (objects and quizzes)
+while spatial layout remains strictly under backend control.
 """
 
 import json

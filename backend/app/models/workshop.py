@@ -1,13 +1,18 @@
 """
-models/workshop.py — Pydantic models for EduVerse Workshop v3
+app.models.workshop
+───────────────────
 
-Key design decisions:
-- WorkshopObject now supports a `behavior` field with dynamic motion types:
-  orbit, flow, path, grow_shrink (beyond simple rotate/float/pulse)
-- Behavior parameters are flexible dicts so the AI can specify orbit_center,
-  orbit_radius, flow_target, etc.
-- All normalizers from v2 preserved (radius→xyz, option padding)
-- Quiz questions now include a `difficulty` hint for analytics
+Pydantic data models for the EduVerse backend.
+
+These schemas define the contract between the Gemma 4 AI generation output,
+the internal backend state, and the Roblox Lua engine parsing.
+
+Design Notes:
+- `WorkshopObject` supports dynamic motion via the `ObjectBehavior` definition
+  (e.g., orbit, flow, path, grow_shrink).
+- Normalizers automatically fix raw geometry variables (radius vs xyz) coming 
+  from the GenAI model.
+- `QuizQuestion` specifies an explicit difficulty tier for analytics tracking.
 """
 
 from pydantic import BaseModel, Field, model_validator, field_validator

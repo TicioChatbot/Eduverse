@@ -1,17 +1,19 @@
 """
-api/endpoints/workshop.py — Workshop API endpoints v3
+app.api.endpoints.workshop
+──────────────────────────
 
-Endpoints:
-    GET  /workshop/health                   → Backend status
-    GET  /workshop/current                  → Roblox polling (active session)
-    POST /workshop/generate?topic=...       → Generate new workshop with Gemini
-    DELETE /workshop/current                → Clear active session
-    GET  /workshop/sessions                 → List all sessions
-    POST /workshop/sessions/{id}/activate   → Switch active session
+FastAPI router exposing external REST endpoints for the EduVerse backend.
 
-    POST /workshop/analytics/answer         → Record a student quiz answer
-    GET  /workshop/analytics/{session_id}   → Get session results (for dashboard)
-    GET  /workshop/analytics/{session_id}/questions → Per-question stats
+Endpoints mapping:
+    GET  /health                   → Server and active session status
+    GET  /current                  → Polled by Roblox to fetch the active workshop
+    POST /generate                 → Generates a new workshop via Gemini 4
+    DELETE /current                → Clears the active session
+    GET  /sessions                 → Retrieves historical sessions
+    POST /sessions/{id}/activate   → Switches the globally active session
+    POST /analytics/answer         → Records a student's quiz answer
+    GET  /analytics/{id}           → Fetches aggregated session results
+    GET  /analytics/{id}/questions → Fetches per-question analytics
 """
 
 import logging

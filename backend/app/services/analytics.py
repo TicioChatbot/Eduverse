@@ -1,11 +1,13 @@
 """
-services/analytics.py — Learning analytics for EduVerse v2
+app.services.analytics
+──────────────────────
 
-Changes from v1:
-  - Every answer is now persisted to SQLite via db.repository
-  - In-memory list kept as a fast write buffer / cache
-  - Read methods now delegate to repository for full historical queries
-  - Thread-safe via RLock
+Learning analytics processing module.
+
+Captures, processes, and double-writes quiz answers (to an in-memory buffer 
+and standard persistent storage). Exposes specialized read methods for the 
+teacher dashboard to analyze global trends, session-specific insights, and 
+long-term student progress.
 """
 
 import logging

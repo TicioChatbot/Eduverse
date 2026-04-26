@@ -1,15 +1,15 @@
 """
-db/database.py — EduVerse Persistence Layer (SQLite)
+app.db.database
+───────────────
 
-Uses the standard library `sqlite3` — zero new dependencies.
-The DB file lives at: backend/data/eduverse.db
+EduVerse persistence layer leveraging the standard library `sqlite3`. 
+The database is initialized in write-ahead logging (WAL) mode for safe 
+concurrent reads and uses per-thread connections to avoid sharing 
+connections across Uvicorn worker threads.
 
-Schema
-──────
-sessions   : id, topic, scene_title, scene_description, archetype,
-             objects_count, quiz_count, workshop_json, created_at
-answers    : id, session_id, student_id, student_name, question_index,
-             selected_index, correct_index, is_correct, timestamp
+Schema:
+    sessions : Stores the generated workshops (topic, layout, questions, etc.).
+    answers  : Stores individual student responses to quiz questions.
 """
 
 import json

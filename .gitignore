@@ -11,3 +11,7 @@ venv/
 # Roblox
 **.rbxl
 **.rbxlx
+
+# EduVerse — local database & scratch files
+backend/data/
+backend/scratch/

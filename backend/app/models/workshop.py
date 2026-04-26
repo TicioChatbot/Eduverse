@@ -69,8 +69,8 @@ class ObjectBehavior(BaseModel):
     - "flow"        → Linear flow toward a target object (target, speed, loop)
     - "grow_shrink" → Periodic scaling between two sizes
     """
-    type: str = Field("static", description="Tipo de comportamiento dinámico")
-    params: Dict[str, Any] = Field(default_factory=dict, description="Parámetros del comportamiento")
+    type: str = Field("static", description="Motion behavior type")
+    params: Dict[str, Any] = Field(default_factory=dict, description="Behavior parameters (speed, amplitude, center, radius, etc.)")
 
     @field_validator("type", mode="before")
     @classmethod
@@ -86,13 +86,13 @@ class ObjectBehavior(BaseModel):
 #  WORKSHOP OBJECT
 # ─────────────────────────────────────────────────────────
 class WorkshopObject(BaseModel):
-    name: str = Field(..., description="Identificador único del objeto")
+    name: str = Field(..., description="Unique object identifier / Library asset name")
     shape: str = Field("cube")
     color: str = Field("#AAAAAA")
     size: Vector3 = Field(default_factory=lambda: Vector3())
     position: Vector3 = Field(default_factory=lambda: Vector3(x=0, y=3, z=0))
     label: Optional[str] = Field(None)
-    description: Optional[str] = Field(None, description="Tooltip educativo al acercarse")
+    description: Optional[str] = Field(None, description="Educational tooltip shown on proximity")
     behavior: ObjectBehavior = Field(default_factory=lambda: ObjectBehavior())
 
     # Backward compat: if AI sends "animation" string, convert to behavior
@@ -168,11 +168,23 @@ class Workshop(BaseModel):
     topic: str
     scene_title: str
     scene_description: Optional[str] = None
+    archetype: str = Field(
+        "abstract",
+        description="Scene archetype selected by Gemma (solar_system | atom | cell | building | ecosystem | physics | math | historical | abstract)"
+    )
+    game_mode: str = Field(
+        "gallery",
+        description="Roblox rendering mode: gallery (exploration) | arena (Color Block trivia) | obby (platform)"
+    )
     objects: List[WorkshopObject] = Field(default_factory=list)
     quiz: List[QuizQuestion] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_minimums(self) -> "Workshop":
+        allowed_modes = {"gallery", "arena", "obby"}
+        if self.game_mode not in allowed_modes:
+            logger.warning(f"[Workshop] Unknown game_mode '{self.game_mode}' → 'gallery'")
+            self.game_mode = "gallery"
         if len(self.objects) < 3:
             logger.warning(f"[Workshop] Only {len(self.objects)} objects (min 3 recommended)")
         if len(self.quiz) < 3:

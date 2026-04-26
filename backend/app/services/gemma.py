@@ -515,6 +515,22 @@ ARCHETYPE_ENGINES = {
     "abstract":     _apply_grid,
 }
 
+# Maps each content archetype to its Roblox rendering mode.
+# gallery  → 3D exploration (default for science archetypes)
+# arena    → Color Block / Trivia zone game (trivia-friendly topics)
+# obby     → Platform sequence (kinetic / physics topics)
+_ARCHETYPE_TO_GAME_MODE: dict = {
+    "solar_system": "gallery",
+    "atom":         "gallery",
+    "cell":         "gallery",
+    "ecosystem":    "gallery",
+    "math":         "gallery",
+    "physics":      "gallery",
+    "building":     "gallery",
+    "historical":   "arena",    # trivia-friendly
+    "abstract":     "arena",    # concepts map best to trivia zones
+}
+
 
 def _shape_hint_to_roblox(hint: str) -> str:
     m = {"esfera": "sphere", "cubo": "cube", "cilindro": "cylinder", "cuña": "wedge"}
@@ -523,8 +539,9 @@ def _shape_hint_to_roblox(hint: str) -> str:
 
 def run_archetype_engine(raw: dict) -> dict:
     archetype  = raw.get("archetype", "abstract").lower()
+    game_mode  = _ARCHETYPE_TO_GAME_MODE.get(archetype, "gallery")
     ai_objects = raw.get("objects", [])
-    
+
     for obj in ai_objects:
         obj.setdefault("role",        "primary")
         obj.setdefault("color_hint",  "gris claro")
@@ -532,16 +549,16 @@ def run_archetype_engine(raw: dict) -> dict:
         obj.setdefault("label",       obj.get("name", "?"))
         obj.setdefault("description", "")
         obj.setdefault("name",        "Unknown")
-    
+
     engine = ARCHETYPE_ENGINES.get(archetype, _apply_grid)
     ai_objects = engine(ai_objects)
-    
+
     final = []
     for obj in ai_objects:
         # Canonicalize asset names for library matching
         canonical = get_canonical_asset_name(obj["name"])
         display_name = canonical or obj["name"]
-        
+
         final.append({
             "name":        display_name,
             "shape":       _shape_hint_to_roblox(obj.get("shape_hint") or obj.get("shape", "esfera")),
@@ -552,11 +569,13 @@ def run_archetype_engine(raw: dict) -> dict:
             "description": obj.get("description", ""),
             "behavior":    obj.get("behavior", {"type": "static", "params": {}}),
         })
-    
+
     return {
         "topic":             raw.get("topic", "?"),
         "scene_title":       raw.get("scene_title", raw.get("topic", "?")),
         "scene_description": raw.get("scene_description", ""),
+        "archetype":         archetype,
+        "game_mode":         game_mode,
         "objects":           final,
         "quiz":              raw.get("quiz", []),
     }

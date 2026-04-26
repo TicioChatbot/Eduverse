@@ -1,13 +1,13 @@
 --[[
-    EduVerseHUD.client.lua — TOP TIER
-    
-    INSTALAR EN: StarterPlayerScripts
-    
-    HUD del estudiante con:
-    - Indicador del tema activo (esquina superior derecha)
-    - Botón para abrir/cerrar el Quiz
-    - Pulsación suave cuando llega nuevo taller
---]]
+    EduVerseHUD.client.lua — v2.0
+    Install in: StarterPlayerScripts
+
+    Student-facing HUD providing:
+      - Active topic indicator (top-right corner)
+      - Game mode badge (Gallery / Arena / Obby)
+      - Quiz open/close button
+      - Slide-in notification on new workshop load
+]]
 
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,11 +17,11 @@ local player    = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 -- ══════════════════════════════════════════════════════════
---  ESPERAR EVENTOS
+--  WAIT FOR REMOTE EVENTS
 -- ══════════════════════════════════════════════════════════
 local remoteLoaded = ReplicatedStorage:WaitForChild("EduVerse_WorkshopLoaded", 30)
 if not remoteLoaded then
-    warn("[HUD] EduVerse_WorkshopLoaded no encontrado.")
+    warn("[HUD] EduVerse_WorkshopLoaded not found — aborting.")
     return
 end
 
@@ -48,7 +48,7 @@ sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 -- ── Panel principal (esquina superior derecha) ───────────
 local panel = Instance.new("Frame", sg)
 panel.Name = "HudPanel"
-panel.Size = UDim2.new(0, 240, 0, 100)
+panel.Size = UDim2.new(0, 240, 0, 120)
 panel.AnchorPoint = Vector2.new(1, 0)
 panel.Position = UDim2.new(1, -16, 0, 16)
 panel.BackgroundColor3 = CLR.pill
@@ -86,25 +86,37 @@ topicLabel.TextSize = 13
 topicLabel.TextXAlignment = Enum.TextXAlignment.Left
 topicLabel.TextTruncate = Enum.TextTruncate.AtEnd
 
--- Sesión
+-- Active session line
 local sessionLabel = Instance.new("TextLabel", panel)
 sessionLabel.Name = "SessionLabel"
 sessionLabel.Size = UDim2.new(1, -16, 0, 16)
 sessionLabel.Position = UDim2.new(0, 10, 0, 52)
-sessionLabel.Text = "Sesión: —"
+sessionLabel.Text = "Session: —"
 sessionLabel.TextColor3 = CLR.textSub
 sessionLabel.BackgroundTransparency = 1
 sessionLabel.Font = Enum.Font.Gotham
 sessionLabel.TextSize = 11
 sessionLabel.TextXAlignment = Enum.TextXAlignment.Left
 
+-- Game mode badge
+local modeLabel = Instance.new("TextLabel", panel)
+modeLabel.Name = "ModeLabel"
+modeLabel.Size = UDim2.new(1, -16, 0, 14)
+modeLabel.Position = UDim2.new(0, 10, 0, 68)
+modeLabel.Text = ""
+modeLabel.TextColor3 = Color3.fromRGB(140, 200, 255)
+modeLabel.BackgroundTransparency = 1
+modeLabel.Font = Enum.Font.Gotham
+modeLabel.TextSize = 10
+modeLabel.TextXAlignment = Enum.TextXAlignment.Left
+
 -- ── Botón de Quiz ─────────────────────────────────────────
 local quizBtn = Instance.new("TextButton", panel)
 quizBtn.Name = "QuizBtn"
 quizBtn.Size = UDim2.new(1, -20, 0, 28)
-quizBtn.Position = UDim2.new(0, 10, 0, 66)
+quizBtn.Position = UDim2.new(0, 10, 0, 86)
 quizBtn.BackgroundColor3 = CLR.accent
-quizBtn.Text = "📝  Abrir Quiz"
+quizBtn.Text = "📝  Open Quiz"
 quizBtn.TextColor3 = Color3.new(1, 1, 1)
 quizBtn.Font = Enum.Font.GothamBold
 quizBtn.TextSize = 13
@@ -178,34 +190,42 @@ end
 remoteLoaded.OnClientEvent:Connect(function(info)
     if not info then return end
 
-    topicLabel.Text   = info.topic or "Tema desconocido"
-    sessionLabel.Text = "Sesión: " .. (info.session_id or "?"):sub(1, 8) ..
-                        "  •  " .. (info.objects_count or 0) .. " objetos"
-    quizBtn.Visible   = (info.quiz_count and info.quiz_count > 0)
-    quizBtn.Text      = "📝  Comenzar Reto"
+    topicLabel.Text   = info.topic or "Unknown topic"
+    sessionLabel.Text = "Session: " .. (info.session_id or "?"):sub(1, 8) ..
+                        "  •  " .. (info.objects_count or 0) .. " objects"
 
-    -- EXPLÍCITAMENTE cerrar el quiz al cargar nuevo taller
+    -- Game mode badge
+    local modeIcons = { gallery="🖼 Gallery", arena="⚔️ Arena", obby="🏃 Obby" }
+    modeLabel.Text = modeIcons[info.game_mode] or (info.game_mode or "")
+
+    quizBtn.Visible   = (info.quiz_count and info.quiz_count > 0)
+    quizBtn.Text      = "📝  Start Challenge"
+
+    -- Ensure quiz is closed when a new workshop arrives
     local quizGui = playerGui:FindFirstChild("EduVerseQuiz")
     if quizGui then
-        quizGui.Enabled = false  -- GARANTIZADO: quiz cerrado en nueva carga
+        quizGui.Enabled = false
     end
 
-    showNotification("Nuevo taller: " .. (info.topic or "?") .. " — ¡Explora!")
+    showNotification("New workshop: " .. (info.topic or "?") .. " — Explore!")
 
     TweenService:Create(stroke, TweenInfo.new(0.2), {Transparency = 0}):Play()
     task.wait(0.4)
     TweenService:Create(stroke, TweenInfo.new(0.6), {Transparency = 0.5}):Play()
 end)
 
--- Verificar si ya hay workshop al cargar (por si el jugador entra tarde)
+-- If a workshop is already active when the player joins (late join)
 task.spawn(function()
     task.wait(2)
     local topicVal   = ReplicatedStorage:FindFirstChild("EduVerse_Topic")
     local sessionVal = ReplicatedStorage:FindFirstChild("EduVerse_Session")
+    local modeVal    = ReplicatedStorage:FindFirstChild("EduVerse_GameMode")
     if topicVal and topicVal.Value ~= "" then
         topicLabel.Text   = topicVal.Value
-        sessionLabel.Text = "Sesión: " .. (sessionVal and sessionVal.Value or "?")
+        sessionLabel.Text = "Session: " .. (sessionVal and sessionVal.Value or "?")
+        local modeIcons = { gallery="🖼 Gallery", arena="⚔️ Arena", obby="🏃 Obby" }
+        modeLabel.Text  = modeIcons[modeVal and modeVal.Value] or ""
     end
 end)
 
-print("[HUD] ✅ EduVerse HUD listo.")
+print("[HUD] ✅ EduVerse HUD v2.0 ready.")

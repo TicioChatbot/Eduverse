@@ -146,7 +146,7 @@ quizBtn.MouseButton1Click:Connect(function()
     -- Make sure quiz is fully disabled first to block any stale state
     local isOpen = quizGui.Enabled
     quizGui.Enabled = not isOpen
-    quizBtn.Text = quizGui.Enabled and "✕  Cerrar Quiz" or "📝  Comenzar Reto"
+    quizBtn.Text = quizGui.Enabled and "Cancel Challenge" or "📝  Start Challenge"
 end)
 
 -- ── Notificación de nuevo workshop ───────────────────────

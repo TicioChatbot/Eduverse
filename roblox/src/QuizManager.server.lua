@@ -36,16 +36,21 @@ local CONFIG = {
 
 -- ══════════════════════════════════════════════════════════
 --  REMOTE EVENTS
--- Wait up to 30 s for renderer to create these if it boots
--- slightly ahead of this script.
+--  QuizManager is the SERVER authority for these two events.
+--  It creates them immediately so QuizUI (client) can
+--  safely WaitForChild without timing out.
 -- ══════════════════════════════════════════════════════════
-local remoteAnswer = ReplicatedStorage:WaitForChild("EduVerse_QuizAnswer", 30)
-local remoteResult = ReplicatedStorage:WaitForChild("EduVerse_QuizResult",  30)
-
-if not remoteAnswer or not remoteResult then
-    warn("[QuizManager] Required RemoteEvents not found. Aborting.")
-    return
+local function getOrCreate(name, class)
+    local obj = ReplicatedStorage:FindFirstChild(name)
+    if not obj then
+        obj = Instance.new(class, ReplicatedStorage)
+        obj.Name = name
+    end
+    return obj
 end
+
+local remoteAnswer = getOrCreate("EduVerse_QuizAnswer", "RemoteEvent")
+local remoteResult = getOrCreate("EduVerse_QuizResult",  "RemoteEvent")
 
 -- ══════════════════════════════════════════════════════════
 --  STATE

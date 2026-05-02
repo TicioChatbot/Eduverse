@@ -97,6 +97,67 @@ Use `Edit` only if the tester needs to modify the place.
 6. Send the private experience link to the tester.
 7. Keep Railway logs and `/dashboard/` open while they test.
 
+## Find The Experience URL
+
+After publishing, Roblox creates an experience details page with a Play button.
+
+From Roblox Studio Home:
+
+1. Find `EduVerse Test` under `My Recent Experiences`.
+2. Click the three-dot menu on its card.
+3. Click `Open Place page`.
+4. Copy the browser URL.
+
+From Creator Dashboard:
+
+1. Open `https://create.roblox.com/dashboard/creations`.
+2. Select the correct creator/account or group in the top-left switcher.
+3. Find `EduVerse Test`.
+4. Open the experience.
+5. Use the page URL, or hover the experience tile and use `Copy URL` when shown.
+
+The URL is the link to share with testers.
+
+## Who Can Enter
+
+If the experience is private, only these users can play:
+
+- The owner/creator.
+- Users explicitly added with `Play` access.
+- Users with `Edit` access, because Edit also grants Play.
+- Group members with the needed group role permissions, for group-owned games.
+
+For a private hackathon demo, prefer adding testers with `Play` only.
+
+## Add A Private Tester
+
+In Studio:
+
+1. Open the published place.
+2. Click the collaboration/person icon in the top-right Studio toolbar.
+3. Search the Roblox username.
+4. Add the user.
+5. Set permission to `Play`.
+6. Save.
+
+In Creator Dashboard, the same access is managed from the experience's
+collaboration/access settings.
+
+## Verify The Published Game Uses Railway
+
+1. Stop the local backend, or leave it running but use the published Roblox app,
+   not Studio.
+2. Open the Railway dashboard:
+
+```text
+https://eduverse-production-79f9.up.railway.app/dashboard/
+```
+
+3. Activate `Ciclo del agua`.
+4. Open the Roblox experience URL in the Roblox app.
+5. The scene should appear even if your local backend is off.
+6. Railway logs should show requests to `/workshop/current`.
+
 ## Smoke Test During The Call
 
 1. Tester joins private experience.

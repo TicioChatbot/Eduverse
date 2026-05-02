@@ -90,7 +90,8 @@ write calls can pass either `?admin_key=...` or header `X-EduVerse-Key: ...`.
 1. Push the repo to GitHub.
 2. Railway -> New Project -> Deploy from GitHub.
 3. Root directory: `backend`.
-4. Railway should pick up `backend/railway.toml`.
+4. Railway should pick up `backend/railway.toml`. If it does not, set the
+   Railway config file path to `/backend/railway.toml` in service settings.
 5. Set the environment variables above.
 6. Generate a public domain.
 7. Check `/workshop/health` and `/dashboard/`.

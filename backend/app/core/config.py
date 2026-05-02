@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     DEBUGGING: bool = False
     FLASK_SECRET_KEY: str = "change_this_to_a_random_secret_string"
     GOOGLE_API_KEY: str = ""
+    GEMMA_USE_RESPONSE_SCHEMA: bool = True
+    GEMMA_SCHEMA_TIMEOUT_SECONDS: int = 12
+    GEMMA_REQUEST_TIMEOUT_SECONDS: int = 120
     PAYMENT_BASE_URL: str = ""
     RESEND_API_KEY: str = ""
     TESTING_PASS: str = "admin"

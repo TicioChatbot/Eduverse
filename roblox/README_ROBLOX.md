@@ -7,6 +7,8 @@ Roblox Studio
 ├── ServerScriptService/           ← Server scripts (invisible to players)
 │   ├── EduVerseRenderer           ← Polls the FastAPI backend, builds 3D scenes
 │   └── QuizManager                ← Validates answers, posts analytics to backend
+├── ReplicatedStorage/
+│   └── EduVerse_Modules/          ← Config, asset lookup, VFX and renderers
 └── StarterPlayerScripts/          ← Client scripts (run on each player)
     ├── QuizUI                     ← Glassmorphism quiz interface
     └── EduVerseHUD                ← Active topic HUD, game mode badge, quiz button
@@ -14,6 +16,8 @@ Roblox Studio
 
 > **Important:** `.client.lua` scripts go in **StarterPlayerScripts**.  
 > `.server.lua` scripts go in **ServerScriptService**.
+> Files under `src/modules` must be installed as ModuleScripts under
+> `ReplicatedStorage/EduVerse_Modules`.
 
 ---
 
@@ -30,6 +34,19 @@ Roblox Studio
 
 ## Step 3 — Install Server Scripts (ServerScriptService)
 
+### Recommended: Rojo sync
+
+From `roblox/`, run:
+
+```bash
+rojo serve default.project.json
+```
+
+Then connect with the Rojo Studio plugin. This creates the full script tree,
+including `ReplicatedStorage/EduVerse_Modules`, without manual copy/paste.
+
+### Manual fallback
+
 Right-click **ServerScriptService** → **Insert Object → Script**.
 
 | Studio name | Source file |
@@ -38,6 +55,23 @@ Right-click **ServerScriptService** → **Insert Object → Script**.
 | `QuizManager` | `roblox/src/QuizManager.server.lua` |
 
 Clear the default `print("Hello world!")` and paste the full file contents.
+
+Then create these ModuleScripts/Folders under
+`ReplicatedStorage/EduVerse_Modules`:
+
+| Studio path | Source file |
+|---|---|
+| `Config` | `roblox/src/modules/Config.lua` |
+| `ColorUtils` | `roblox/src/modules/ColorUtils.lua` |
+| `AssetLibrary` | `roblox/src/modules/AssetLibrary.lua` |
+| `MaterialClassifier` | `roblox/src/modules/MaterialClassifier.lua` |
+| `vfx/ParticleEngine` | `roblox/src/modules/vfx/ParticleEngine.lua` |
+| `vfx/LightingEngine` | `roblox/src/modules/vfx/LightingEngine.lua` |
+| `vfx/SoundscapeEngine` | `roblox/src/modules/vfx/SoundscapeEngine.lua` |
+| `vfx/BeamEngine` | `roblox/src/modules/vfx/BeamEngine.lua` |
+| `renderers/GalleryRenderer` | `roblox/src/modules/renderers/GalleryRenderer.lua` |
+| `renderers/ArenaRenderer` | `roblox/src/modules/renderers/ArenaRenderer.lua` |
+| `renderers/ObbyRenderer` | `roblox/src/modules/renderers/ObbyRenderer.lua` |
 
 ## Step 4 — Install Client Scripts (StarterPlayerScripts)
 
@@ -75,7 +109,10 @@ A trivia zone game inspired by Color Block. The scene generates a platform with 
 - Overhead broadcaster billboard (30×6 studs) shows the topic title
 
 ### 🏃 Obby *(Stub — architecture ready)*
-A platform sequence game where each workshop object corresponds to a platform checkpoint. Currently falls back to Gallery rendering. Planned for: physics, kinematics, progressive challenge topics.
+A platform quiz path where each question becomes a checkpoint and four answer
+platforms. Correct answers unlock the path forward; wrong answers drop and
+return the player to the checkpoint. Best for: physics, math, kinematics and
+progressive challenge topics.
 
 ---
 
@@ -92,7 +129,7 @@ Two emitter types are applied automatically:
 Performance-tuned: max 8 particles/second per emitter.
 
 ### SoundscapeEngine
-Ambient background music fades in on scene load and fades out on clear. Sound IDs are configured in `CONFIG.SOUNDS` inside `EduVerseRenderer.server.lua`. All three modes use a placeholder ID by default — swap for your own Roblox audio assets.
+Ambient background music fades in on scene load and fades out on clear. Sound IDs are configured in `SOUNDS` inside `Config.lua`. All three modes use a placeholder ID by default — swap for your own Roblox audio assets.
 
 ---
 
@@ -109,7 +146,8 @@ Ambient background music fades in on scene load and fades out on clear. Sound ID
 [EduVerseHUD]       ──→  Updates topic, session, and game mode badge
 [QuizUI]            ──→  Silently loads quiz data in background
 
-[Student answers]   ──→  RemoteEvent "EduVerse_QuizAnswer" → [QuizManager]
+[Student quiz UI]   ──→  RemoteEvent "EduVerse_QuizAnswer" → [QuizManager]
+[Obby touches]      ──→  BindableEvent "EduVerse_QuizAnswerServer" → [QuizManager]
 [QuizManager]       ──→  Validates answer, POSTs to backend analytics
                     ──→  Fires "EduVerse_QuizResult" back to player
 [QuizUI]            ──→  Shows ✅ or ❌ feedback with explanation

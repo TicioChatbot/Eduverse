@@ -30,11 +30,14 @@ EduVerse operates on a bifurcated architecture separating the AI/Data tier from 
 
 ## 🛠 Backend Setup
 
-Ensure you have Python 3.9+ installed and active in your environment.
+Ensure you have Python 3.11+ installed and active in your environment. Python
+3.9 can run the POC, but current Google packages already warn that it is past
+end-of-life.
 
 ### 1. Environment Variables
 
-Create a `.env` file in the `backend` directory based on the following template:
+Create a `.env` file in the `backend` directory based on
+`backend/.env.example`:
 
 ```env
 AI_MODEL_NAME=gemma-4-31b-it
@@ -60,6 +63,13 @@ Start the Uvicorn application server. The underlying SQLite database structures 
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+Quick local generation test:
+
+```bash
+curl -sS -X POST "http://127.0.0.1:8000/workshop/generate?topic=fotosintesis"
+curl -sS "http://127.0.0.1:8000/workshop/current"
+```
+
 ---
 
 ## 🎓 Teacher Dashboard (Gradio)
@@ -81,8 +91,11 @@ Once the server is running, the Teacher Dashboard is accessible at:
 The Roblox environment acts as a strict client. By design, the AI does *not* write Lua code. It sends JSON structures that the Roblox layer interprets using predefined `Archetypes`.
 
 1. Enable **HTTP Requests** in your Roblox Studio Game Settings.
-2. In the `EduVerseHUD.client.lua` configurations, point the polling URL to your active backend (e.g., `http://localhost:8000/workshop/current`).
-3. Press **Play**. The engine will idle until a teacher creates a session from the Gradio Dashboard. When a session is received, the environment will dynamically construct the requested scenario.
+2. Set `BACKEND_URL` in `roblox/src/modules/Config.lua`.
+3. Sync the Roblox project with Rojo using `roblox/default.project.json`, or install the scripts and ModuleScripts manually.
+4. Press **Play**. The engine will idle until a teacher creates a session from the Gradio Dashboard. When a session is received, the environment will dynamically construct the requested scenario.
+
+Deployment notes live in [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ---
 

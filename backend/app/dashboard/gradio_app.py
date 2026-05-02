@@ -339,7 +339,7 @@ def build_gradio_app() -> gr.Blocks:
                     if details.strip() or material.strip():
                         payload = topic + "\n\n" + details + "\n\n" + material[:2000]
                     try:
-                        resp = httpx.post(f"{_API}/workshop/generate", params={"topic": payload}, timeout=90)
+                        resp = httpx.post(f"{_API}/workshop/generate", params={"topic": payload}, timeout=150)
                         if resp.status_code != 200: return {}, f'<div class="status-error">❌ Error: {resp.json().get("detail", "")}</div>'
                         data = resp.json()
                         return data.get("workshop", {}), f'<div class="status-ok">✅ Sesión <strong>{data.get("session_id","?")}</strong> creada: <em>{data.get("scene_title","?")}</em></div>'

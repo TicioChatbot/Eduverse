@@ -19,6 +19,7 @@ All color mapping lives in color_resolver.py.
 
 import json
 import logging
+import asyncio
 from typing import Optional
 
 from google import genai
@@ -26,13 +27,11 @@ from google.genai import types
 
 from app.core.config import settings
 from app.models.workshop import Workshop
-from app.services.prompt_builder import CONCEPT_PROMPT
+from app.services.prompt_builder import CONCEPT_PROMPT, CONCEPT_RESPONSE_SCHEMA
 from app.services.color_resolver import resolve as resolve_color
 from app.services.geometry import run_archetype_engine
 
 logger = logging.getLogger(__name__)
-
-_MAX_RETRIES = 3
 
 
 class GemmaService:
@@ -72,24 +71,46 @@ class GemmaService:
 
         last_error = None
         data: dict = {}
+        attempts = []
+        if settings.GEMMA_USE_RESPONSE_SCHEMA:
+            attempts.append((True, settings.GEMMA_SCHEMA_TIMEOUT_SECONDS))
+        attempts.append((False, settings.GEMMA_REQUEST_TIMEOUT_SECONDS))
 
-        for attempt in range(1, _MAX_RETRIES + 1):
+        for attempt, (use_schema, timeout_seconds) in enumerate(attempts, start=1):
             try:
-                logger.info(f"[Gemma4] Attempt {attempt}/{_MAX_RETRIES} — '{topic}' — model={model}")
-                response = self.client.models.generate_content(
-                    model=model,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        system_instruction=CONCEPT_PROMPT,
-                        temperature=0.5,
-                        max_output_tokens=8192,
+                logger.info(
+                    f"[Gemma4] Attempt {attempt}/{len(attempts)} — '{topic}' "
+                    f"— model={model} — schema={use_schema}"
+                )
+                config_kwargs = {
+                    "response_mime_type": "application/json",
+                    "system_instruction": CONCEPT_PROMPT,
+                    "temperature": 0.5,
+                    "max_output_tokens": 8192,
+                }
+                if use_schema:
+                    config_kwargs["response_schema"] = CONCEPT_RESPONSE_SCHEMA
+
+                response = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self.client.models.generate_content,
+                        model=model,
+                        config=types.GenerateContentConfig(**config_kwargs),
+                        contents=prompt,
                     ),
-                    contents=prompt,
+                    timeout=timeout_seconds,
                 )
                 logger.debug(f"[Gemma4] Raw (first 500 chars): {response.text[:500]}")
                 data = json.loads(response.text)
                 break
 
+            except asyncio.TimeoutError as e:
+                logger.warning(
+                    f"[Gemma4] Attempt {attempt}: timed out after "
+                    f"{timeout_seconds}s — schema={use_schema}"
+                )
+                last_error = e
+                continue
             except json.JSONDecodeError as e:
                 logger.warning(f"[Gemma4] Attempt {attempt}: JSON parse error — {e}")
                 last_error = e
@@ -97,11 +118,11 @@ class GemmaService:
             except Exception as e:
                 logger.error(f"[Gemma4] Attempt {attempt}: API error — {e}")
                 last_error = e
-                if attempt < _MAX_RETRIES:
+                if attempt < len(attempts):
                     continue
-                raise RuntimeError(f"Gemma4 API failed after {_MAX_RETRIES} attempts: {e}")
+                raise RuntimeError(f"Gemma4 API failed after {len(attempts)} attempts: {e}")
         else:
-            raise RuntimeError(f"Failed to get valid JSON after {_MAX_RETRIES} attempts: {last_error}")
+            raise RuntimeError(f"Failed to get valid JSON after {len(attempts)} attempts: {last_error}")
 
         resolved = run_archetype_engine(data, resolve_color)
 

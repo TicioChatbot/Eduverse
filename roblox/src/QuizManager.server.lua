@@ -25,12 +25,15 @@ local HttpService       = game:GetService("HttpService")
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Modules = ReplicatedStorage:WaitForChild("EduVerse_Modules")
+local Config  = require(Modules:WaitForChild("Config"))
+
 -- ══════════════════════════════════════════════════════════
 --  CONFIG
 -- ══════════════════════════════════════════════════════════
 local CONFIG = {
-    BACKEND_URL    = "http://localhost:8000",
-    ANALYTICS_PATH = "/workshop/analytics/answer",
+    BACKEND_URL    = Config.BACKEND_URL,
+    ANALYTICS_PATH = Config.ANALYTICS_PATH or "/workshop/analytics/answer",
     REQUEST_TIMEOUT = 10,
 }
 
@@ -51,6 +54,7 @@ end
 
 local remoteAnswer = getOrCreate("EduVerse_QuizAnswer", "RemoteEvent")
 local remoteResult = getOrCreate("EduVerse_QuizResult",  "RemoteEvent")
+local serverAnswer = getOrCreate("EduVerse_QuizAnswerServer", "BindableEvent")
 
 -- ══════════════════════════════════════════════════════════
 --  STATE
@@ -100,11 +104,7 @@ local function postAnalytics(payload)
     end)
 end
 
--- ══════════════════════════════════════════════════════════
---  ANSWER HANDLER
--- ══════════════════════════════════════════════════════════
-remoteAnswer.OnServerEvent:Connect(function(player, questionIndex, selectedIndex)
-
+local function processAnswer(player, questionIndex, selectedIndex)
     -- Validate argument types
     if type(questionIndex) ~= "number" or type(selectedIndex) ~= "number" then
         warn(string.format("[QuizManager] Bad args from %s — q:%s s:%s",
@@ -185,7 +185,13 @@ remoteAnswer.OnServerEvent:Connect(function(player, questionIndex, selectedIndex
         isCorrect and "✅" or "❌",
         score.correct, score.total
     ))
-end)
+end
+
+-- ══════════════════════════════════════════════════════════
+--  ANSWER HANDLERS
+-- ══════════════════════════════════════════════════════════
+remoteAnswer.OnServerEvent:Connect(processAnswer)
+serverAnswer.Event:Connect(processAnswer)
 
 -- ══════════════════════════════════════════════════════════
 --  CLEANUP on player leave

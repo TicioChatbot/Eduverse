@@ -1,0 +1,68 @@
+{
+  "name": "EduVerse",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "EduVerse_Modules": {
+        "$className": "Folder",
+        "Config": {
+          "$path": "src/modules/Config.lua"
+        },
+        "ColorUtils": {
+          "$path": "src/modules/ColorUtils.lua"
+        },
+        "AssetLibrary": {
+          "$path": "src/modules/AssetLibrary.lua"
+        },
+        "MaterialClassifier": {
+          "$path": "src/modules/MaterialClassifier.lua"
+        },
+        "vfx": {
+          "$className": "Folder",
+          "ParticleEngine": {
+            "$path": "src/modules/vfx/ParticleEngine.lua"
+          },
+          "LightingEngine": {
+            "$path": "src/modules/vfx/LightingEngine.lua"
+          },
+          "SoundscapeEngine": {
+            "$path": "src/modules/vfx/SoundscapeEngine.lua"
+          },
+          "BeamEngine": {
+            "$path": "src/modules/vfx/BeamEngine.lua"
+          }
+        },
+        "renderers": {
+          "$className": "Folder",
+          "GalleryRenderer": {
+            "$path": "src/modules/renderers/GalleryRenderer.lua"
+          },
+          "ArenaRenderer": {
+            "$path": "src/modules/renderers/ArenaRenderer.lua"
+          },
+          "ObbyRenderer": {
+            "$path": "src/modules/renderers/ObbyRenderer.lua"
+          }
+        }
+      }
+    },
+    "ServerScriptService": {
+      "EduVerseRenderer": {
+        "$path": "src/EduVerseRenderer.server.lua"
+      },
+      "QuizManager": {
+        "$path": "src/QuizManager.server.lua"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "EduVerseHUD": {
+          "$path": "src/EduVerseHUD.client.lua"
+        },
+        "QuizUI": {
+          "$path": "src/QuizUI.client.lua"
+        }
+      }
+    }
+  }
+}

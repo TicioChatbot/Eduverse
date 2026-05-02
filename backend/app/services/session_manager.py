@@ -91,7 +91,23 @@ class SessionManager:
     def activate_session(self, session_id: str) -> Optional[WorkshopSession]:
         with self._lock:
             if session_id not in self._sessions:
-                return None
+                row = repository.get_session(session_id)
+                if not row or not row.get("workshop_json"):
+                    return None
+                try:
+                    workshop = Workshop(**json.loads(row["workshop_json"]))
+                except Exception as exc:
+                    logger.error(f"[SessionManager] Failed to hydrate session {session_id}: {exc}")
+                    return None
+
+                session = WorkshopSession(
+                    workshop=workshop,
+                    topic=row.get("topic", workshop.topic),
+                    session_id=session_id,
+                )
+                session.created_at = row.get("created_at") or session.created_at
+                self._sessions[session_id] = session
+
             self._set_active(session_id)
             return self._sessions[session_id]
 

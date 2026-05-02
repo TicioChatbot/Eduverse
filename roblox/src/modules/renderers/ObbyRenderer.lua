@@ -13,9 +13,9 @@
                         Player is teleported back to the stage checkpoint after 0.8 s.
 
     Analytics:
-      ObbyRenderer fires EduVerse_QuizAnswer on behalf of the touching player so
-      that QuizManager handles validation and posts to the backend — identical to
-      the normal quiz flow. No analytics duplication.
+      ObbyRenderer fires EduVerse_QuizAnswerServer, a server-only BindableEvent,
+      so QuizManager handles validation and posts to the backend without using
+      client-only RemoteEvent APIs.
 
     Dependencies (via ctx):
       ctx.buildObject, ctx.createLabel, ctx.addProximityGlow, ctx.ParticleEngine
@@ -158,7 +158,7 @@ end
 
 -- Builds one stage for a single quiz question.
 -- Returns the CFrame of the checkpoint (used for respawn).
-local function buildStage(folder, stageIdx, question, checkpointZ, remoteAnswer, playerDebounce)
+local function buildStage(folder, stageIdx, question, checkpointZ, serverAnswer, playerDebounce)
     -- Add upward slope (climb) and sequential animation delay per stage
     local runwayY  = PATH.RUNWAY_Y + (stageIdx - 1) * 6
     local cpPos    = Vector3.new(0, runwayY, checkpointZ)
@@ -282,8 +282,8 @@ local function buildStage(folder, stageIdx, question, checkpointZ, remoteAnswer,
                     end)
                 end)
 
-                -- Fire QuizAnswer to QuizManager (uses standard analytics pipeline)
-                remoteAnswer:FireServer(stageIdx, optIdx)
+                -- Fire server-only answer event to QuizManager (standard analytics pipeline)
+                serverAnswer:Fire(player, stageIdx, optIdx)
 
             else
                 -- ── WRONG ────────────────────────────────────────────────
@@ -323,7 +323,7 @@ local function buildStage(folder, stageIdx, question, checkpointZ, remoteAnswer,
                 end)
 
                 -- Fire wrong answer to QuizManager for analytics (counts the attempt)
-                remoteAnswer:FireServer(stageIdx, optIdx)
+                serverAnswer:Fire(player, stageIdx, optIdx)
                 return  -- don't clear debounce here; done above after respawn
             end
 
@@ -351,10 +351,10 @@ function ObbyRenderer.render(data, folder, ctx)
     -- State tables (per-play, destroyed with folder)
     local playerDebounce = {}
 
-    -- RemoteAnswer is created by QuizManager — wait for it
-    local remoteAnswer = ReplicatedStorage:WaitForChild("EduVerse_QuizAnswer", 15)
-    if not remoteAnswer then
-        warn("[ObbyRenderer] EduVerse_QuizAnswer RemoteEvent not found.")
+    -- ServerAnswer is created by QuizManager — wait for it
+    local serverAnswer = ReplicatedStorage:WaitForChild("EduVerse_QuizAnswerServer", 15)
+    if not serverAnswer then
+        warn("[ObbyRenderer] EduVerse_QuizAnswerServer BindableEvent not found.")
         return
     end
 
@@ -406,7 +406,7 @@ function ObbyRenderer.render(data, folder, ctx)
         local stageZ = PATH.START_Z + PATH.ANSWER_OFFSET_Z
                        - (stageIdx - 1) * PATH.STAGE_STRIDE
 
-        buildStage(folder, stageIdx, question, stageZ, remoteAnswer, playerDebounce)
+        buildStage(folder, stageIdx, question, stageZ, serverAnswer, playerDebounce)
     end
 
     -- ── Finish platform (after the last stage) ────────────────────────────────

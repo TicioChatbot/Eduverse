@@ -38,6 +38,70 @@ ASSET_LOOKUP.update({name.lower(): name for name in KNOWN_ASSETS})
 from typing import Optional
 
 
+CONCEPT_RESPONSE_SCHEMA: dict = {
+    "type": "object",
+    "required": [
+        "topic",
+        "scene_title",
+        "scene_description",
+        "archetype",
+        "objects",
+        "quiz",
+    ],
+    "properties": {
+        "topic": {"type": "string"},
+        "scene_title": {"type": "string"},
+        "scene_description": {"type": "string"},
+        "archetype": {"type": "string"},
+        "objects": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "name",
+                    "role",
+                    "color_hint",
+                    "label",
+                    "description",
+                    "shape_hint",
+                ],
+                "properties": {
+                    "name": {"type": "string"},
+                    "role": {"type": "string"},
+                    "color_hint": {"type": "string"},
+                    "label": {"type": "string"},
+                    "description": {"type": "string"},
+                    "shape_hint": {"type": "string"},
+                },
+            },
+        },
+        "quiz": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "question",
+                    "options",
+                    "correct_index",
+                    "difficulty",
+                    "feedback",
+                ],
+                "properties": {
+                    "question": {"type": "string"},
+                    "options": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "correct_index": {"type": "integer"},
+                    "difficulty": {"type": "string"},
+                    "feedback": {"type": "string"},
+                },
+            },
+        },
+    },
+}
+
+
 def get_canonical_asset_name(query: str) -> Optional[str]:
     """Return the exact Library asset name matching query, or None."""
     q = query.lower().strip().replace("'", "").replace(" ", "")

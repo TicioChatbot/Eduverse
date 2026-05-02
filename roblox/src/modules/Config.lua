@@ -21,6 +21,7 @@ local Config = {
     TOPIC_KEY     = "EduVerse_Topic",
     SESSION_KEY   = "EduVerse_Session",
     GAME_MODE_KEY = "EduVerse_GameMode",
+    STATUS_KEY    = "EduVerse_BackendStatus",
 
     -- Object spawn / animation timing
     SPAWN_HEIGHT  = 70,          -- studs above final position (dramatic drop)
@@ -29,6 +30,8 @@ local Config = {
 
     -- NPC guide spawn position (away from the SpawnLocation)
     GUIDE_POS     = Vector3.new(8, 3, -95),
+    PLAYER_START_POS = Vector3.new(8, 5, -76),
+    AUTO_TELEPORT_PLAYERS = true,
 
     -- Ambient sound IDs per game mode (swap for production tracks)
     SOUNDS = {

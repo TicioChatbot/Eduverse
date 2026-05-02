@@ -1,0 +1,133 @@
+{
+  "topic": "Ciclo del agua",
+  "scene_title": "Viaje Del Agua",
+  "scene_description": "Una gota recorre evaporacion, condensacion, precipitacion y retorno al mar.",
+  "learning_goal": "Comprender como la energia solar mueve el agua entre oceano, atmosfera, montanas, rios y suelo.",
+  "teacher_brief": "La escena conecta cada etapa del ciclo con un objeto visible. Usa el quiz para verificar que el estudiante pueda leer el proceso completo en el mapa.",
+  "visual_metaphor": "Un circuito natural donde el Sol impulsa el ascenso del vapor y la gravedad devuelve el agua por lluvia y rios.",
+  "estimated_duration": "4 min",
+  "archetype": "ecosystem",
+  "game_mode": "gallery",
+  "objects": [
+    {
+      "name": "Ocean",
+      "shape": "cube",
+      "color": "#1D6FEA",
+      "size": {"x": 24, "y": 1.2, "z": 16},
+      "position": {"x": 0, "y": 1.2, "z": -82},
+      "label": "Oceano",
+      "description": "Es el gran deposito de agua liquida. Desde aqui comienza mucha evaporacion cuando recibe energia solar.",
+      "behavior": {"type": "pulse", "params": {"speed": 0.35, "scale": 1.04}}
+    },
+    {
+      "name": "Sun",
+      "shape": "sphere",
+      "color": "#FFD34D",
+      "size": {"x": 8, "y": 8, "z": 8},
+      "position": {"x": -18, "y": 18, "z": -88},
+      "label": "Energia solar",
+      "description": "El Sol entrega energia para que el agua se evapore. Sin esta fuente, el ciclo pierde su motor principal.",
+      "behavior": {"type": "rotate", "params": {"axis": "y", "speed": 0.7}}
+    },
+    {
+      "name": "WaterVapor",
+      "shape": "sphere",
+      "color": "#D9F3FF",
+      "size": {"x": 3.5, "y": 3.5, "z": 3.5},
+      "position": {"x": -7, "y": 8, "z": -82},
+      "label": "Evaporacion",
+      "description": "El agua liquida gana energia y pasa a vapor. Esta subida invisible alimenta la formacion de nubes.",
+      "behavior": {"type": "flow", "params": {"target": "Cloud", "speed": 0.35, "loop": true}}
+    },
+    {
+      "name": "Cloud",
+      "shape": "sphere",
+      "color": "#F0F7FF",
+      "size": {"x": 8, "y": 4, "z": 5},
+      "position": {"x": 4, "y": 14, "z": -92},
+      "label": "Condensacion",
+      "description": "El vapor se enfria y forma pequenas gotas. Esas gotas juntas construyen la nube.",
+      "behavior": {"type": "float", "params": {"amplitude": 0.8, "speed": 0.45}}
+    },
+    {
+      "name": "Rain",
+      "shape": "cylinder",
+      "color": "#68C7FF",
+      "size": {"x": 2.2, "y": 8, "z": 2.2},
+      "position": {"x": 7, "y": 7, "z": -92},
+      "label": "Precipitacion",
+      "description": "Cuando las gotas pesan demasiado, caen como lluvia. Asi el agua vuelve a la superficie.",
+      "behavior": {"type": "flow", "params": {"target": "River", "speed": 0.5, "loop": true}}
+    },
+    {
+      "name": "Mountain",
+      "shape": "wedge",
+      "color": "#6D7D8C",
+      "size": {"x": 12, "y": 10, "z": 10},
+      "position": {"x": 18, "y": 5, "z": -95},
+      "label": "Montana",
+      "description": "En zonas altas la lluvia puede acumularse o bajar por pendiente. La topografia guia el recorrido del agua.",
+      "behavior": {"type": "static", "params": {}}
+    },
+    {
+      "name": "River",
+      "shape": "cube",
+      "color": "#2E9BFF",
+      "size": {"x": 6, "y": 0.8, "z": 22},
+      "position": {"x": 12, "y": 1.4, "z": -78},
+      "label": "Escorrentia",
+      "description": "El agua corre por la superficie hasta rios y mares. Este retorno cierra una parte importante del ciclo.",
+      "behavior": {"type": "pulse", "params": {"speed": 0.5, "scale": 1.06}}
+    },
+    {
+      "name": "Soil",
+      "shape": "cube",
+      "color": "#7A5635",
+      "size": {"x": 16, "y": 1.2, "z": 8},
+      "position": {"x": -12, "y": 1.1, "z": -70},
+      "label": "Infiltracion",
+      "description": "Parte del agua entra al suelo. Alli puede alimentar plantas o reservas subterraneas.",
+      "behavior": {"type": "static", "params": {}}
+    },
+    {
+      "name": "Tree",
+      "shape": "cylinder",
+      "color": "#39A85A",
+      "size": {"x": 5, "y": 8, "z": 5},
+      "position": {"x": -13, "y": 5, "z": -67},
+      "label": "Transpiracion",
+      "description": "Las plantas liberan vapor de agua por sus hojas. Tambien participan en mover agua hacia la atmosfera.",
+      "behavior": {"type": "float", "params": {"amplitude": 0.25, "speed": 0.3}}
+    }
+  ],
+  "quiz": [
+    {
+      "question": "Observa el Sol en la escena: cual etapa depende directamente de su energia?",
+      "options": ["Evaporacion", "Sedimentacion", "Combustion", "Fotosintesis animal"],
+      "correct_index": 0,
+      "feedback": "Correcto: la energia solar permite que el agua pase de liquida a vapor.",
+      "difficulty": "easy"
+    },
+    {
+      "question": "Que representa la nube dentro del ciclo del agua?",
+      "options": ["Condensacion del vapor", "Agua subterranea profunda", "Roca derretida", "Salinidad del oceano"],
+      "correct_index": 0,
+      "feedback": "Bien: la nube aparece cuando el vapor se enfria y forma gotas pequenas.",
+      "difficulty": "medium"
+    },
+    {
+      "question": "Por que el rio ayuda a cerrar el ciclo?",
+      "options": ["Transporta agua de vuelta a mares y lagos", "Convierte lluvia en luz", "Detiene la evaporacion", "Crea oxigeno en la atmosfera"],
+      "correct_index": 0,
+      "feedback": "Exacto: la escorrentia devuelve agua hacia grandes depositos.",
+      "difficulty": "medium"
+    },
+    {
+      "question": "Cuando la lluvia entra al suelo, que proceso esta ocurriendo?",
+      "options": ["Infiltracion", "Orbita", "Magnetismo", "Fusion nuclear"],
+      "correct_index": 0,
+      "feedback": "Correcto: la infiltracion es el ingreso del agua al suelo.",
+      "difficulty": "easy"
+    }
+  ]
+}

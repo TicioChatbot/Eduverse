@@ -24,6 +24,8 @@ if not remoteLoaded then
     warn("[HUD] EduVerse_WorkshopLoaded not found — aborting.")
     return
 end
+local statusVal = ReplicatedStorage:WaitForChild("EduVerse_BackendStatus", 10)
+local quizAvailable = false
 
 -- ══════════════════════════════════════════════════════════
 --  PALETA
@@ -48,7 +50,7 @@ sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 -- ── Panel principal (esquina superior derecha) ───────────
 local panel = Instance.new("Frame", sg)
 panel.Name = "HudPanel"
-panel.Size = UDim2.new(0, 240, 0, 120)
+panel.Size = UDim2.new(0, 260, 0, 140)
 panel.AnchorPoint = Vector2.new(1, 0)
 panel.Position = UDim2.new(1, -16, 0, 16)
 panel.BackgroundColor3 = CLR.pill
@@ -91,7 +93,7 @@ local sessionLabel = Instance.new("TextLabel", panel)
 sessionLabel.Name = "SessionLabel"
 sessionLabel.Size = UDim2.new(1, -16, 0, 16)
 sessionLabel.Position = UDim2.new(0, 10, 0, 52)
-sessionLabel.Text = "Session: —"
+sessionLabel.Text = "Sesión: —"
 sessionLabel.TextColor3 = CLR.textSub
 sessionLabel.BackgroundTransparency = 1
 sessionLabel.Font = Enum.Font.Gotham
@@ -99,10 +101,23 @@ sessionLabel.TextSize = 11
 sessionLabel.TextXAlignment = Enum.TextXAlignment.Left
 
 -- Game mode badge
+local statusLabel = Instance.new("TextLabel", panel)
+statusLabel.Name = "StatusLabel"
+statusLabel.Size = UDim2.new(1, -16, 0, 14)
+statusLabel.Position = UDim2.new(0, 10, 0, 68)
+statusLabel.Text = statusVal and statusVal.Value or "Conectando..."
+statusLabel.TextColor3 = CLR.textSub
+statusLabel.BackgroundTransparency = 1
+statusLabel.Font = Enum.Font.Gotham
+statusLabel.TextSize = 10
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.TextTruncate = Enum.TextTruncate.AtEnd
+
+-- Game mode badge
 local modeLabel = Instance.new("TextLabel", panel)
 modeLabel.Name = "ModeLabel"
 modeLabel.Size = UDim2.new(1, -16, 0, 14)
-modeLabel.Position = UDim2.new(0, 10, 0, 68)
+modeLabel.Position = UDim2.new(0, 10, 0, 84)
 modeLabel.Text = ""
 modeLabel.TextColor3 = Color3.fromRGB(140, 200, 255)
 modeLabel.BackgroundTransparency = 1
@@ -114,9 +129,9 @@ modeLabel.TextXAlignment = Enum.TextXAlignment.Left
 local quizBtn = Instance.new("TextButton", panel)
 quizBtn.Name = "QuizBtn"
 quizBtn.Size = UDim2.new(1, -20, 0, 28)
-quizBtn.Position = UDim2.new(0, 10, 0, 86)
+quizBtn.Position = UDim2.new(0, 10, 0, 106)
 quizBtn.BackgroundColor3 = CLR.accent
-quizBtn.Text = "📝  Open Quiz"
+quizBtn.Text = "Quiz no disponible"
 quizBtn.TextColor3 = Color3.new(1, 1, 1)
 quizBtn.Font = Enum.Font.GothamBold
 quizBtn.TextSize = 13
@@ -126,17 +141,20 @@ local qc = Instance.new("UICorner", quizBtn)
 qc.CornerRadius = UDim.new(0, 8)
 
 quizBtn.MouseEnter:Connect(function()
+    if not quizAvailable then return end
     TweenService:Create(quizBtn, TweenInfo.new(0.15), {
         BackgroundColor3 = Color3.fromRGB(80, 160, 255)
     }):Play()
 end)
 quizBtn.MouseLeave:Connect(function()
+    if not quizAvailable then return end
     TweenService:Create(quizBtn, TweenInfo.new(0.15), {
         BackgroundColor3 = CLR.accent
     }):Play()
 end)
 
 quizBtn.MouseButton1Click:Connect(function()
+    if not quizAvailable then return end
     -- ONLY the button can open the quiz — never auto-open
     local quizGui = playerGui:FindFirstChild("EduVerseQuiz")
     if not quizGui then
@@ -146,7 +164,40 @@ quizBtn.MouseButton1Click:Connect(function()
     -- Make sure quiz is fully disabled first to block any stale state
     local isOpen = quizGui.Enabled
     quizGui.Enabled = not isOpen
-    quizBtn.Text = quizGui.Enabled and "Cancel Challenge" or "📝  Start Challenge"
+    quizBtn.Text = quizGui.Enabled and "Cancelar reto" or "Comenzar reto"
+end)
+
+local function hasQuizData()
+    local quizVal = ReplicatedStorage:FindFirstChild("EduVerse_Quiz")
+    return quizVal and quizVal.Value ~= "" and quizVal.Value ~= "[]"
+end
+
+local function updateQuizButton()
+    quizAvailable = hasQuizData()
+    quizBtn.Active = quizAvailable
+    if quizAvailable then
+        quizBtn.Text = "Comenzar reto"
+        quizBtn.TextColor3 = Color3.new(1, 1, 1)
+        quizBtn.BackgroundColor3 = CLR.accent
+    else
+        quizBtn.Text = "Quiz no disponible"
+        quizBtn.TextColor3 = CLR.textSub
+        quizBtn.BackgroundColor3 = Color3.fromRGB(35, 45, 70)
+    end
+end
+
+if statusVal then
+    statusVal.Changed:Connect(function()
+        statusLabel.Text = statusVal.Value
+    end)
+end
+
+task.spawn(function()
+    local quizVal = ReplicatedStorage:WaitForChild("EduVerse_Quiz", 30)
+    if quizVal then
+        quizVal.Changed:Connect(updateQuizButton)
+    end
+    updateQuizButton()
 end)
 
 -- ── Notificación de nuevo workshop ───────────────────────
@@ -191,15 +242,14 @@ remoteLoaded.OnClientEvent:Connect(function(info)
     if not info then return end
 
     topicLabel.Text   = info.topic or "Unknown topic"
-    sessionLabel.Text = "Session: " .. (info.session_id or "?"):sub(1, 8) ..
-                        "  •  " .. (info.objects_count or 0) .. " objects"
+    sessionLabel.Text = "Sesión: " .. (info.session_id or "?"):sub(1, 8) ..
+                        "  •  " .. (info.objects_count or 0) .. " objetos"
 
     -- Game mode badge
-    local modeIcons = { gallery="🖼 Gallery", arena="⚔️ Arena", obby="🏃 Obby" }
+    local modeIcons = { gallery="Galería", arena="Arena", obby="Obby" }
     modeLabel.Text = modeIcons[info.game_mode] or (info.game_mode or "")
 
-    quizBtn.Visible   = (info.quiz_count and info.quiz_count > 0)
-    quizBtn.Text      = "📝  Start Challenge"
+    updateQuizButton()
 
     -- Ensure quiz is closed when a new workshop arrives
     local quizGui = playerGui:FindFirstChild("EduVerseQuiz")
@@ -207,7 +257,7 @@ remoteLoaded.OnClientEvent:Connect(function(info)
         quizGui.Enabled = false
     end
 
-    showNotification("New workshop: " .. (info.topic or "?") .. " — Explore!")
+    showNotification("Taller cargado: " .. (info.topic or "?"))
 
     TweenService:Create(stroke, TweenInfo.new(0.2), {Transparency = 0}):Play()
     task.wait(0.4)
@@ -222,9 +272,10 @@ task.spawn(function()
     local modeVal    = ReplicatedStorage:FindFirstChild("EduVerse_GameMode")
     if topicVal and topicVal.Value ~= "" then
         topicLabel.Text   = topicVal.Value
-        sessionLabel.Text = "Session: " .. (sessionVal and sessionVal.Value or "?")
-        local modeIcons = { gallery="🖼 Gallery", arena="⚔️ Arena", obby="🏃 Obby" }
+        sessionLabel.Text = "Sesión: " .. (sessionVal and sessionVal.Value or "?")
+        local modeIcons = { gallery="Galería", arena="Arena", obby="Obby" }
         modeLabel.Text  = modeIcons[modeVal and modeVal.Value] or ""
+        updateQuizButton()
     end
 end)
 

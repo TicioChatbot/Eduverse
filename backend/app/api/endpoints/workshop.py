@@ -19,16 +19,63 @@ Endpoints mapping:
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, Path
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Path
 from pydantic import BaseModel
 from datetime import datetime, timezone
 
+from app.core.config import settings
+from app.services.demo_fixtures import list_demo_fixtures, load_demo_fixture
 from app.services.gemma import gemma_service
 from app.services.session_manager import session_manager
 from app.services.analytics import analytics_service
+from app.services.quality_gate import evaluate_workshop
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+async def require_admin_key(
+    admin_key: Optional[str] = Query(None, include_in_schema=False),
+    x_eduverse_key: Optional[str] = Header(None),
+) -> None:
+    """Optional write protection for public deploys.
+
+    When ADMIN_API_KEY is unset, local development keeps working without
+    friction. When set, dashboard/backend callers must send either the
+    X-EduVerse-Key header or an admin_key query param.
+    """
+    if not settings.ADMIN_API_KEY:
+        return
+    if admin_key == settings.ADMIN_API_KEY or x_eduverse_key == settings.ADMIN_API_KEY:
+        return
+    raise HTTPException(status_code=401, detail="Missing or invalid EduVerse admin key.")
+
+
+def _behavior_counts(workshop) -> dict:
+    behaviors = {}
+    for obj in workshop.objects:
+        bt = obj.behavior.type
+        behaviors[bt] = behaviors.get(bt, 0) + 1
+    return behaviors
+
+
+def _session_response(status: str, session, quality: Optional[dict] = None) -> dict:
+    workshop = session.workshop
+    return {
+        "status": status,
+        "session_id": session.id,
+        "topic": session.topic,
+        "scene_title": workshop.scene_title,
+        "game_mode": workshop.game_mode,
+        "archetype": workshop.archetype,
+        "learning_goal": workshop.learning_goal,
+        "visual_metaphor": workshop.visual_metaphor,
+        "objects_count": len(workshop.objects),
+        "quiz_count": len(workshop.quiz),
+        "behaviors": _behavior_counts(workshop),
+        "quality": quality,
+        "workshop": workshop.model_dump(),
+    }
 
 
 # ─────────────────────────────────────────────────────────
@@ -70,28 +117,15 @@ async def get_current_workshop():
 async def generate_workshop(
     topic: str = Query(..., description="Educational topic"),
     model: Optional[str] = Query(None, description="Gemini model override"),
+    _: None = Depends(require_admin_key),
 ):
     logger.info(f"[API] Generate request — topic: '{topic}'")
     try:
         workshop = await gemma_service.generate_workshop(topic=topic, model_name=model)
+        quality = evaluate_workshop(workshop, topic).to_dict()
         session = session_manager.create_session(workshop=workshop, topic=topic)
 
-        # Count behaviors for response
-        behaviors = {}
-        for obj in workshop.objects:
-            bt = obj.behavior.type
-            behaviors[bt] = behaviors.get(bt, 0) + 1
-
-        return {
-            "status": "generated",
-            "session_id": session.id,
-            "topic": topic,
-            "scene_title": workshop.scene_title,
-            "objects_count": len(workshop.objects),
-            "quiz_count": len(workshop.quiz),
-            "behaviors": behaviors,
-            "workshop": workshop.model_dump(),
-        }
+        return _session_response("generated", session, quality)
     except RuntimeError as e:
         logger.error(f"[API] AI error: {e}")
         raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")
@@ -104,7 +138,7 @@ async def generate_workshop(
 #  CLEAR
 # ─────────────────────────────────────────────────────────
 @router.delete("/current", summary="Clear active session")
-async def clear_active_session():
+async def clear_active_session(_: None = Depends(require_admin_key)):
     session_manager.clear_active()
     return {"status": "cleared", "message": "Scene will clear on next Roblox poll."}
 
@@ -113,7 +147,7 @@ async def clear_active_session():
 #  SESSIONS
 # ─────────────────────────────────────────────────────────
 @router.get("/sessions", summary="List all workshop sessions")
-async def list_sessions():
+async def list_sessions(_: None = Depends(require_admin_key)):
     return {
         "sessions": session_manager.list_sessions(),
         "total": session_manager.session_count,
@@ -121,7 +155,10 @@ async def list_sessions():
 
 
 @router.post("/sessions/{session_id}/activate", summary="Activate a past session")
-async def activate_session(session_id: str = Path(...)):
+async def activate_session(
+    session_id: str = Path(...),
+    _: None = Depends(require_admin_key),
+):
     session = session_manager.activate_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
@@ -131,6 +168,32 @@ async def activate_session(session_id: str = Path(...)):
         "topic": session.topic,
         "scene_title": session.workshop.scene_title,
     }
+
+
+# ─────────────────────────────────────────────────────────
+#  DEMO FIXTURES
+# ─────────────────────────────────────────────────────────
+@router.get("/demo", summary="List safe demo workshops")
+async def demo_fixtures(_: None = Depends(require_admin_key)):
+    return {"fixtures": list_demo_fixtures()}
+
+
+@router.post("/demo/{slug}/activate", summary="Activate a safe fixture workshop")
+async def activate_demo_fixture(
+    slug: str = Path(..., description="Fixture slug"),
+    _: None = Depends(require_admin_key),
+):
+    try:
+        workshop = load_demo_fixture(slug)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    quality = evaluate_workshop(workshop, workshop.topic).to_dict()
+    session = session_manager.create_session(
+        workshop=workshop,
+        topic=f"[demo] {workshop.topic}",
+    )
+    return _session_response("demo_activated", session, quality)
 
 
 # ─────────────────────────────────────────────────────────

@@ -1,0 +1,88 @@
+"""
+app.services.quality_gate
+─────────────────────────
+
+Deterministic guardrails that keep generated workshops specific enough for a
+demo. The gate runs before a session becomes active.
+"""
+
+from dataclasses import dataclass, field
+from typing import Iterable
+
+from app.models.workshop import Workshop
+from app.services.asset_registry import known_asset_names, relevant_asset_names
+
+_GENERIC_LABELS = {"objeto", "objeto 1", "concepto", "elemento", "elemento 1", "item"}
+_VISUAL_TERMS = {"observa", "escena", "objeto", "mundo", "plataforma", "zona", "centro", "más grande", "mas grande"}
+
+
+@dataclass
+class QualityReport:
+    ok: bool
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    asset_matches: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "ok": self.ok,
+            "errors": self.errors,
+            "warnings": self.warnings,
+            "asset_matches": self.asset_matches,
+        }
+
+
+def _behavior_types(workshop: Workshop) -> set[str]:
+    return {obj.behavior.type for obj in workshop.objects}
+
+
+def _question_mentions_visual(questions: Iterable[str], object_terms: set[str]) -> bool:
+    for question in questions:
+        q = question.lower()
+        if any(term in q for term in _VISUAL_TERMS):
+            return True
+        if any(term and term in q for term in object_terms):
+            return True
+    return False
+
+
+def evaluate_workshop(workshop: Workshop, source_topic: str) -> QualityReport:
+    errors: list[str] = []
+    warnings: list[str] = []
+    names = known_asset_names()
+    asset_matches = sorted({obj.name for obj in workshop.objects if obj.name in names})
+    relevant = relevant_asset_names(source_topic, workshop.archetype)
+
+    if not (7 <= len(workshop.objects) <= 11):
+        errors.append("La escena debe tener entre 7 y 11 objetos.")
+    if len(workshop.quiz) != 4:
+        errors.append("El quiz debe tener exactamente 4 preguntas.")
+
+    if len(relevant) >= 2 and len(asset_matches) < 2:
+        errors.append("La escena usa pocos assets reales para un tema que sí tiene assets relevantes.")
+    elif len(asset_matches) < 2:
+        warnings.append("La escena usa menos de 2 assets reales; puede sentirse genérica.")
+
+    for obj in workshop.objects:
+        label = (obj.label or obj.name).lower().strip()
+        if label in _GENERIC_LABELS:
+            errors.append(f"Label genérico no permitido: '{obj.label or obj.name}'.")
+
+    if _behavior_types(workshop) == {"float"} and len(workshop.objects) > 3:
+        errors.append("Todos los objetos flotan; la escena necesita variedad de comportamiento.")
+
+    object_terms = {
+        term.lower()
+        for obj in workshop.objects
+        for term in (obj.name, obj.label or "")
+        if len(str(term).strip()) >= 4
+    }
+    if not _question_mentions_visual((q.question for q in workshop.quiz), object_terms):
+        errors.append("Al menos una pregunta debe referirse a algo visible en la escena.")
+
+    return QualityReport(
+        ok=not errors,
+        errors=errors,
+        warnings=warnings,
+        asset_matches=asset_matches,
+    )

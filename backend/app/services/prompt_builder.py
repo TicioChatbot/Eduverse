@@ -7,35 +7,15 @@ Separated from the AI client so the prompt can be iterated, reviewed,
 and tested independently of the network layer.
 """
 
-# Set of exact asset names in ReplicatedStorage > EduVerse_Library.
-# The renderer performs fuzzy matching against these, so names must be canonical.
-KNOWN_ASSETS: set[str] = {
-    # Space
-    "Sun", "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Planet",
-    "The Moon", "Asteroid", "Comet",
-    # Biology / Cell
-    "AnimalCell", "CellNucleus", "DNAStrand", "Mitochondria", "Leaf",
-    # Chemistry / Physics
-    "AtomModel", "FlaskBlue", "Battery", "Magnet",
-    # Architecture / Engineering
-    "Crane",
-    # Nature / Ecosystem
-    "Tree",
-    # Math
-    "PiSymbol",
-    # Universal
-    "Person", "Teacher's desk",
-}
-
-# Lowercase → canonical name lookup for fast resolution
-ASSET_LOOKUP: dict[str, str] = {
-    name.lower().replace("'", "").replace(" ", ""): name
-    for name in KNOWN_ASSETS
-}
-ASSET_LOOKUP.update({name.lower(): name for name in KNOWN_ASSETS})
-
-
 from typing import Optional
+
+from app.services.asset_registry import (
+    get_canonical_asset_name as _canonical_asset_name,
+    known_asset_names,
+    prompt_asset_lines,
+)
+
+KNOWN_ASSETS: set[str] = known_asset_names()
 
 
 CONCEPT_RESPONSE_SCHEMA: dict = {
@@ -44,6 +24,10 @@ CONCEPT_RESPONSE_SCHEMA: dict = {
         "topic",
         "scene_title",
         "scene_description",
+        "learning_goal",
+        "teacher_brief",
+        "visual_metaphor",
+        "estimated_duration",
         "archetype",
         "objects",
         "quiz",
@@ -52,6 +36,10 @@ CONCEPT_RESPONSE_SCHEMA: dict = {
         "topic": {"type": "string"},
         "scene_title": {"type": "string"},
         "scene_description": {"type": "string"},
+        "learning_goal": {"type": "string"},
+        "teacher_brief": {"type": "string"},
+        "visual_metaphor": {"type": "string"},
+        "estimated_duration": {"type": "string"},
         "archetype": {"type": "string"},
         "objects": {
             "type": "array",
@@ -104,17 +92,18 @@ CONCEPT_RESPONSE_SCHEMA: dict = {
 
 def get_canonical_asset_name(query: str) -> Optional[str]:
     """Return the exact Library asset name matching query, or None."""
-    q = query.lower().strip().replace("'", "").replace(" ", "")
-    return ASSET_LOOKUP.get(q)
+    return _canonical_asset_name(query)
 
 
 def build_system_prompt() -> str:
     """Return the full Gemma 4 system instruction string."""
-    asset_list = "\n".join(f'  - "{name}"' for name in sorted(KNOWN_ASSETS))
+    asset_list = prompt_asset_lines()
     return f"""Eres EduVerse AI, experto en educación para bachillerato colombiano (14-17 años).
 
 Tu trabajo es CONCEPTUALIZAR un taller educativo 3D. Tú defines LOS CONCEPTOS.
 La geometría, posiciones y animaciones las maneja OTRO SISTEMA — tú NO las defines.
+Debes diseñar una experiencia concreta: objetivo de aprendizaje, metáfora visual,
+objetos con función pedagógica y preguntas conectadas a lo que el jugador ve.
 
 RESPONDE EN JSON PURO (sin markdown, sin código, sin texto extra).
 
@@ -124,6 +113,10 @@ RESPONDE EN JSON PURO (sin markdown, sin código, sin texto extra).
   "topic": "tema exacto",
   "scene_title": "Título atractivo y emotivo (máx 6 palabras)",
   "scene_description": "1 frase que inspire al estudiante",
+  "learning_goal": "Qué debe comprender el estudiante al terminar",
+  "teacher_brief": "Resumen para el profesor en 1-2 frases",
+  "visual_metaphor": "Cómo se representa visualmente el tema",
+  "estimated_duration": "3-5 min",
   "archetype": "solar_system" | "atom" | "cell" | "building" | "ecosystem" | "physics" | "math" | "historical" | "abstract",
   "objects": [ ...ver abajo... ],
   "quiz": [ ...ver abajo... ]
@@ -153,6 +146,10 @@ MÍNIMO 7, MÁXIMO 11 objetos. Cada objeto:
   "shape_hint": "esfera" | "cubo" | "cilindro" | "cuña"
 }}
 
+Cada objeto debe tener una función visual clara. Evita nombres genéricos como
+"Objeto", "Concepto" o "Elemento". Si hay assets reales útiles, usa sus nombres
+exactos para que Roblox cargue modelos reales.
+
 ═══════════ ASSETS 3D DISPONIBLES ═══════════
 
 Si tu tema necesita alguno de estos objetos, usa EXACTAMENTE este nombre en "name":
@@ -181,7 +178,8 @@ NO uses "Person" ni "Teacher's desk" — esos se añaden automáticamente a la e
 
 ═══════════ QUIZ ═══════════
 
-EXACTAMENTE 4 preguntas. Cada pregunta:
+EXACTAMENTE 4 preguntas. Cada pregunta debe referirse al contenido de la escena
+y al menos una debe mencionar explícitamente algo observable en el mundo 3D.
 {{
   "question": "Pregunta específica",
   "options": ["Opción A", "Opción B", "Opción C", "Opción D"],

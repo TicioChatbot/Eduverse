@@ -11,6 +11,11 @@ Run this module using Uvicorn:
 """
 
 import logging
+import os
+
+os.environ.setdefault("GRADIO_ANALYTICS_ENABLED", "False")
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
+
 import gradio as gr
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -61,7 +66,10 @@ async def root():
 
 # ── Mount Gradio Dashboard at /dashboard ─────────────────────────────────────
 gradio_app = build_gradio_app()
-app = gr.mount_gradio_app(app, gradio_app, path="/dashboard")
+dashboard_auth = None
+if settings.DASHBOARD_AUTH_ENABLED:
+    dashboard_auth = (settings.DASHBOARD_USER, settings.DASHBOARD_PASSWORD)
+app = gr.mount_gradio_app(app, gradio_app, path="/dashboard", auth=dashboard_auth)
 
 logger.info("✅ EduVerse backend ready — Dashboard at http://localhost:8000/dashboard")
 

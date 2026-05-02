@@ -10,17 +10,46 @@ Also automatically fetches data on tab-change for seamless UX.
 
 import json
 import logging
+import os
 from datetime import datetime, timezone
+from html import escape
 from typing import Optional
 
 import gradio as gr
 import httpx
 
+from app.core.config import settings
 from app.db import repository
 
 logger = logging.getLogger(__name__)
 
-_API = "http://127.0.0.1:8000"
+_API = settings.DASHBOARD_API_BASE_URL or f"http://127.0.0.1:{os.getenv('PORT', '8000')}"
+
+
+def _admin_params(params: Optional[dict] = None) -> dict:
+    merged = dict(params or {})
+    if settings.ADMIN_API_KEY:
+        merged["admin_key"] = settings.ADMIN_API_KEY
+    return merged
+
+
+def _api_error(resp: httpx.Response) -> str:
+    try:
+        return str(resp.json().get("detail", resp.text))
+    except Exception:
+        return resp.text
+
+
+def _quality_note(data: dict) -> str:
+    quality = data.get("quality") or {}
+    warnings = quality.get("warnings") or []
+    assets = quality.get("asset_matches") or []
+    parts = []
+    if assets:
+        parts.append("Assets reales: " + ", ".join(escape(str(a)) for a in assets[:6]))
+    if warnings:
+        parts.append("Warnings: " + " · ".join(escape(str(w)) for w in warnings))
+    return "<br><small>" + " | ".join(parts) + "</small>" if parts else ""
 
 # ── Custom Advanced CSS / Theme ─────────────────────────────────────────────
 _CUSTOM_CSS = """
@@ -329,6 +358,11 @@ def build_gradio_app() -> gr.Blocks:
                             details_input = gr.Textbox(label="📝 Instrucciones (opcional)", placeholder="Ej: enfocarse en edad de 14 años…", lines=2)
                             material_input = gr.Textbox(label="📎 Material de Apoyo (opcional)", placeholder="Pega texto de libro…", lines=3)
                             generate_btn = gr.Button("🚀 Generar y Enviar a Roblox", elem_classes=["btn-primary"], size="lg")
+                            gr.Markdown("### Demo segura")
+                            with gr.Row():
+                                demo_water_btn = gr.Button("Ciclo del agua", size="sm")
+                                demo_newton_btn = gr.Button("Leyes de Newton", size="sm")
+                                demo_history_btn = gr.Button("Revolución Francesa", size="sm")
                         with gr.Column(scale=1):
                             preview_box = gr.JSON(label="Workshop Generado", visible=True)
                     result_banner = gr.HTML()
@@ -339,20 +373,51 @@ def build_gradio_app() -> gr.Blocks:
                     if details.strip() or material.strip():
                         payload = topic + "\n\n" + details + "\n\n" + material[:2000]
                     try:
-                        resp = httpx.post(f"{_API}/workshop/generate", params={"topic": payload}, timeout=150)
-                        if resp.status_code != 200: return {}, f'<div class="status-error">❌ Error: {resp.json().get("detail", "")}</div>'
+                        resp = httpx.post(f"{_API}/workshop/generate", params=_admin_params({"topic": payload}), timeout=150)
+                        if resp.status_code != 200:
+                            return {}, f'<div class="status-error">❌ Error: {escape(_api_error(resp))}</div>'
                         data = resp.json()
-                        return data.get("workshop", {}), f'<div class="status-ok">✅ Sesión <strong>{data.get("session_id","?")}</strong> creada: <em>{data.get("scene_title","?")}</em></div>'
+                        banner = (
+                            f'<div class="status-ok">✅ Sesión <strong>{escape(str(data.get("session_id","?")))}</strong> '
+                            f'creada · modo <strong>{escape(str(data.get("game_mode","?")))}</strong>: '
+                            f'<em>{escape(str(data.get("scene_title","?")))}</em>'
+                            f'{_quality_note(data)}</div>'
+                        )
+                        return data.get("workshop", {}), banner
                     except Exception as e:
-                        return {}, f'<div class="status-error">❌ Connection Error: {e}</div>'
+                        return {}, f'<div class="status-error">❌ Connection Error: {escape(str(e))}</div>'
+
+                def activate_demo(slug):
+                    try:
+                        resp = httpx.post(f"{_API}/workshop/demo/{slug}/activate", params=_admin_params(), timeout=20)
+                        if resp.status_code != 200:
+                            return {}, f'<div class="status-error">❌ Error demo: {escape(_api_error(resp))}</div>'
+                        data = resp.json()
+                        banner = (
+                            f'<div class="status-ok">✅ Demo <strong>{escape(str(data.get("session_id","?")))}</strong> '
+                            f'activa · modo <strong>{escape(str(data.get("game_mode","?")))}</strong>: '
+                            f'<em>{escape(str(data.get("scene_title","?")))}</em>'
+                            f'{_quality_note(data)}</div>'
+                        )
+                        return data.get("workshop", {}), banner
+                    except Exception as e:
+                        return {}, f'<div class="status-error">❌ Error demo: {escape(str(e))}</div>'
                 
                 generate_btn.click(fn=do_generate, inputs=[topic_input, details_input, material_input], outputs=[preview_box, result_banner])
+                demo_water_btn.click(fn=lambda: activate_demo("ciclo-del-agua"), outputs=[preview_box, result_banner])
+                demo_newton_btn.click(fn=lambda: activate_demo("leyes-de-newton"), outputs=[preview_box, result_banner])
+                demo_history_btn.click(fn=lambda: activate_demo("revolucion-francesa"), outputs=[preview_box, result_banner])
 
             # ── 3. SESSION HISTORY ───────────────────────────────────────────────
             with gr.Tab("📚 Historial") as tab_history:
                 with gr.Column():
                     gr.Markdown("## Historial de Sesiones\nTodas las sesiones generadas. Reactiva cualquier sesión para enviarla a Roblox nuevamente.")
-                    sessions_table = gr.Dataframe(headers=["ID", "Tema", "Título", "Objs", "Quiz", "Creada", "Activa"], datatype=["str"]*7, interactive=False)
+                    hist_mode_filter = gr.Dropdown(
+                        label="Filtrar por modo",
+                        choices=["todos", "gallery", "obby", "arena"],
+                        value="todos",
+                    )
+                    sessions_table = gr.Dataframe(headers=["ID", "Tema", "Modo", "Título", "Objs", "Quiz", "Creada", "Activa"], datatype=["str"]*8, interactive=False)
                     
                     gr.Markdown("### 🔁 Reactivar Sesión")
                     with gr.Row():
@@ -360,21 +425,43 @@ def build_gradio_app() -> gr.Blocks:
                         hist_activate_btn = gr.Button("▶ Reactivar", elem_classes=["btn-primary"], scale=1)
                     hist_status = gr.HTML()
                 
-                def load_hist():
+                def load_hist(mode_filter):
                     try:
                         rows = repository.list_sessions(limit=100)
-                        return [[r["id"], r["topic"][:60], r.get("scene_title",""), r.get("objects_count",0), r.get("quiz_count",0), _ts_to_local(r.get("created_at")), "✅ Sí" if r.get("is_active") else "—"] for r in rows]
-                    except: return []
+                        out = []
+                        for r in rows:
+                            workshop_json = r.get("workshop_json") or "{}"
+                            try:
+                                workshop = json.loads(workshop_json)
+                            except Exception:
+                                workshop = {}
+                            mode = workshop.get("game_mode") or "gallery"
+                            if mode_filter != "todos" and mode != mode_filter:
+                                continue
+                            out.append([
+                                r["id"],
+                                r["topic"][:60],
+                                mode,
+                                r.get("scene_title",""),
+                                r.get("objects_count",0),
+                                r.get("quiz_count",0),
+                                _ts_to_local(r.get("created_at")),
+                                "✅ Sí" if r.get("is_active") else "—",
+                            ])
+                        return out
+                    except Exception:
+                        return []
 
                 def hist_auth(sid):
                     if not sid.strip(): return '<div class="status-error">❌ ID vacío.</div>'
                     try:
-                        resp = httpx.post(f"{_API}/workshop/sessions/{sid.strip()}/activate", timeout=10)
+                        resp = httpx.post(f"{_API}/workshop/sessions/{sid.strip()}/activate", params=_admin_params(), timeout=10)
                         if resp.status_code == 200: return f'<div class="status-ok">✅ Sesión {sid} reactivada.</div>'
                         return f'<div class="status-error">❌ Error: {resp.text}</div>'
                     except Exception as e: return f'<div class="status-error">❌ {e}</div>'
 
-                tab_history.select(fn=load_hist, outputs=[sessions_table])
+                tab_history.select(fn=load_hist, inputs=[hist_mode_filter], outputs=[sessions_table])
+                hist_mode_filter.change(fn=load_hist, inputs=[hist_mode_filter], outputs=[sessions_table])
                 hist_activate_btn.click(fn=hist_auth, inputs=[hist_session_id], outputs=[hist_status])
 
             # ── 4. QUIZ RESULTS ──────────────────────────────────────────────────

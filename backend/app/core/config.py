@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     GEMMA_USE_RESPONSE_SCHEMA: bool = True
     GEMMA_SCHEMA_TIMEOUT_SECONDS: int = 12
     GEMMA_REQUEST_TIMEOUT_SECONDS: int = 120
+    GEMMA_REPAIR_ON_QUALITY_FAIL: bool = True
+    ADMIN_API_KEY: str = ""
+    DASHBOARD_AUTH_ENABLED: bool = False
+    DASHBOARD_USER: str = "admin"
+    DASHBOARD_PASSWORD: str = "admin"
+    DASHBOARD_API_BASE_URL: str = ""
     PAYMENT_BASE_URL: str = ""
     RESEND_API_KEY: str = ""
     TESTING_PASS: str = "admin"

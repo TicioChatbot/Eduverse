@@ -58,6 +58,12 @@ local function getOrCreate(name, class)
 end
 
 local remoteWorkshopLoaded = getOrCreate("EduVerse_WorkshopLoaded", "RemoteEvent")
+local statusValue = getOrCreate(Config.STATUS_KEY, "StringValue")
+statusValue.Value = "Conectando con backend..."
+
+local function setBackendStatus(text)
+    statusValue.Value = text
+end
 
 -- ── Renderer dispatch table ───────────────────────────────────────────────────
 local RENDERERS = {
@@ -424,6 +430,54 @@ local function clearScene()
     SoundscapeEngine.stop()
 end
 
+local function clearReplicatedState()
+    getOrCreate(Config.TOPIC_KEY,     "StringValue").Value = ""
+    getOrCreate(Config.SESSION_KEY,   "StringValue").Value = ""
+    getOrCreate(Config.QUIZ_KEY,      "StringValue").Value = ""
+    getOrCreate(Config.GAME_MODE_KEY, "StringValue").Value = ""
+end
+
+local function createStartGuide(folder, gameMode)
+    local startPos = Config.PLAYER_START_POS or Vector3.new(8, 5, -76)
+    local sceneTarget = gameMode == "arena" and Vector3.new(0, startPos.Y, -90) or Vector3.new(0, startPos.Y, -82)
+
+    local pad = Instance.new("Part", folder)
+    pad.Name = "EduVerseStartPad"
+    pad.Anchored = true
+    pad.CanCollide = true
+    pad.Size = Vector3.new(12, 0.5, 12)
+    pad.Position = startPos - Vector3.new(0, 3.2, 0)
+    pad.Material = Enum.Material.Neon
+    pad.Color = Color3.fromRGB(50, 130, 255)
+    pad.Transparency = 0.2
+
+    local distance = (sceneTarget - startPos).Magnitude
+    if distance > 4 then
+        local beam = Instance.new("Part", folder)
+        beam.Name = "EduVerseSceneDirection"
+        beam.Anchored = true
+        beam.CanCollide = false
+        beam.Size = Vector3.new(0.6, 0.25, distance)
+        beam.Material = Enum.Material.Neon
+        beam.Color = Color3.fromRGB(80, 180, 255)
+        beam.Transparency = 0.25
+        beam.CFrame = CFrame.lookAt((startPos + sceneTarget) / 2, sceneTarget)
+    end
+end
+
+local function teleportPlayersToStart()
+    if not Config.AUTO_TELEPORT_PLAYERS then return end
+    task.delay(1.2, function()
+        for _, player in Players:GetPlayers() do
+            local char = player.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if root then
+                root.CFrame = CFrame.new(Config.PLAYER_START_POS or Vector3.new(8, 5, -76))
+            end
+        end
+    end)
+end
+
 local function renderWorkshop(data)
     clearScene()
     local folder   = Instance.new("Folder", workspace)
@@ -434,6 +488,7 @@ local function renderWorkshop(data)
 
     local renderer = RENDERERS[gameMode] or GalleryRenderer
     local ctx = buildCtx()
+    createStartGuide(folder, gameMode)
     renderer.render(data, folder, ctx)
 
     spawnGuide(folder, title)
@@ -445,6 +500,11 @@ local function renderWorkshop(data)
     getOrCreate(Config.SESSION_KEY,   "StringValue").Value = data.session_id or ""
     getOrCreate(Config.QUIZ_KEY,      "StringValue").Value = HttpService:JSONEncode(data.quiz or {})
     getOrCreate(Config.GAME_MODE_KEY, "StringValue").Value = gameMode
+    setBackendStatus("Taller activo: " .. title)
+
+    if gameMode ~= "obby" then
+        teleportPlayersToStart()
+    end
 
     remoteWorkshopLoaded:FireAllClients({
         topic         = topic,
@@ -470,10 +530,23 @@ while true do
     end)
     if ok then
         local ok2, data = pcall(HttpService.JSONDecode, HttpService, res)
-        if ok2 and data and data.ready and data.session_id ~= activeSessionId then
-            activeSessionId = data.session_id
-            renderWorkshop(data)
+        if ok2 and data then
+            if data.ready and data.session_id ~= activeSessionId then
+                activeSessionId = data.session_id
+                renderWorkshop(data)
+            elseif data.ready == false then
+                setBackendStatus("Esperando taller...")
+                if activeSessionId ~= nil then
+                    activeSessionId = nil
+                    clearScene()
+                    clearReplicatedState()
+                end
+            end
+        else
+            setBackendStatus("Respuesta inválida del backend")
         end
+    else
+        setBackendStatus("Sin conexión con backend")
     end
     task.wait(Config.POLL_INTERVAL)
 end

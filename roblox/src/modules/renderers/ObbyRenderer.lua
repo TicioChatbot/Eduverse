@@ -158,7 +158,7 @@ end
 
 -- Builds one stage for a single quiz question.
 -- Returns the CFrame of the checkpoint (used for respawn).
-local function buildStage(folder, stageIdx, question, checkpointZ, serverAnswer, playerDebounce)
+local function buildStage(folder, stageIdx, question, checkpointZ, serverAnswer, playerDebounce, playerCheckpoint, stageCompleted)
     -- Add upward slope (climb) and sequential animation delay per stage
     local runwayY  = PATH.RUNWAY_Y + (stageIdx - 1) * 6
     local cpPos    = Vector3.new(0, runwayY, checkpointZ)
@@ -186,7 +186,7 @@ local function buildStage(folder, stageIdx, question, checkpointZ, serverAnswer,
         bb.LightInfluence = 0
         stageLabel     = Instance.new("TextLabel", bb)
         stageLabel.Size               = UDim2.new(1, 0, 1, 0)
-        stageLabel.Text               = "Stage " .. stageIdx
+        stageLabel.Text               = "Etapa " .. stageIdx
         stageLabel.TextColor3         = Color3.fromRGB(160, 200, 255)
         stageLabel.BackgroundTransparency = 1
         stageLabel.Font               = Enum.Font.GothamBlack
@@ -208,6 +208,13 @@ local function buildStage(folder, stageIdx, question, checkpointZ, serverAnswer,
 
     local checkpointCF = CFrame.new(cpPos)
     local options = question.options or {}
+
+    cp.Touched:Connect(function(hit)
+        local player = Players:GetPlayerFromCharacter(hit.Parent)
+        if player then
+            playerCheckpoint[tostring(player.UserId)] = checkpointCF
+        end
+    end)
 
     for optIdx = 1, 4 do
         local optText  = options[optIdx] or ("Opción " .. LETTERS[optIdx])
@@ -242,6 +249,9 @@ local function buildStage(folder, stageIdx, question, checkpointZ, serverAnswer,
             if not player then return end
 
             local uid = tostring(player.UserId)
+            local stageKey = uid .. "_stage_" .. stageIdx
+            if stageCompleted[stageKey] then return end
+
             local key = uid .. "_" .. debounceKey
             if playerDebounce[key] then return end
             playerDebounce[key] = true
@@ -251,6 +261,7 @@ local function buildStage(folder, stageIdx, question, checkpointZ, serverAnswer,
             local isCorrect   = (optIdx == correctIdx)
 
             if isCorrect then
+                stageCompleted[stageKey] = true
                 -- ── CORRECT ──────────────────────────────────────────────
                 plat.Color = Color3.fromRGB(40, 220, 100)
                 burstParticles(plat, Color3.fromRGB(80, 255, 120), 60, 1.0)
@@ -310,7 +321,7 @@ local function buildStage(folder, stageIdx, question, checkpointZ, serverAnswer,
 
                 -- Teleport player back to their checkpoint after fall
                 task.spawn(function()
-                    respawnAt(player, checkpointCF)
+                    respawnAt(player, playerCheckpoint[uid] or checkpointCF)
                     -- Allow them to try again after respawn
                     task.wait(1.5)
                     -- Restore the platform for re-attempt
@@ -350,6 +361,8 @@ function ObbyRenderer.render(data, folder, ctx)
 
     -- State tables (per-play, destroyed with folder)
     local playerDebounce = {}
+    local playerCheckpoint = {}
+    local stageCompleted = {}
 
     -- ServerAnswer is created by QuizManager — wait for it
     local serverAnswer = ReplicatedStorage:WaitForChild("EduVerse_QuizAnswerServer", 15)
@@ -385,10 +398,18 @@ function ObbyRenderer.render(data, folder, ctx)
     -- Title board at the start
     makeBillboard(
         spawnPlat,
-        "🏃 " .. (data.scene_title or "Trivia Path") .. "\nJump to the CORRECT answer!",
+        (data.scene_title or "Trivia Path") .. "\nSalta a la respuesta correcta",
         PATH.CP_SIZE.Y / 2 + 12,
         Vector2.new(24, 6)
     )
+
+    local startCF = CFrame.new(spawnPlat.Position)
+    spawnPlat.Touched:Connect(function(hit)
+        local player = Players:GetPlayerFromCharacter(hit.Parent)
+        if player then
+            playerCheckpoint[tostring(player.UserId)] = startCF
+        end
+    end)
 
     -- ── Teleport all current players to the start platform ────────────────────
     task.delay(2, function()
@@ -406,8 +427,31 @@ function ObbyRenderer.render(data, folder, ctx)
         local stageZ = PATH.START_Z + PATH.ANSWER_OFFSET_Z
                        - (stageIdx - 1) * PATH.STAGE_STRIDE
 
-        buildStage(folder, stageIdx, question, stageZ, serverAnswer, playerDebounce)
+        buildStage(folder, stageIdx, question, stageZ, serverAnswer, playerDebounce, playerCheckpoint, stageCompleted)
     end
+
+    -- ── Kill plane / safety respawn ──────────────────────────────────────────
+    local killPlane = Instance.new("Part", folder)
+    killPlane.Name = "ObbyKillPlane"
+    killPlane.Anchored = true
+    killPlane.CanCollide = false
+    killPlane.Transparency = 1
+    killPlane.Size = Vector3.new(220, 2, totalLength + 140)
+    killPlane.Position = Vector3.new(0, PATH.RUNWAY_Y - 18, PATH.START_Z - totalLength / 2)
+    local killDebounce = {}
+    killPlane.Touched:Connect(function(hit)
+        local player = Players:GetPlayerFromCharacter(hit.Parent)
+        if player then
+            local uid = tostring(player.UserId)
+            if killDebounce[uid] then return end
+            killDebounce[uid] = true
+            task.spawn(function()
+                respawnAt(player, playerCheckpoint[uid] or startCF)
+                task.wait(1)
+                killDebounce[uid] = nil
+            end)
+        end
+    end)
 
     -- ── Finish platform (after the last stage) ────────────────────────────────
     local finishZ = PATH.START_Z + PATH.ANSWER_OFFSET_Z
@@ -423,7 +467,7 @@ function ObbyRenderer.render(data, folder, ctx)
     )
     makeBillboard(
         finishPlat,
-        "🏆 You finished the course! Amazing!",
+        "Terminaste el recorrido",
         PATH.CP_SIZE.Y / 2 + 8,
         Vector2.new(22, 5)
     )

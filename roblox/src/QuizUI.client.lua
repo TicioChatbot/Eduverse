@@ -134,7 +134,7 @@ headerGrad.Color = ColorSequence.new({
 })
 headerGrad.Rotation = 90
 
-local headerTitle = makeLabel(header, "🧠  EduVerse — Quiz",
+local headerTitle = makeLabel(header, "EduVerse - Quiz",
     UDim2.new(0.72, 0, 1, 0), UDim2.new(0.02, 0, 0, 0),
     Enum.Font.GothamBold, CLR.textPrimary, Enum.TextXAlignment.Left)
 
@@ -317,7 +317,7 @@ local function showResult(result)
     if currentQuestion < #quizData then
         nextBtn.Text = "Siguiente →"
     else
-        nextBtn.Text = "🎉 Ver Resultado"
+        nextBtn.Text = "Ver resultado"
     end
     nextBtn.Visible = true
 end
@@ -329,7 +329,7 @@ nextBtn.MouseButton1Click:Connect(function()
         loadQuestion(currentQuestion)
     else
         questionText.Text = string.format(
-            "🎉 ¡Quiz completado!\n\nPuntaje final: %d/%d",
+            "Quiz completado\n\nPuntaje final: %d/%d",
             scoreCorrect, scoreTotal
         )
         for _, btn in ipairs(optionButtons) do btn.Visible = false end
@@ -349,21 +349,12 @@ remoteResult.OnClientEvent:Connect(function(result)
     end
 end)
 
--- ══════════════════════════════════════════════════════════
---  LOAD QUIZ DATA (silently, NEVER auto-open)
--- ══════════════════════════════════════════════════════════
-remoteLoaded.OnClientEvent:Connect(function(info)
-    -- ✅ GUARANTEE: quiz is hidden when a new workshop loads
-    local sg = playerGui:FindFirstChild("EduVerseQuiz")
-    if sg then sg.Enabled = false end
-
-    task.wait(0.5)
-
+local function loadQuizFromReplicated(info)
     local quizValue = ReplicatedStorage:FindFirstChild("EduVerse_Quiz")
-    if not quizValue or quizValue.Value == "" then return end
+    if not quizValue or quizValue.Value == "" or quizValue.Value == "[]" then return false end
 
     local ok, decoded = pcall(HttpService.JSONDecode, HttpService, quizValue.Value)
-    if not ok or type(decoded) ~= "table" or #decoded == 0 then return end
+    if not ok or type(decoded) ~= "table" or #decoded == 0 then return false end
 
     -- Load data silently — user opens quiz via HUD button ONLY
     quizData        = decoded
@@ -377,6 +368,24 @@ remoteLoaded.OnClientEvent:Connect(function(info)
 
     print(string.format("[QuizUI] ✅ Quiz loaded: %d questions about '%s'. Waiting for student click.",
         #quizData, info and info.topic or "?"))
+    return true
+end
+
+-- ══════════════════════════════════════════════════════════
+--  LOAD QUIZ DATA (silently, NEVER auto-open)
+-- ══════════════════════════════════════════════════════════
+remoteLoaded.OnClientEvent:Connect(function(info)
+    -- GUARANTEE: quiz is hidden when a new workshop loads
+    local existing = playerGui:FindFirstChild("EduVerseQuiz")
+    if existing then existing.Enabled = false end
+
+    task.wait(0.5)
+    loadQuizFromReplicated(info)
+end)
+
+task.spawn(function()
+    task.wait(2)
+    loadQuizFromReplicated({ topic = "sesion activa" })
 end)
 
 print("[QuizUI] ✅ Ready (quiz HIDDEN until student clicks 'Comenzar Reto').")

@@ -1,0 +1,113 @@
+{
+  "topic": "Leyes de Newton",
+  "scene_title": "Fuerzas En Camino",
+  "scene_description": "Un recorrido de plataformas convierte fuerza, masa y aceleracion en decisiones fisicas.",
+  "learning_goal": "Reconocer las tres leyes de Newton y aplicarlas a situaciones visibles de movimiento e interaccion.",
+  "teacher_brief": "El obby fuerza a elegir respuestas mientras el escenario muestra vectores, rampa, resorte y movimiento. Sirve para repasar antes de ejercicios numericos.",
+  "visual_metaphor": "Cada pregunta es una etapa del movimiento: inercia, aceleracion, accion-reaccion y fuerzas netas.",
+  "estimated_duration": "5 min",
+  "archetype": "physics",
+  "game_mode": "obby",
+  "objects": [
+    {
+      "name": "ForceArrow",
+      "shape": "wedge",
+      "color": "#FF4D4D",
+      "size": {"x": 4, "y": 3, "z": 10},
+      "position": {"x": -22, "y": 31, "z": -70},
+      "label": "Fuerza neta",
+      "description": "Una fuerza neta cambia el movimiento de un objeto. Si la fuerza resultante es cero, el estado de movimiento se mantiene.",
+      "behavior": {"type": "pulse", "params": {"speed": 0.6, "scale": 1.08}}
+    },
+    {
+      "name": "Ramp",
+      "shape": "wedge",
+      "color": "#8AA0B8",
+      "size": {"x": 10, "y": 5, "z": 12},
+      "position": {"x": 24, "y": 30, "z": -92},
+      "label": "Plano inclinado",
+      "description": "La rampa ayuda a visualizar como una componente de la gravedad puede acelerar un objeto.",
+      "behavior": {"type": "static", "params": {}}
+    },
+    {
+      "name": "VelocityVector",
+      "shape": "wedge",
+      "color": "#33B5FF",
+      "size": {"x": 3, "y": 2, "z": 9},
+      "position": {"x": -26, "y": 37, "z": -118},
+      "label": "Velocidad",
+      "description": "La velocidad indica que tan rapido y hacia donde se mueve algo. Puede mantenerse aunque no haya fuerza neta.",
+      "behavior": {"type": "rotate", "params": {"axis": "y", "speed": 0.45}}
+    },
+    {
+      "name": "Spring",
+      "shape": "cylinder",
+      "color": "#9B5CFF",
+      "size": {"x": 4, "y": 8, "z": 4},
+      "position": {"x": 26, "y": 42, "z": -146},
+      "label": "Resorte",
+      "description": "Un resorte comprimido ejerce fuerza y muestra accion-reaccion. Empuja al objeto y recibe una fuerza opuesta.",
+      "behavior": {"type": "grow_shrink", "params": {"min": 0.85, "max": 1.15, "speed": 0.7}}
+    },
+    {
+      "name": "Magnet",
+      "shape": "cube",
+      "color": "#D64242",
+      "size": {"x": 5, "y": 5, "z": 5},
+      "position": {"x": -27, "y": 48, "z": -174},
+      "label": "Interaccion",
+      "description": "Las fuerzas aparecen por interacciones. No es magia: dos cuerpos participan en la misma pareja de fuerzas.",
+      "behavior": {"type": "float", "params": {"amplitude": 0.8, "speed": 0.5}}
+    },
+    {
+      "name": "Battery",
+      "shape": "cylinder",
+      "color": "#42D677",
+      "size": {"x": 4, "y": 6, "z": 4},
+      "position": {"x": 23, "y": 54, "z": -204},
+      "label": "Energia",
+      "description": "La energia permite realizar trabajo. En problemas de fisica, ayuda a conectar fuerzas con cambios de movimiento.",
+      "behavior": {"type": "pulse", "params": {"speed": 0.5, "scale": 1.07}}
+    },
+    {
+      "name": "Pulley",
+      "shape": "cylinder",
+      "color": "#F6B73C",
+      "size": {"x": 6, "y": 6, "z": 2},
+      "position": {"x": -24, "y": 60, "z": -230},
+      "label": "Maquina simple",
+      "description": "Una polea cambia la direccion de una fuerza. Es una forma concreta de ver vectores en accion.",
+      "behavior": {"type": "rotate", "params": {"axis": "z", "speed": 0.7}}
+    }
+  ],
+  "quiz": [
+    {
+      "question": "Observa la flecha de fuerza: si la fuerza neta sobre un objeto es cero, que ocurre?",
+      "options": ["Mantiene su reposo o movimiento rectilineo uniforme", "Siempre acelera hacia arriba", "Pierde toda su masa", "Desaparece la gravedad"],
+      "correct_index": 0,
+      "feedback": "Correcto: esa es la idea central de la primera ley o ley de inercia.",
+      "difficulty": "easy"
+    },
+    {
+      "question": "Segun la segunda ley, que pasa si aumenta la fuerza neta sobre la misma masa?",
+      "options": ["Aumenta la aceleracion", "Aumenta la masa automaticamente", "La velocidad siempre baja", "La fuerza deja de existir"],
+      "correct_index": 0,
+      "feedback": "Bien: F = m*a, entonces con la misma masa, mas fuerza produce mas aceleracion.",
+      "difficulty": "medium"
+    },
+    {
+      "question": "El resorte empuja un bloque y el bloque empuja al resorte. Que ley describe esa pareja?",
+      "options": ["Tercera ley de Newton", "Ley de Ohm", "Principio de Arquimedes", "Ley de Coulomb"],
+      "correct_index": 0,
+      "feedback": "Exacto: accion y reaccion son fuerzas iguales en magnitud y opuestas en direccion.",
+      "difficulty": "medium"
+    },
+    {
+      "question": "En una rampa, por que un objeto puede acelerar hacia abajo?",
+      "options": ["Hay una componente de la gravedad paralela a la rampa", "La masa se vuelve cero", "El aire lo empuja siempre", "La friccion crea energia infinita"],
+      "correct_index": 0,
+      "feedback": "Correcto: parte de la gravedad actua en la direccion del movimiento sobre el plano inclinado.",
+      "difficulty": "hard"
+    }
+  ]
+}

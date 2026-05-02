@@ -23,6 +23,15 @@ Generate a workshop:
 curl -sS -X POST "http://127.0.0.1:8000/workshop/generate?topic=fotosintesis"
 ```
 
+Activate a safe fixture without calling Gemma:
+
+```bash
+curl -sS http://127.0.0.1:8000/workshop/demo
+curl -sS -X POST http://127.0.0.1:8000/workshop/demo/ciclo-del-agua/activate
+curl -sS -X POST http://127.0.0.1:8000/workshop/demo/leyes-de-newton/activate
+curl -sS -X POST http://127.0.0.1:8000/workshop/demo/revolucion-francesa/activate
+```
+
 ## Roblox Studio
 
 Preferred workflow:
@@ -55,22 +64,61 @@ Minimum backend environment:
 ```env
 AI_MODEL_NAME=gemma-4-31b-it
 GOOGLE_API_KEY=...
+GEMMA_USE_RESPONSE_SCHEMA=false
+GEMMA_REQUEST_TIMEOUT_SECONDS=120
+GEMMA_REPAIR_ON_QUALITY_FAIL=true
+GRADIO_ANALYTICS_ENABLED=False
+MPLCONFIGDIR=/tmp/matplotlib
+DASHBOARD_AUTH_ENABLED=true
+DASHBOARD_USER=admin
+DASHBOARD_PASSWORD=change_this
+ADMIN_API_KEY=change_this_too
 ```
+
+If `ADMIN_API_KEY` is set, dashboard calls include it automatically. Manual
+write calls can pass either `?admin_key=...` or header `X-EduVerse-Key: ...`.
 
 ## Recommended Hosting Shape
 
-- Hackathon demo: Render, Railway, Fly.io, or Cloud Run.
+- Hackathon demo: Railway is the current recommended path.
 - Database for demo: SQLite is acceptable if the service has persistent disk.
 - Database for real deployment: Postgres.
 - Python: use 3.11+ to avoid the Python 3.9 EOL warnings from Google packages.
 
+### Railway
+
+1. Push the repo to GitHub.
+2. Railway -> New Project -> Deploy from GitHub.
+3. Root directory: `EduVerseApp/backend`.
+4. Railway should pick up `backend/railway.toml`.
+5. Set the environment variables above.
+6. Generate a public domain.
+7. Check `/workshop/health` and `/dashboard/`.
+8. Update `roblox/src/modules/Config.lua`:
+
+```lua
+BACKEND_URL = "https://your-railway-domain.up.railway.app"
+```
+
 ## Demo Safety
 
-Keep at least three generated sessions cached in SQLite before presenting:
+The backend includes versioned fixtures so a demo does not depend on live AI:
 
-- One `gallery` topic, e.g. `sistema solar`.
-- One `arena` topic, e.g. `Revolucion Francesa`.
-- One `obby` topic, e.g. `Leyes de Newton`.
+- `ciclo-del-agua` -> `gallery`.
+- `leyes-de-newton` -> `obby`.
+- `revolucion-francesa` -> `arena`.
 
-This lets the dashboard reactivate known-good scenes if a live Gemma call is slow
-or quota-limited.
+Use the dashboard "Demo segura" buttons, or the `/workshop/demo/{slug}/activate`
+endpoint, before asking a private tester to join.
+
+## Private Roblox Playtest
+
+1. Sync Studio from the repo with Rojo, or manually replace every script from
+   `roblox/src`.
+2. Confirm `Game Settings -> Security -> Allow HTTP Requests` is enabled.
+3. Set `Config.BACKEND_URL` to the Railway HTTPS domain.
+4. File -> Publish to Roblox.
+5. Keep the experience private.
+6. In Creator Dashboard, add the tester under collaboration/playtest access.
+7. Open Railway dashboard logs while the tester plays.
+8. Control the active lesson from `/dashboard/`.

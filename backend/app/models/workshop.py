@@ -168,6 +168,10 @@ class Workshop(BaseModel):
     topic: str
     scene_title: str
     scene_description: Optional[str] = None
+    learning_goal: Optional[str] = None
+    teacher_brief: Optional[str] = None
+    visual_metaphor: Optional[str] = None
+    estimated_duration: Optional[str] = None
     archetype: str = Field(
         "abstract",
         description="Scene archetype selected by Gemma (solar_system | atom | cell | building | ecosystem | physics | math | historical | abstract)"

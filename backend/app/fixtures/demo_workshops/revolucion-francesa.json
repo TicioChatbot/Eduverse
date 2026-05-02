@@ -1,0 +1,113 @@
+{
+  "topic": "Revolucion Francesa",
+  "scene_title": "Decisiones De 1789",
+  "scene_description": "Una arena de decisiones conecta causas, actores y consecuencias de la Revolucion Francesa.",
+  "learning_goal": "Identificar causas sociales, politicas y economicas de la Revolucion Francesa y relacionarlas con cambios historicos.",
+  "teacher_brief": "La arena funciona como trivia de movimiento: cada zona representa una respuesta. Ideal para comprobar vocabulario clave y causalidad historica.",
+  "visual_metaphor": "Cuatro zonas de debate muestran tensiones entre privilegio, pueblo, Asamblea y transformacion politica.",
+  "estimated_duration": "4 min",
+  "archetype": "historical",
+  "game_mode": "arena",
+  "objects": [
+    {
+      "name": "AntiguoRegimen",
+      "shape": "cube",
+      "color": "#7C3E2D",
+      "size": {"x": 5, "y": 8, "z": 5},
+      "position": {"x": -28, "y": 6, "z": -118},
+      "label": "Antiguo Regimen",
+      "description": "Representa una sociedad con privilegios heredados. Nobleza y clero tenian ventajas frente al Tercer Estado.",
+      "behavior": {"type": "pulse", "params": {"speed": 0.35, "scale": 1.05}}
+    },
+    {
+      "name": "TercerEstado",
+      "shape": "cylinder",
+      "color": "#2E7DCC",
+      "size": {"x": 5, "y": 7, "z": 5},
+      "position": {"x": 28, "y": 6, "z": -118},
+      "label": "Tercer Estado",
+      "description": "Era la mayor parte de la poblacion y cargaba muchos impuestos. Su inconformidad fue decisiva.",
+      "behavior": {"type": "float", "params": {"amplitude": 0.6, "speed": 0.45}}
+    },
+    {
+      "name": "CrisisFiscal",
+      "shape": "sphere",
+      "color": "#F0B83A",
+      "size": {"x": 6, "y": 6, "z": 6},
+      "position": {"x": -28, "y": 6, "z": -62},
+      "label": "Crisis fiscal",
+      "description": "El Estado frances tenia deudas y necesitaba recaudar mas. La presion economica abrio el conflicto politico.",
+      "behavior": {"type": "rotate", "params": {"axis": "y", "speed": 0.5}}
+    },
+    {
+      "name": "AsambleaNacional",
+      "shape": "cube",
+      "color": "#46A66B",
+      "size": {"x": 7, "y": 5, "z": 7},
+      "position": {"x": 28, "y": 6, "z": -62},
+      "label": "Asamblea Nacional",
+      "description": "El Tercer Estado se proclamo representante de la nacion. Esto reto la autoridad tradicional del rey.",
+      "behavior": {"type": "pulse", "params": {"speed": 0.45, "scale": 1.06}}
+    },
+    {
+      "name": "TomaBastilla",
+      "shape": "cube",
+      "color": "#505A66",
+      "size": {"x": 8, "y": 8, "z": 8},
+      "position": {"x": 0, "y": 7, "z": -90},
+      "label": "Toma de Bastilla",
+      "description": "Fue un simbolo del rechazo al absolutismo. No explica todo el proceso, pero marco un punto de ruptura.",
+      "behavior": {"type": "static", "params": {}}
+    },
+    {
+      "name": "DerechosCiudadanos",
+      "shape": "wedge",
+      "color": "#E9E2C7",
+      "size": {"x": 5, "y": 7, "z": 4},
+      "position": {"x": 0, "y": 10, "z": -46},
+      "label": "Derechos",
+      "description": "La declaracion de derechos cambio el lenguaje politico. Ciudadania e igualdad legal ganaron protagonismo.",
+      "behavior": {"type": "float", "params": {"amplitude": 0.7, "speed": 0.4}}
+    },
+    {
+      "name": "SoberaniaPopular",
+      "shape": "sphere",
+      "color": "#B84D6A",
+      "size": {"x": 5, "y": 5, "z": 5},
+      "position": {"x": 0, "y": 10, "z": -134},
+      "label": "Soberania popular",
+      "description": "La autoridad politica empieza a justificarse desde el pueblo, no solo desde la monarquia.",
+      "behavior": {"type": "rotate", "params": {"axis": "y", "speed": 0.4}}
+    }
+  ],
+  "quiz": [
+    {
+      "question": "Observa la zona del Tercer Estado: por que fue un actor central de la Revolucion?",
+      "options": ["Porque era mayoria y soportaba muchas cargas fiscales", "Porque controlaba todos los privilegios", "Porque no pagaba impuestos", "Porque era una potencia extranjera"],
+      "correct_index": 0,
+      "feedback": "Correcto: el desbalance entre poblacion, impuestos y representacion alimenta el conflicto.",
+      "difficulty": "easy"
+    },
+    {
+      "question": "Que problema economico ayudo a detonar la crisis politica?",
+      "options": ["Crisis fiscal y deuda del Estado", "Exceso de cosechas gratis", "Industrializacion total", "Fin del comercio europeo"],
+      "correct_index": 0,
+      "feedback": "Bien: la deuda y la necesidad de recaudar hicieron inevitable discutir privilegios.",
+      "difficulty": "medium"
+    },
+    {
+      "question": "La Asamblea Nacional cuestiono principalmente que idea?",
+      "options": ["Que solo el rey podia representar la voluntad politica", "Que existian impuestos", "Que Francia tenia ciudades", "Que la nobleza hablaba frances"],
+      "correct_index": 0,
+      "feedback": "Exacto: la representacion politica se desplaza hacia la nacion.",
+      "difficulty": "hard"
+    },
+    {
+      "question": "Que simboliza la Toma de la Bastilla dentro del proceso?",
+      "options": ["Ruptura con el absolutismo", "Inicio de la Edad Media", "Derrota de Napoleon en Waterloo", "Creacion de la Union Europea"],
+      "correct_index": 0,
+      "feedback": "Correcto: la Bastilla se volvio simbolo de resistencia popular al poder absolutista.",
+      "difficulty": "medium"
+    }
+  ]
+}

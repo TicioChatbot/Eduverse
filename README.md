@@ -101,6 +101,8 @@ Local Studio/Rojo testing notes live in
 Deployment notes live in [`DEPLOYMENT.md`](DEPLOYMENT.md), with the shorter
 private demo checklist in
 [`docs/PRIVATE_DEMO_CHECKLIST.md`](docs/PRIVATE_DEMO_CHECKLIST.md).
+The condensed pilot access and QA roadmap lives in
+[`docs/PILOT_TESTING_OPTIONS_AND_QA.md`](docs/PILOT_TESTING_OPTIONS_AND_QA.md).
 
 ---
 

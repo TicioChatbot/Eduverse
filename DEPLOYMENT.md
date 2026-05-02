@@ -119,6 +119,8 @@ endpoint, before asking a private tester to join.
 
 For a shorter operational checklist, see
 [`docs/PRIVATE_DEMO_CHECKLIST.md`](docs/PRIVATE_DEMO_CHECKLIST.md).
+For the condensed access decision guide and QA roadmap, see
+[`docs/PILOT_TESTING_OPTIONS_AND_QA.md`](docs/PILOT_TESTING_OPTIONS_AND_QA.md).
 
 1. Sync Studio from the repo with Rojo, or manually replace every script from
    `roblox/src`.

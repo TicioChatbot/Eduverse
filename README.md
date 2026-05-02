@@ -95,7 +95,12 @@ The Roblox environment acts as a strict client. By design, the AI does *not* wri
 3. Sync the Roblox project with Rojo using `roblox/default.project.json`, or install the scripts and ModuleScripts manually.
 4. Press **Play**. The engine will idle until a teacher creates a session from the Gradio Dashboard. When a session is received, the environment will dynamically construct the requested scenario.
 
-Deployment notes live in [`DEPLOYMENT.md`](DEPLOYMENT.md).
+Local Studio/Rojo testing notes live in
+[`docs/LOCAL_ROBLOX_ROJO.md`](docs/LOCAL_ROBLOX_ROJO.md).
+
+Deployment notes live in [`DEPLOYMENT.md`](DEPLOYMENT.md), with the shorter
+private demo checklist in
+[`docs/PRIVATE_DEMO_CHECKLIST.md`](docs/PRIVATE_DEMO_CHECKLIST.md).
 
 ---
 

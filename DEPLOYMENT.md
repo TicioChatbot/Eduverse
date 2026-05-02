@@ -34,6 +34,9 @@ curl -sS -X POST http://127.0.0.1:8000/workshop/demo/revolucion-francesa/activat
 
 ## Roblox Studio
 
+For the detailed local Studio workflow, see
+[`docs/LOCAL_ROBLOX_ROJO.md`](docs/LOCAL_ROBLOX_ROJO.md).
+
 Preferred workflow:
 
 1. Install Rojo.
@@ -113,6 +116,9 @@ Use the dashboard "Demo segura" buttons, or the `/workshop/demo/{slug}/activate`
 endpoint, before asking a private tester to join.
 
 ## Private Roblox Playtest
+
+For a shorter operational checklist, see
+[`docs/PRIVATE_DEMO_CHECKLIST.md`](docs/PRIVATE_DEMO_CHECKLIST.md).
 
 1. Sync Studio from the repo with Rojo, or manually replace every script from
    `roblox/src`.

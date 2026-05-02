@@ -24,6 +24,31 @@ Use the dashboard's **Demo segura** buttons first:
 - `Leyes de Newton` -> obby mode.
 - `Revolucion Francesa` -> arena mode.
 
+## Backend Selection
+
+`roblox/src/modules/Config.lua` selects the backend automatically:
+
+- Roblox Studio uses local backend by default:
+
+```text
+http://localhost:8000
+```
+
+- Published Roblox experiences use Railway:
+
+```text
+https://eduverse-production-79f9.up.railway.app
+```
+
+To test Studio directly against Railway, temporarily set this flag in
+`Config.lua`:
+
+```lua
+local USE_PRODUCTION_BACKEND_IN_STUDIO = true
+```
+
+Set it back to `false` before normal local development.
+
 ## 2. Start Rojo
 
 Rojo has two parts:
@@ -121,7 +146,7 @@ Stop with:
 
 While running, the game should:
 
-1. Poll `http://localhost:8000/workshop/current`.
+1. Poll `http://localhost:8000/workshop/current` in Studio by default.
 2. Create `Workspace/EduVerse_Scene`.
 3. Show the EduVerse HUD.
 4. Load quiz data into `ReplicatedStorage/EduVerse_Quiz`.
@@ -155,10 +180,10 @@ and confirm the `.rbxm` file is there.
 Check:
 
 1. `Game Settings -> Security -> Allow HTTP Requests` is enabled.
-2. `roblox/src/modules/Config.lua` has local URL:
+2. `roblox/src/modules/Config.lua` has local Studio mode enabled:
 
 ```lua
-BACKEND_URL = "http://localhost:8000"
+local USE_PRODUCTION_BACKEND_IN_STUDIO = false
 ```
 
 3. Dashboard has an active session.

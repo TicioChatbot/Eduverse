@@ -51,23 +51,42 @@ https://YOUR_DOMAIN/dashboard/
 1. Connect Rojo and sync latest scripts.
 2. Confirm `ReplicatedStorage/EduVerse_Library` still exists.
 3. Confirm `Game Settings -> Security -> Allow HTTP Requests` is enabled.
-4. Change `roblox/src/modules/Config.lua`:
+4. Confirm `roblox/src/modules/Config.lua` has the Railway production URL:
 
 ```lua
-BACKEND_URL = "https://YOUR_DOMAIN.up.railway.app"
+PRODUCTION = "https://eduverse-production-79f9.up.railway.app"
 ```
 
-5. Let Rojo sync that change into Studio.
-6. Press Play locally in Studio.
-7. Watch `View -> Output` for red errors.
-8. Confirm `Workspace/EduVerse_Scene` appears.
+5. Keep normal local development mode as:
+
+```lua
+local USE_PRODUCTION_BACKEND_IN_STUDIO = false
+```
+
+Published Roblox experiences use Railway automatically even when this local
+Studio flag is false.
+
+6. Optional: before publishing, test Studio directly against Railway by setting:
+
+```lua
+local USE_PRODUCTION_BACKEND_IN_STUDIO = true
+```
+
+Then set it back to `false` for normal local development after publishing.
+
+7. Let Rojo sync any config change into Studio.
+8. Press Play locally in Studio.
+9. Watch `View -> Output` for red errors.
+10. Confirm `Workspace/EduVerse_Scene` appears.
 
 ## Publish Private Experience
 
 1. In Studio, stop Play mode.
 2. `File -> Publish to Roblox`.
-3. Keep the experience private.
-4. In Creator Dashboard, add tester access:
+3. Wait for Studio to finish publishing. The Home screen should show a newer
+   "Modified" timestamp for `EduVerse Test`.
+4. Keep the experience private.
+5. In Creator Dashboard, add tester access:
 
 ```text
 Play
@@ -75,8 +94,8 @@ Play
 
 Use `Edit` only if the tester needs to modify the place.
 
-5. Send the private experience link to the tester.
-6. Keep Railway logs and `/dashboard/` open while they test.
+6. Send the private experience link to the tester.
+7. Keep Railway logs and `/dashboard/` open while they test.
 
 ## Smoke Test During The Call
 

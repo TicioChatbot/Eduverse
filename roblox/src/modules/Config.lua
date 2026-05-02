@@ -7,9 +7,23 @@
         local Config = require(ReplicatedStorage.EduVerse_Modules.Config)
 ]]
 
+local RunService = game:GetService("RunService")
+
+local BACKENDS = {
+    LOCAL = "http://localhost:8000",
+    PRODUCTION = "https://eduverse-production-79f9.up.railway.app",
+}
+
+-- Studio uses local by default. Published Roblox experiences always use
+-- Railway. Set this to true only when testing Studio directly against Railway.
+local USE_PRODUCTION_BACKEND_IN_STUDIO = false
+local useLocalBackend = RunService:IsStudio() and not USE_PRODUCTION_BACKEND_IN_STUDIO
+local selectedBackend = useLocalBackend and BACKENDS.LOCAL or BACKENDS.PRODUCTION
+
 local Config = {
-    -- Local Studio: keep localhost. Published Roblox games need a public HTTPS URL.
-    BACKEND_URL   = "https://eduverse-production-79f9.up.railway.app",
+    BACKENDS = BACKENDS,
+    BACKEND_ENV = useLocalBackend and "local" or "production",
+    BACKEND_URL   = selectedBackend,
     ANALYTICS_PATH = "/workshop/analytics/answer",
     POLL_INTERVAL = 5,           -- seconds between backend polls
 

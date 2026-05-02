@@ -9,7 +9,7 @@
 
 local Config = {
     -- Local Studio: keep localhost. Published Roblox games need a public HTTPS URL.
-    BACKEND_URL   = "http://localhost:8000",
+    BACKEND_URL   = "https://eduverse-production-79f9.up.railway.app",
     ANALYTICS_PATH = "/workshop/analytics/answer",
     POLL_INTERVAL = 5,           -- seconds between backend polls
 

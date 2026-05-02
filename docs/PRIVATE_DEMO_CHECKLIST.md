@@ -129,6 +129,44 @@ If the experience is private, only these users can play:
 
 For a private hackathon demo, prefer adding testers with `Play` only.
 
+## Pilot Class Access Options
+
+Roblox does not have a true "anyone with a secret link can join while private"
+mode. For a pilot class, choose one of these paths:
+
+### Option A: Private + Play Access
+
+Best for a small pilot where you know the Roblox usernames.
+
+1. Keep the experience private.
+2. Add each tester/student with `Play` access.
+3. Share the experience URL.
+4. Students must be logged in with the exact accounts that have access.
+
+If a student opens the URL without being logged in, or with an account that was
+not added, Roblox can show a 404/not found page.
+
+### Option B: Public/Beta + Link
+
+Best for a larger class where collecting usernames is too slow.
+
+1. Complete Roblox content maturity/compliance requirements if prompted.
+2. Set the experience privacy/audience to public.
+3. Optionally enable beta/limited exposure if Roblox offers it for the
+   experience.
+4. Share the Roblox experience URL.
+
+Anyone with a Roblox account can join. This is operationally easier for a class
+pilot, but it is no longer private.
+
+### Recommended For May 5
+
+For 1-5 trusted testers: use private + `Play` access.
+
+For a classroom pilot with many students: use public/beta + link, keep the
+Railway dashboard password-protected, and only you control which lesson is
+active.
+
 ## Add A Private Tester
 
 In Studio:

@@ -38,24 +38,26 @@ local TweenService      = game:GetService("TweenService")
 local PATH = {
     -- Y height of the entire runway (falling is dramatic but safe via respawn)
     RUNWAY_Y       = 25,
-    -- How many studs each next stage rises above the previous one (was 6)
-    STAGE_RISE     = 3,
+    -- Keep the path flat for classroom demos. Vertical climbs were making
+    -- stages visually overlap and broke the "obvious path" feeling.
+    STAGE_RISE     = 0,
     -- Starting Z for the first checkpoint (scene begins around -90)
     START_Z        = -60,
     -- Studs between consecutive checkpoints (forward = negative Z)
-    STAGE_STRIDE   = 75,
+    STAGE_STRIDE   = 62,
     -- How far ahead of the checkpoint the answer platforms sit
     -- center-to-center; with the new sizes this leaves a small step (~4 studs)
     ANSWER_OFFSET_Z = -20,
     -- Checkpoint platform dimensions (was 18×2×18 — now wider)
     CP_SIZE        = Vector3.new(22, 2, 22),
     -- Answer platform dimensions (was 8×2×8 — now wider so you can land)
-    ANS_SIZE       = Vector3.new(12, 2, 12),
+    ANS_SIZE       = Vector3.new(13, 1.4, 13),
     -- Center-to-center distance between answer pads in X (was 9.5 → 16)
     -- 16 - 12 = 4 stud edge-to-edge gap, enough to choose without misclicking.
     ANS_X_SPREAD   = 16,
     -- Width of the safety walkway laid from checkpoint forward to the answer line
     WALKWAY_WIDTH  = 6,
+    TRACK_WIDTH    = 74,
     -- Extra invisible hitbox around answer pads. Roblox Touched can feel finicky
     -- when the player lands on an edge, so the sensor makes intent explicit.
     SENSOR_PADDING = 3,
@@ -129,6 +131,13 @@ local function makeBillboard(parent, text, studOffset, bbSize)
     lbl.TextWrapped            = true
 
     return bb, lbl
+end
+
+local function playerFromHit(hit)
+    if not hit then return nil end
+    local character = hit:FindFirstAncestorWhichIsA("Model")
+    if not character then return nil end
+    return Players:GetPlayerFromCharacter(character)
 end
 
 local function showFloatingFeedback(folder, pos, text, color)
@@ -220,9 +229,9 @@ local function buildStage(folder, stageIdx, totalStages, question, checkpointZ, 
     local ansZ     = checkpointZ + PATH.ANSWER_OFFSET_Z  -- further along (more negative Z)
     local animWait = stageIdx * 0.4  -- Sequential appearing effect
 
-    -- Central walkway: from checkpoint forward edge up to the back edge of the
-    -- answer pads. Eliminates the "jump-to-tiny-tile" feeling: the player walks
-    -- naturally to the answer line, then steps left/right onto A/B/C/D.
+    -- Central walkway: from checkpoint forward edge up to the answer line.
+    -- The full-width deck below carries the answer pads, so nothing feels
+    -- like disconnected islands.
     local cpFrontZ      = checkpointZ + PATH.CP_SIZE.Z / 2 * -1   -- forward edge of CP
     local ansBackZ      = ansZ + PATH.ANS_SIZE.Z / 2              -- back edge of answer pads
     local walkwayLen    = math.max(0.5, math.abs(cpFrontZ - ansBackZ))
@@ -237,6 +246,17 @@ local function buildStage(folder, stageIdx, totalStages, question, checkpointZ, 
             animWait + 0.05
         )
     end
+
+    local deckWidth = PATH.ANS_X_SPREAD * 3 + PATH.ANS_SIZE.X + 10
+    makePlatform(
+        folder,
+        "AnswerDeck_" .. stageIdx,
+        Vector3.new(0, runwayY - 0.85, ansZ),
+        Vector3.new(deckWidth, 1, PATH.ANS_SIZE.Z + 10),
+        Color3.fromRGB(18, 28, 65),
+        Enum.Material.SmoothPlastic,
+        animWait + 0.05
+    )
 
     -- ── Checkpoint Platform ──────────────────────────────────────────────────
     local cp = makePlatform(
@@ -295,7 +315,7 @@ local function buildStage(folder, stageIdx, totalStages, question, checkpointZ, 
     local options = question.options or {}
 
     cp.Touched:Connect(function(hit)
-        local player = Players:GetPlayerFromCharacter(hit.Parent)
+        local player = playerFromHit(hit)
         if player then
             local uid = tostring(player.UserId)
             local allowedStage = playerStage[uid] or 1
@@ -351,8 +371,7 @@ local function buildStage(folder, stageIdx, totalStages, question, checkpointZ, 
         local debounceKey = string.format("s%d_o%d", stageIdx, optIdx)
 
         local function handleAnswerTouch(hit)
-            local character = hit.Parent
-            local player    = Players:GetPlayerFromCharacter(character)
+            local player = playerFromHit(hit)
             if not player then return end
 
             local uid = tostring(player.UserId)
@@ -364,6 +383,9 @@ local function buildStage(folder, stageIdx, totalStages, question, checkpointZ, 
                     "Completa primero la etapa " .. allowedStage,
                     Color3.fromRGB(255, 220, 90)
                 )
+                if ctx and ctx.Objective then
+                    ctx.Objective.setProgress(string.format("Etapa %d/%d · completa la etapa anterior", allowedStage, totalStages))
+                end
                 task.spawn(function()
                     respawnAt(player, playerCheckpoint[uid] or checkpointCF)
                 end)
@@ -418,25 +440,23 @@ local function buildStage(folder, stageIdx, totalStages, question, checkpointZ, 
                 light.Range      = 30
                 task.delay(3, function() if light and light.Parent then light:Destroy() end end)
 
-                -- Open a wide bridge from the answer line toward the next
-                -- checkpoint. It is intentionally wide so the player notices
-                -- "the path opened" from any selected answer tile.
+                -- Draw a clear green forward cue. The runway itself is already
+                -- walkable, so this is feedback instead of fragile geometry.
                 task.spawn(function()
                     local nextCheckpointZ = checkpointZ - PATH.STAGE_STRIDE
                     local bridgeStartZ = ansZ - PATH.ANS_SIZE.Z / 2
                     local bridgeEndZ = nextCheckpointZ + PATH.CP_SIZE.Z / 2
                     local bridgeLen = math.max(8, math.abs(bridgeStartZ - bridgeEndZ))
-                    local bridgeWidth = PATH.ANS_X_SPREAD * 3 + PATH.ANS_SIZE.X + 2
                     local bridge = makePlatform(
                         folder,
-                        "Bridge_" .. stageIdx,
-                        Vector3.new(0, runwayY, (bridgeStartZ + bridgeEndZ) / 2),
-                        Vector3.new(bridgeWidth,  1.4, bridgeLen),
+                        "OpenPathCue_" .. stageIdx,
+                        Vector3.new(0, runwayY + 0.05, (bridgeStartZ + bridgeEndZ) / 2),
+                        Vector3.new(10,  0.35, bridgeLen),
                         Color3.fromRGB(40, 200, 90),
-                        Enum.Material.SmoothPlastic,
+                        Enum.Material.Neon,
                         0 -- instant
                     )
-                    task.delay(30, function()
+                    task.delay(8, function()
                         if bridge and bridge.Parent then bridge:Destroy() end
                     end)
                 end)
@@ -454,6 +474,9 @@ local function buildStage(folder, stageIdx, totalStages, question, checkpointZ, 
                     "Intenta otra vez desde el checkpoint",
                     Color3.fromRGB(255, 90, 90)
                 )
+                if ctx and ctx.Objective then
+                    ctx.Objective.setProgress(string.format("Etapa %d/%d · intenta otra vez", stageIdx, totalStages))
+                end
                 if ctx and ctx.SfxEngine then
                     ctx.SfxEngine.playForPlayer(player, "wrong", ctx.Config)
                 end
@@ -572,7 +595,7 @@ function ObbyRenderer.render(data, folder, ctx)
 
     local startCF = CFrame.new(spawnPlat.Position)
     spawnPlat.Touched:Connect(function(hit)
-        local player = Players:GetPlayerFromCharacter(hit.Parent)
+        local player = playerFromHit(hit)
         if player then
             local uid = tostring(player.UserId)
             playerCheckpoint[uid] = startCF
@@ -590,6 +613,23 @@ function ObbyRenderer.render(data, folder, ctx)
             end
         end
     end)
+
+    -- One stable classroom-friendly runway under the whole obby. The question
+    -- pads remain the interaction points, but students can always understand
+    -- how to move through the course.
+    local finishZForTrack = PATH.START_Z + PATH.ANSWER_OFFSET_Z
+                            - (numStages) * PATH.STAGE_STRIDE + PATH.ANSWER_OFFSET_Z
+    local trackCenterZ = (spawnPlat.Position.Z + finishZForTrack) / 2
+    local trackLen = math.abs(spawnPlat.Position.Z - finishZForTrack) + 56
+    makePlatform(
+        folder,
+        "ObbyMainRunway",
+        Vector3.new(0, PATH.RUNWAY_Y - 1.6, trackCenterZ),
+        Vector3.new(PATH.TRACK_WIDTH, 1, trackLen),
+        Color3.fromRGB(18, 24, 42),
+        Enum.Material.Slate,
+        0
+    )
 
     -- ── Build each stage ─────────────────────────────────────────────────────
     for stageIdx, question in ipairs(quiz) do
@@ -610,7 +650,7 @@ function ObbyRenderer.render(data, folder, ctx)
     killPlane.Position = Vector3.new(0, PATH.RUNWAY_Y - 18, PATH.START_Z - totalLength / 2)
     local killDebounce = {}
     killPlane.Touched:Connect(function(hit)
-        local player = Players:GetPlayerFromCharacter(hit.Parent)
+        local player = playerFromHit(hit)
         if player then
             local uid = tostring(player.UserId)
             if killDebounce[uid] then return end
@@ -626,7 +666,7 @@ function ObbyRenderer.render(data, folder, ctx)
     -- ── Finish platform (after the last stage) ────────────────────────────────
     local finishZ = PATH.START_Z + PATH.ANSWER_OFFSET_Z
                     - (numStages) * PATH.STAGE_STRIDE + PATH.ANSWER_OFFSET_Z
-    local finishY = PATH.RUNWAY_Y + (numStages) * 6
+    local finishY = PATH.RUNWAY_Y
     local finishPlat = makePlatform(
         folder, "ObbyFinish",
         Vector3.new(0, finishY, finishZ),
@@ -644,8 +684,24 @@ function ObbyRenderer.render(data, folder, ctx)
 
     local finishDebounce = false
     finishPlat.Touched:Connect(function(hit)
-        local player = Players:GetPlayerFromCharacter(hit.Parent)
+        local player = playerFromHit(hit)
         if player and not finishDebounce then
+            local uid = tostring(player.UserId)
+            if (playerStage[uid] or 1) <= numStages then
+                showFloatingFeedback(
+                    folder,
+                    finishPlat.Position + Vector3.new(0, 8, 0),
+                    "Completa todas las etapas antes de la meta",
+                    Color3.fromRGB(255, 220, 90)
+                )
+                if ctx and ctx.Objective then
+                    ctx.Objective.setProgress(string.format("Etapa %d/%d · falta completar el recorrido", math.min(playerStage[uid] or 1, numStages), numStages))
+                end
+                task.spawn(function()
+                    respawnAt(player, playerCheckpoint[uid] or startCF)
+                end)
+                return
+            end
             finishDebounce = true
             ctx.ParticleEngine.addFireworks(finishPlat)
             ctx.SfxEngine.play("complete", ctx.Config, { target = finishPlat })

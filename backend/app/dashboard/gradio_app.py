@@ -386,6 +386,18 @@ def build_gradio_app() -> gr.Blocks:
                                     ],
                                     value="auto",
                                 )
+                                template_input = gr.Dropdown(
+                                    label="🕹 Plantilla interactiva",
+                                    choices=[
+                                        ("Auto (recomendado)", "auto"),
+                                        ("Galería guiada", "gallery_walk"),
+                                        ("Arena por zonas", "arena_zones"),
+                                        ("Obby camino", "obby_path"),
+                                        ("Obby torre", "obby_tower"),
+                                        ("Lab de probabilidad", "probability_lab"),
+                                    ],
+                                    value="auto",
+                                )
                                 round_input = gr.Slider(
                                     label="⏱ Tiempo por pregunta (Arena/Obby)",
                                     minimum=8, maximum=45, step=1, value=12,
@@ -424,10 +436,11 @@ def build_gradio_app() -> gr.Blocks:
                         return ""
                     title = workshop.get("scene_title") or workshop.get("topic") or "Taller"
                     mode  = workshop.get("game_mode") or "?"
+                    template = workshop.get("interaction_template") or "auto"
                     rs    = workshop.get("round_seconds")
                     rs_txt = f" · timer {rs}s" if rs else ""
                     lines = [
-                        f"## 🧐 Revisa el quiz — *{escape(title)}* ({escape(mode)}{rs_txt})",
+                        f"## 🧐 Revisa el quiz — *{escape(title)}* ({escape(mode)} · {escape(template)}{rs_txt})",
                         f"_{escape(workshop.get('learning_goal') or '')}_",
                         "",
                     ]
@@ -445,7 +458,7 @@ def build_gradio_app() -> gr.Blocks:
                     return "\n".join(lines)
 
                 def do_generate(topic, details, inline_material, uploaded_file,
-                                game_mode, round_seconds, review_first):
+                                game_mode, interaction_template, round_seconds, review_first):
                     topic = (topic or "").strip()
                     if not topic:
                         return ({}, gr.update(visible=False, value=""),
@@ -463,6 +476,8 @@ def build_gradio_app() -> gr.Blocks:
                         data_form["inline_material"] = inline_material.strip()
                     if game_mode and game_mode != "auto":
                         data_form["game_mode"] = game_mode
+                    if interaction_template and interaction_template != "auto":
+                        data_form["interaction_template"] = interaction_template
                     if round_seconds:
                         data_form["round_seconds"] = str(int(round_seconds))
 
@@ -497,6 +512,7 @@ def build_gradio_app() -> gr.Blocks:
                         banner = (
                             f'<div class="status-ok">✅ Sesión <strong>{escape(str(sid))}</strong> '
                             f'{verb} · modo <strong>{escape(str(data.get("game_mode","?")))}</strong>: '
+                            f'plantilla <strong>{escape(str(workshop.get("interaction_template","auto")))}</strong> · '
                             f'<em>{escape(str(data.get("scene_title","?")))}</em>'
                             f'{_quality_note(data)}</div>'
                         )
@@ -561,7 +577,7 @@ def build_gradio_app() -> gr.Blocks:
                 generate_btn.click(
                     fn=do_generate,
                     inputs=[topic_input, details_input, material_input, material_file,
-                            mode_input, round_input, review_first],
+                            mode_input, template_input, round_input, review_first],
                     outputs=[preview_box, quiz_preview, result_banner, last_session_state, activate_btn],
                 )
                 activate_btn.click(
@@ -587,7 +603,7 @@ def build_gradio_app() -> gr.Blocks:
                         choices=["todos", "gallery", "obby", "arena"],
                         value="todos",
                     )
-                    sessions_table = gr.Dataframe(headers=["ID", "Tema", "Modo", "Título", "Objs", "Quiz", "Creada", "Activa"], datatype=["str"]*8, interactive=False)
+                    sessions_table = gr.Dataframe(headers=["ID", "Tema", "Modo", "Plantilla", "Título", "Objs", "Quiz", "Creada", "Activa"], datatype=["str"]*9, interactive=False)
                     
                     gr.Markdown("### 🔁 Reactivar Sesión")
                     with gr.Row():
@@ -612,6 +628,7 @@ def build_gradio_app() -> gr.Blocks:
                                 r["id"],
                                 r["topic"][:60],
                                 mode,
+                                workshop.get("interaction_template") or "auto",
                                 r.get("scene_title",""),
                                 r.get("objects_count",0),
                                 r.get("quiz_count",0),

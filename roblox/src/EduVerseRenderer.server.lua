@@ -41,6 +41,8 @@ local MaterialClassifier  = require(Modules:WaitForChild("MaterialClassifier"))
 local LabelEngine         = require(Modules:WaitForChild("LabelEngine"))
 local Objective           = require(Modules:WaitForChild("Objective"))
 local SceneDirector       = require(Modules:WaitForChild("SceneDirector"))
+local gameplay            = Modules:WaitForChild("gameplay")
+local PhysicsPolicy       = require(gameplay:WaitForChild("PhysicsPolicy"))
 local vfx                 = Modules:WaitForChild("vfx")
 local ParticleEngine      = require(vfx:WaitForChild("ParticleEngine"))
 local BeamEngine          = require(vfx:WaitForChild("BeamEngine"))
@@ -51,6 +53,7 @@ local renderers           = Modules:WaitForChild("renderers")
 local GalleryRenderer     = require(renderers:WaitForChild("GalleryRenderer"))
 local ArenaRenderer       = require(renderers:WaitForChild("ArenaRenderer"))
 local ObbyRenderer        = require(renderers:WaitForChild("ObbyRenderer"))
+local ProbabilityLabRenderer = require(renderers:WaitForChild("ProbabilityLabRenderer"))
 
 -- ── Remote events / shared state values ──────────────────────────────────────
 local function getOrCreate(name, class)
@@ -63,6 +66,7 @@ local function getOrCreate(name, class)
 end
 
 local remoteWorkshopLoaded = getOrCreate("EduVerse_WorkshopLoaded", "RemoteEvent")
+getOrCreate("EduVerse_GameplayFeedback", "RemoteEvent")
 local statusValue          = getOrCreate(Config.STATUS_KEY, "StringValue")
 statusValue.Value = "Conectando con backend..."
 
@@ -75,6 +79,7 @@ local RENDERERS = {
     gallery = GalleryRenderer,
     arena   = ArenaRenderer,
     obby    = ObbyRenderer,
+    lab     = ProbabilityLabRenderer,
 }
 
 -- ── State (rebuilt each render) ──────────────────────────────────────────────
@@ -289,7 +294,7 @@ local function buildObject(obj, folder)
             or desc:IsA("Script") or desc:IsA("LocalScript") then
                 desc:Destroy()
             elseif desc:IsA("BasePart") then
-                desc.Anchored = true; desc.CanCollide = false
+                desc.Anchored = true; desc.CanCollide = false; desc.CanTouch = true; desc.CanQuery = true
             end
         end
         if assetClone:IsA("Model") then
@@ -312,7 +317,7 @@ local function buildObject(obj, folder)
         --   • Ambient PointLight when the material is Neon
         local MIN_DIM = 4.0
         local part = Instance.new("Part")
-        part.Anchored = true; part.CanCollide = false; part.Name = obj.name
+        part.Anchored = true; part.CanCollide = false; part.CanTouch = true; part.CanQuery = true; part.Name = obj.name
         local shape = (obj.shape or ""):lower()
         if shape == "sphere" then part.Shape = Enum.PartType.Ball
         elseif shape == "cylinder" then part.Shape = Enum.PartType.Cylinder
@@ -364,6 +369,7 @@ local function buildObject(obj, folder)
         ):Play()
     end
 
+    PhysicsPolicy.applyWorkshopObject(assetClone, obj)
     objectRegistry[obj.name] = assetClone
     return assetClone, anchorPart, color
 end
@@ -380,7 +386,13 @@ local function buildCtx()
         LightingEngine   = LightingEngine,
         LabelEngine      = LabelEngine,
         SfxEngine        = SfxEngine,
+        PhysicsPolicy    = PhysicsPolicy,
         Objective        = Objective,
+        deferQuiz        = false,
+        publishQuiz      = function(quiz)
+                              getOrCreate(Config.QUIZ_KEY, "StringValue").Value = HttpService:JSONEncode(quiz or {})
+                              return true
+                           end,
         buildObject      = buildObject,
         attachLabel      = function(objData, anchorPart, color)
                               return LabelEngine.attach(objData, anchorPart, color)
@@ -462,6 +474,7 @@ local function clearReplicatedState()
     getOrCreate(Config.SESSION_KEY,   "StringValue").Value = ""
     getOrCreate(Config.QUIZ_KEY,      "StringValue").Value = ""
     getOrCreate(Config.GAME_MODE_KEY, "StringValue").Value = ""
+    getOrCreate(Config.INTERACTION_TEMPLATE_KEY, "StringValue").Value = ""
 end
 
 local function createStartGuide(folder, gameMode)
@@ -512,11 +525,15 @@ local function renderWorkshop(data)
     local topic    = data.topic or ""
     local title    = data.scene_title or topic
     local gameMode = (data.game_mode or "gallery"):lower()
+    local interactionTemplate = (data.interaction_template or ""):lower()
 
     -- Stage first: floor, accent ring, camera focus broadcast
     SceneDirector.stage(folder, data)
 
     local renderer = RENDERERS[gameMode] or GalleryRenderer
+    if interactionTemplate == "probability_lab" then
+        renderer = ProbabilityLabRenderer
+    end
     local ctx = buildCtx()
     createStartGuide(folder, gameMode)
     renderer.render(data, folder, ctx)
@@ -529,11 +546,16 @@ local function renderWorkshop(data)
     -- Broadcast state to clients via StringValues + RemoteEvent
     getOrCreate(Config.TOPIC_KEY,     "StringValue").Value = topic
     getOrCreate(Config.SESSION_KEY,   "StringValue").Value = data.session_id or ""
-    getOrCreate(Config.QUIZ_KEY,      "StringValue").Value = HttpService:JSONEncode(data.quiz or {})
     getOrCreate(Config.GAME_MODE_KEY, "StringValue").Value = gameMode
+    getOrCreate(Config.INTERACTION_TEMPLATE_KEY, "StringValue").Value = interactionTemplate
+    if ctx.deferQuiz then
+        getOrCreate(Config.QUIZ_KEY, "StringValue").Value = ""
+    else
+        getOrCreate(Config.QUIZ_KEY, "StringValue").Value = HttpService:JSONEncode(data.quiz or {})
+    end
     setBackendStatus("Taller activo: " .. title)
 
-    if gameMode ~= "obby" then
+    if gameMode ~= "obby" and interactionTemplate ~= "probability_lab" then
         teleportPlayersToStart()
     end
 
@@ -542,6 +564,7 @@ local function renderWorkshop(data)
         scene_title   = title,
         session_id    = data.session_id,
         game_mode     = gameMode,
+        interaction_template = interactionTemplate,
         archetype     = data.archetype or "abstract",
         objects_count = #(data.objects or {}),
         quiz_count    = #(data.quiz or {}),

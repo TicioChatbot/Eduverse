@@ -305,11 +305,59 @@ _ARCHETYPE_TO_GAME_MODE: dict[str, str] = {
 }
 
 _SHAPE_MAP = {"esfera": "sphere", "cubo": "cube", "cilindro": "cylinder", "cuña": "wedge"}
+_ALLOWED_TEMPLATES = {
+    "gallery_walk", "arena_zones", "obby_path", "obby_tower", "probability_lab",
+}
+_PROBABILITY_TERMS = (
+    "probabilidad", "azar", "aleatorio", "aleatoria", "dado", "moneda",
+    "conteo", "combinacion", "combinación", "permutacion", "permutación",
+    "espacio muestral",
+)
+
+
+def _normalize_template(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    template = str(value).strip().lower()
+    aliases = {
+        "tower": "obby_tower",
+        "tower_obby": "obby_tower",
+        "path": "obby_path",
+        "trivia_path": "obby_path",
+        "probability": "probability_lab",
+        "lab": "probability_lab",
+    }
+    template = aliases.get(template, template)
+    return template if template in _ALLOWED_TEMPLATES else None
+
+
+def _game_mode_for_template(template: Optional[str], fallback: str) -> str:
+    if template == "probability_lab":
+        return "gallery"
+    if template in {"obby_path", "obby_tower"}:
+        return "obby"
+    if template == "arena_zones":
+        return "arena"
+    if template == "gallery_walk":
+        return "gallery"
+    return fallback
+
+
+def _infer_template(topic: str, archetype: str, game_mode: str) -> str:
+    topic_l = (topic or "").lower()
+    if any(term in topic_l for term in _PROBABILITY_TERMS):
+        return "probability_lab"
+    if game_mode == "obby":
+        return "obby_tower" if archetype == "physics" else "obby_path"
+    if game_mode == "arena":
+        return "arena_zones"
+    return "gallery_walk"
 
 
 def run_archetype_engine(raw: dict, color_resolver,
                           game_mode_override: Optional[str] = None,
-                          round_seconds: Optional[int] = None) -> dict:
+                          round_seconds: Optional[int] = None,
+                          interaction_template_override: Optional[str] = None) -> dict:
     """Apply deterministic geometry to AI concept objects.
 
     Args:
@@ -318,6 +366,7 @@ def run_archetype_engine(raw: dict, color_resolver,
         game_mode_override:  When set, forces the renderer mode regardless of
                              the archetype's auto-pick. Valid: gallery | arena | obby.
         round_seconds:       Optional per-question timer pushed to the workshop.
+        interaction_template_override: Optional gameplay template override.
 
     Returns:
         Fully resolved workshop dict ready for the Workshop model.
@@ -325,10 +374,30 @@ def run_archetype_engine(raw: dict, color_resolver,
     from app.services.prompt_builder import get_canonical_asset_name
 
     archetype = raw.get("archetype", "abstract").lower()
-    if game_mode_override and game_mode_override in {"gallery", "arena", "obby"}:
+    template = _normalize_template(interaction_template_override or raw.get("interaction_template"))
+    if not template and game_mode_override:
+        # Backward-compatible dashboard/API convenience: if a template was sent
+        # in the old game_mode field, treat it as a template override.
+        template = _normalize_template(game_mode_override)
+        if template:
+            game_mode_override = None
+
+    explicit_game_mode = game_mode_override and game_mode_override in {"gallery", "arena", "obby", "lab"}
+    if explicit_game_mode:
         game_mode = game_mode_override
     else:
         game_mode = _ARCHETYPE_TO_GAME_MODE.get(archetype, "gallery")
+    if not template:
+        if explicit_game_mode:
+            template = {
+                "gallery": "gallery_walk",
+                "arena": "arena_zones",
+                "obby": "obby_path",
+                "lab": "probability_lab",
+            }.get(game_mode, "gallery_walk")
+        else:
+            template = _infer_template(raw.get("topic", ""), archetype, game_mode)
+    game_mode = _game_mode_for_template(template, game_mode)
     ai_objects = raw.get("objects", [])
 
     for obj in ai_objects:
@@ -369,7 +438,9 @@ def run_archetype_engine(raw: dict, color_resolver,
         "estimated_duration": raw.get("estimated_duration", ""),
         "archetype":         archetype,
         "game_mode":         game_mode,
+        "interaction_template": template,
         "round_seconds":     round_seconds,
+        "mechanics":          raw.get("mechanics", {}),
         "objects":           final,
         "quiz":              raw.get("quiz", []),
     }

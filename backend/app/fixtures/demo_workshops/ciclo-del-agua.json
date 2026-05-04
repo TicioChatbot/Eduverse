@@ -8,6 +8,7 @@
   "estimated_duration": "4 min",
   "archetype": "ecosystem",
   "game_mode": "gallery",
+  "interaction_template": "gallery_walk",
   "objects": [
     {
       "name": "Ocean",

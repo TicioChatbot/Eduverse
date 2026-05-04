@@ -178,21 +178,37 @@ class Workshop(BaseModel):
     )
     game_mode: str = Field(
         "gallery",
-        description="Roblox rendering mode: gallery (exploration) | arena (Color Block trivia) | obby (platform)"
+        description="Roblox rendering mode: gallery (exploration) | arena (Color Block trivia) | obby (platform) | lab (interactive mini-lab)"
+    )
+    interaction_template: Optional[str] = Field(
+        None,
+        description="Gameplay template: gallery_walk | arena_zones | obby_path | obby_tower | probability_lab"
     )
     round_seconds: Optional[int] = Field(
         None,
         description="Per-question countdown for Arena/Obby. When None, the renderer uses its default (12s)."
+    )
+    mechanics: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional renderer-specific mechanics metadata for Roblox templates."
     )
     objects: List[WorkshopObject] = Field(default_factory=list)
     quiz: List[QuizQuestion] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_minimums(self) -> "Workshop":
-        allowed_modes = {"gallery", "arena", "obby"}
+        allowed_modes = {"gallery", "arena", "obby", "lab"}
+        allowed_templates = {
+            "gallery_walk", "arena_zones", "obby_path", "obby_tower", "probability_lab",
+        }
         if self.game_mode not in allowed_modes:
             logger.warning(f"[Workshop] Unknown game_mode '{self.game_mode}' → 'gallery'")
             self.game_mode = "gallery"
+        if self.interaction_template and self.interaction_template not in allowed_templates:
+            logger.warning(
+                f"[Workshop] Unknown interaction_template '{self.interaction_template}' → None"
+            )
+            self.interaction_template = None
         if len(self.objects) < 3:
             logger.warning(f"[Workshop] Only {len(self.objects)} objects (min 3 recommended)")
         if len(self.quiz) < 3:
@@ -203,3 +219,5 @@ class Workshop(BaseModel):
 class GenerateWorkshopRequest(BaseModel):
     topic: str
     model: Optional[str] = None
+    game_mode: Optional[str] = None
+    interaction_template: Optional[str] = None

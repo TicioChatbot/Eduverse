@@ -26,6 +26,7 @@ def list_demo_fixtures() -> List[Dict[str, str]]:
             "topic": str(data.get("topic", path.stem)),
             "scene_title": str(data.get("scene_title", path.stem)),
             "game_mode": str(data.get("game_mode", "gallery")),
+            "interaction_template": str(data.get("interaction_template", "")),
             "archetype": str(data.get("archetype", "abstract")),
         })
     return fixtures

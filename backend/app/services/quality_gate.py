@@ -11,11 +11,12 @@ from typing import Iterable
 
 from app.models.workshop import Workshop
 from app.services.asset_registry import known_asset_names, relevant_asset_names
-from app.services.prompt_builder import ALLOWED_ARCHETYPES
+from app.services.prompt_builder import ALLOWED_ARCHETYPES, ALLOWED_INTERACTION_TEMPLATES
 
 _GENERIC_LABELS = {"objeto", "objeto 1", "concepto", "elemento", "elemento 1", "item"}
 _VISUAL_TERMS = {"observa", "escena", "objeto", "mundo", "plataforma", "zona", "centro", "más grande", "mas grande"}
 _ALLOWED_ARCHETYPES_SET = set(ALLOWED_ARCHETYPES)
+_ALLOWED_TEMPLATES_SET = set(ALLOWED_INTERACTION_TEMPLATES)
 
 
 @dataclass
@@ -64,6 +65,11 @@ def evaluate_workshop(workshop: Workshop, source_topic: str) -> QualityReport:
             f"Archetype '{workshop.archetype}' no está soportado. "
             f"Permitidos: {sorted(_ALLOWED_ARCHETYPES_SET)}."
         )
+    if workshop.interaction_template and workshop.interaction_template not in _ALLOWED_TEMPLATES_SET:
+        errors.append(
+            f"interaction_template '{workshop.interaction_template}' no está soportado. "
+            f"Permitidos: {sorted(_ALLOWED_TEMPLATES_SET)}."
+        )
 
     if len(relevant) >= 2 and len(asset_matches) < 2:
         errors.append("La escena usa pocos assets reales para un tema que sí tiene assets relevantes.")
@@ -77,6 +83,22 @@ def evaluate_workshop(workshop: Workshop, source_topic: str) -> QualityReport:
 
     if _behavior_types(workshop) == {"float"} and len(workshop.objects) > 3:
         errors.append("Todos los objetos flotan; la escena necesita variedad de comportamiento.")
+
+    object_names = {obj.name.lower() for obj in workshop.objects}
+    object_labels = {(obj.label or "").lower() for obj in workshop.objects}
+    all_object_terms = object_names | object_labels
+    template = workshop.interaction_template
+    if template == "probability_lab":
+        required_terms = {
+            "dado": ("dice", "dado"),
+            "moneda": ("coin", "moneda"),
+            "bolsa": ("bag", "bolsa"),
+        }
+        for label, aliases in required_terms.items():
+            if not any(alias in term for term in all_object_terms for alias in aliases):
+                errors.append(f"probability_lab requiere un objeto de {label}.")
+    elif template in {"obby_path", "obby_tower"} and len(workshop.quiz) < 4:
+        errors.append("Los obbys requieren 4 preguntas para 4 etapas.")
 
     object_terms = {
         term.lower()

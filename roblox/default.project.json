@@ -26,6 +26,21 @@
         "SceneDirector": {
           "$path": "src/modules/SceneDirector.lua"
         },
+        "gameplay": {
+          "$className": "Folder",
+          "FeedbackService": {
+            "$path": "src/modules/gameplay/FeedbackService.lua"
+          },
+          "GameplayDirector": {
+            "$path": "src/modules/gameplay/GameplayDirector.lua"
+          },
+          "InteractionService": {
+            "$path": "src/modules/gameplay/InteractionService.lua"
+          },
+          "PhysicsPolicy": {
+            "$path": "src/modules/gameplay/PhysicsPolicy.lua"
+          }
+        },
         "vfx": {
           "$className": "Folder",
           "ParticleEngine": {
@@ -54,6 +69,9 @@
           },
           "ObbyRenderer": {
             "$path": "src/modules/renderers/ObbyRenderer.lua"
+          },
+          "ProbabilityLabRenderer": {
+            "$path": "src/modules/renderers/ProbabilityLabRenderer.lua"
           }
         }
       }

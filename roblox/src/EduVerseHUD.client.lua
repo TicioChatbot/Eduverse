@@ -35,6 +35,12 @@ end
 local statusVal = ReplicatedStorage:WaitForChild("EduVerse_BackendStatus", 10)
 local quizAvailable = false
 
+local function shorten(text, maxChars)
+    text = tostring(text or "")
+    if #text <= maxChars then return text end
+    return string.sub(text, 1, maxChars - 3) .. "..."
+end
+
 -- ══════════════════════════════════════════════════════════
 --  PALETA
 -- ══════════════════════════════════════════════════════════
@@ -302,7 +308,7 @@ end)
 -- ── Notificación de nuevo workshop ───────────────────────
 local notif = Instance.new("Frame", sg)
 notif.Name = "Notification"
-notif.Size = UDim2.new(0, 300, 0, 52)
+notif.Size = UDim2.new(0, 360, 0, 52)
 notif.AnchorPoint = Vector2.new(0.5, 0)
 notif.Position = UDim2.new(0.5, 0, 0, -70)  -- Inicia fuera de pantalla
 notif.BackgroundColor3 = CLR.success
@@ -320,9 +326,84 @@ notifText.BackgroundTransparency = 1
 notifText.Font = Enum.Font.GothamBold
 notifText.TextSize = 15
 notifText.TextXAlignment = Enum.TextXAlignment.Left
+notifText.TextWrapped = true
+notifText.TextTruncate = Enum.TextTruncate.AtEnd
+
+-- Gameplay feedback card (correct / wrong / checkpoint / complete)
+local feedback = Instance.new("Frame", sg)
+feedback.Name = "GameplayFeedback"
+feedback.Size = UDim2.new(0, 430, 0, 84)
+feedback.AnchorPoint = Vector2.new(0.5, 1)
+feedback.Position = UDim2.new(0.5, 0, 1, 120)
+feedback.BackgroundColor3 = CLR.pill
+feedback.BorderSizePixel = 0
+feedback.Visible = false
+Instance.new("UICorner", feedback).CornerRadius = UDim.new(0, 14)
+
+local feedbackStroke = Instance.new("UIStroke", feedback)
+feedbackStroke.Color = CLR.accent
+feedbackStroke.Thickness = 2
+feedbackStroke.Transparency = 0.1
+
+local feedbackTitle = Instance.new("TextLabel", feedback)
+feedbackTitle.Size = UDim2.new(1, -24, 0, 28)
+feedbackTitle.Position = UDim2.new(0, 12, 0, 8)
+feedbackTitle.Text = ""
+feedbackTitle.TextColor3 = Color3.new(1, 1, 1)
+feedbackTitle.BackgroundTransparency = 1
+feedbackTitle.Font = Enum.Font.GothamBlack
+feedbackTitle.TextSize = 20
+feedbackTitle.TextXAlignment = Enum.TextXAlignment.Left
+feedbackTitle.TextTruncate = Enum.TextTruncate.AtEnd
+
+local feedbackBody = Instance.new("TextLabel", feedback)
+feedbackBody.Size = UDim2.new(1, -24, 0, 38)
+feedbackBody.Position = UDim2.new(0, 12, 0, 38)
+feedbackBody.Text = ""
+feedbackBody.TextColor3 = Color3.fromRGB(220, 230, 255)
+feedbackBody.BackgroundTransparency = 1
+feedbackBody.Font = Enum.Font.GothamSemibold
+feedbackBody.TextSize = 14
+feedbackBody.TextWrapped = true
+feedbackBody.TextXAlignment = Enum.TextXAlignment.Left
+feedbackBody.TextYAlignment = Enum.TextYAlignment.Top
+
+local feedbackToken = 0
+local function showGameplayFeedback(payload)
+    payload = payload or {}
+    local kind = payload.kind or "info"
+    local colors = {
+        correct = Color3.fromRGB(60, 220, 120),
+        wrong = Color3.fromRGB(255, 80, 90),
+        warning = Color3.fromRGB(255, 220, 90),
+        complete = Color3.fromRGB(255, 220, 80),
+        info = CLR.accent,
+    }
+    local color = colors[kind] or colors.info
+    feedbackToken += 1
+    local token = feedbackToken
+
+    feedback.Visible = true
+    feedbackStroke.Color = color
+    feedbackTitle.TextColor3 = color
+    feedbackTitle.Text = shorten(payload.title or "", 36)
+    feedbackBody.Text = shorten(payload.message or "", 120)
+
+    TweenService:Create(feedback, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, 0, 1, -28)
+    }):Play()
+    task.delay(2.5, function()
+        if token ~= feedbackToken then return end
+        TweenService:Create(feedback, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Position = UDim2.new(0.5, 0, 1, 120)
+        }):Play()
+        task.wait(0.25)
+        if token == feedbackToken then feedback.Visible = false end
+    end)
+end
 
 local function showNotification(msg)
-    notifText.Text = "🎓 " .. msg
+    notifText.Text = "🎓 " .. shorten(msg, 72)
     -- Deslizar hacia abajo
     TweenService:Create(notif, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
         Position = UDim2.new(0.5, 0, 0, 16)
@@ -345,8 +426,19 @@ remoteLoaded.OnClientEvent:Connect(function(info)
                         "  •  " .. (info.objects_count or 0) .. " objetos"
 
     -- Game mode badge
-    local modeIcons = { gallery="Galería", arena="Arena", obby="Obby" }
-    modeLabel.Text = modeIcons[info.game_mode] or (info.game_mode or "")
+    local modeIcons = {
+        gallery="Galería",
+        arena="Arena",
+        obby="Obby",
+    }
+    local templateIcons = {
+        probability_lab = "Lab de probabilidad",
+        obby_tower = "Obby torre",
+        obby_path = "Obby camino",
+        arena_zones = "Arena",
+        gallery_walk = "Galería",
+    }
+    modeLabel.Text = templateIcons[info.interaction_template] or modeIcons[info.game_mode] or (info.game_mode or "")
 
     -- Reset transient chip on every new workshop
     selectionChip.Text = ""
@@ -373,12 +465,21 @@ task.spawn(function()
     local topicVal   = ReplicatedStorage:FindFirstChild("EduVerse_Topic")
     local sessionVal = ReplicatedStorage:FindFirstChild("EduVerse_Session")
     local modeVal    = ReplicatedStorage:FindFirstChild("EduVerse_GameMode")
+    local templateVal = ReplicatedStorage:FindFirstChild("EduVerse_InteractionTemplate")
     if topicVal and topicVal.Value ~= "" then
         topicLabel.Text   = topicVal.Value
         sessionLabel.Text = "Sesión: " .. (sessionVal and sessionVal.Value or "?")
         local modeIcons = { gallery="Galería", arena="Arena", obby="Obby" }
-        modeLabel.Text  = modeIcons[modeVal and modeVal.Value] or ""
+        local templateIcons = { probability_lab="Lab de probabilidad", obby_tower="Obby torre", obby_path="Obby camino" }
+        modeLabel.Text  = templateIcons[templateVal and templateVal.Value] or modeIcons[modeVal and modeVal.Value] or ""
         updateQuizButton()
+    end
+end)
+
+task.spawn(function()
+    local feedbackRemote = ReplicatedStorage:WaitForChild("EduVerse_GameplayFeedback", 60)
+    if feedbackRemote then
+        feedbackRemote.OnClientEvent:Connect(showGameplayFeedback)
     end
 end)
 

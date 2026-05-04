@@ -72,6 +72,7 @@ def _session_response(status: str, session, quality: Optional[dict] = None) -> d
         "topic": session.topic,
         "scene_title": workshop.scene_title,
         "game_mode": workshop.game_mode,
+        "interaction_template": workshop.interaction_template,
         "archetype": workshop.archetype,
         "learning_goal": workshop.learning_goal,
         "visual_metaphor": workshop.visual_metaphor,
@@ -131,6 +132,10 @@ async def generate_workshop(
     game_mode: Optional[str] = Query(
         None, description="Force gallery|arena|obby. Empty = let archetype auto-pick."
     ),
+    interaction_template: Optional[str] = Query(
+        None,
+        description="Force gameplay template: gallery_walk|arena_zones|obby_path|obby_tower|probability_lab.",
+    ),
     round_seconds: Optional[int] = Query(
         None, ge=5, le=60, description="Per-question countdown (Arena/Obby)."
     ),
@@ -155,6 +160,7 @@ async def generate_workshop(
             teacher_notes=teacher_notes,
             teacher_material=material.text,
             game_mode_override=game_mode,
+            interaction_template_override=interaction_template,
             round_seconds=round_seconds,
         )
         quality = evaluate_workshop(workshop, topic).to_dict()
@@ -184,6 +190,8 @@ async def generate_workshop_with_material(
     model: Optional[str] = Form(None),
     game_mode: Optional[str] = Form(None,
         description="Force gallery|arena|obby. Empty = let archetype auto-pick."),
+    interaction_template: Optional[str] = Form(None,
+        description="Force gameplay template: gallery_walk|arena_zones|obby_path|obby_tower|probability_lab."),
     round_seconds: Optional[int] = Form(None,
         description="Per-question countdown for Arena/Obby (5-60 s)."),
     auto_activate: bool = Form(True,
@@ -228,6 +236,7 @@ async def generate_workshop_with_material(
             teacher_notes=teacher_notes,
             teacher_material=combined_material,
             game_mode_override=game_mode,
+            interaction_template_override=interaction_template,
             round_seconds=round_seconds,
         )
         quality = evaluate_workshop(workshop, topic).to_dict()

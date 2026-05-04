@@ -38,6 +38,7 @@ class WorkshopSession:
             "scene_description": self.workshop.scene_description,
             "archetype": self.workshop.archetype,
             "game_mode": self.workshop.game_mode,
+            "interaction_template": self.workshop.interaction_template,
             "objects_count": len(self.workshop.objects),
             "quiz_count": len(self.workshop.quiz),
             "created_at": self.created_at,
@@ -159,10 +160,13 @@ class SessionManager:
         for row in db_sessions:
             if row["id"] not in in_memory_ids:
                 game_mode = "gallery"
+                interaction_template = None
                 workshop_json = row.get("workshop_json")
                 if workshop_json:
                     try:
-                        game_mode = json.loads(workshop_json).get("game_mode", game_mode)
+                        payload = json.loads(workshop_json)
+                        game_mode = payload.get("game_mode", game_mode)
+                        interaction_template = payload.get("interaction_template")
                     except Exception:
                         pass
                 db_summaries.append({
@@ -172,6 +176,7 @@ class SessionManager:
                     "scene_description": row.get("scene_description"),
                     "archetype": row.get("archetype"),
                     "game_mode": game_mode,
+                    "interaction_template": interaction_template,
                     "objects_count": row.get("objects_count", 0),
                     "quiz_count": row.get("quiz_count", 0),
                     "created_at": row["created_at"],

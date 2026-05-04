@@ -8,6 +8,7 @@
   "estimated_duration": "4 min",
   "archetype": "historical",
   "game_mode": "arena",
+  "interaction_template": "arena_zones",
   "objects": [
     {
       "name": "AntiguoRegimen",

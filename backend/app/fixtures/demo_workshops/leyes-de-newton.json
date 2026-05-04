@@ -8,6 +8,12 @@
   "estimated_duration": "5 min",
   "archetype": "physics",
   "game_mode": "obby",
+  "interaction_template": "obby_tower",
+  "mechanics": {
+    "difficulty": "moderate",
+    "stage_count": 4,
+    "wrong_answer": "fall_to_checkpoint"
+  },
   "objects": [
     {
       "name": "ForceArrow",

@@ -56,6 +56,7 @@ class GemmaService:
         teacher_notes: Optional[str] = None,
         teacher_material: Optional[str] = None,
         game_mode_override: Optional[str] = None,
+        interaction_template_override: Optional[str] = None,
         round_seconds: Optional[int] = None,
     ) -> Workshop:
         """Generate a complete EduVerse workshop.
@@ -64,6 +65,8 @@ class GemmaService:
             game_mode_override: 'gallery' | 'arena' | 'obby' to force the
                                 rendering mode regardless of the AI's archetype
                                 auto-pick. None = let the engine choose.
+            interaction_template_override: gameplay template such as
+                                'obby_tower' or 'probability_lab'.
             round_seconds:      Per-question timer (Arena/Obby). None = renderer default.
         """
         model = model_name or settings.AI_MODEL_NAME
@@ -74,7 +77,9 @@ class GemmaService:
         )
 
         data = await self._request_json(model=model, prompt=prompt, topic=topic)
-        workshop = self._build_workshop(data, topic, game_mode_override, round_seconds)
+        workshop = self._build_workshop(
+            data, topic, game_mode_override, round_seconds, interaction_template_override
+        )
         report = evaluate_workshop(workshop, topic)
 
         if not report.ok and settings.GEMMA_REPAIR_ON_QUALITY_FAIL:
@@ -85,7 +90,9 @@ class GemmaService:
                 report.errors,
             )
             data = await self._request_json(model=model, prompt=repair_prompt, topic=topic)
-            workshop = self._build_workshop(data, topic, game_mode_override, round_seconds)
+            workshop = self._build_workshop(
+                data, topic, game_mode_override, round_seconds, interaction_template_override
+            )
             report = evaluate_workshop(workshop, topic)
 
         if not report.ok:
@@ -163,11 +170,13 @@ class GemmaService:
 
     def _build_workshop(self, data: dict, topic: str,
                         game_mode_override: Optional[str] = None,
-                        round_seconds: Optional[int] = None) -> Workshop:
+                        round_seconds: Optional[int] = None,
+                        interaction_template_override: Optional[str] = None) -> Workshop:
         resolved = run_archetype_engine(
             data, resolve_color,
             game_mode_override=game_mode_override,
             round_seconds=round_seconds,
+            interaction_template_override=interaction_template_override,
         )
 
         behavior_counts: dict = {}
@@ -198,6 +207,7 @@ class GemmaService:
             "- Al menos una pregunta visual que mencione un objeto o acción visible.\n"
             "- Nada de labels genéricos como Objeto, Concepto o Elemento.\n"
             "- Variedad de comportamientos; no todos los objetos deben flotar.\n\n"
+            "- Usa una interaction_template válida: gallery_walk, arena_zones, obby_path, obby_tower o probability_lab.\n\n"
             "JSON anterior para reparar:\n"
             f"{prior_json}"
         )

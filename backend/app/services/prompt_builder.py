@@ -25,6 +25,9 @@ ALLOWED_ARCHETYPES: list[str] = [
 ALLOWED_ROLES: list[str] = ["center", "primary", "secondary", "detail"]
 ALLOWED_SHAPES: list[str] = ["esfera", "cubo", "cilindro", "cuña"]
 ALLOWED_DIFFICULTIES: list[str] = ["easy", "medium", "hard"]
+ALLOWED_INTERACTION_TEMPLATES: list[str] = [
+    "gallery_walk", "arena_zones", "obby_path", "obby_tower", "probability_lab",
+]
 
 
 def build_user_prompt(topic: str, teacher_material: Optional[str] = None,
@@ -73,6 +76,7 @@ CONCEPT_RESPONSE_SCHEMA: dict = {
         "visual_metaphor",
         "estimated_duration",
         "archetype",
+        "interaction_template",
         "objects",
         "quiz",
     ],
@@ -85,6 +89,7 @@ CONCEPT_RESPONSE_SCHEMA: dict = {
         "visual_metaphor": {"type": "string"},
         "estimated_duration": {"type": "string"},
         "archetype": {"type": "string", "enum": ALLOWED_ARCHETYPES},
+        "interaction_template": {"type": "string", "enum": ALLOWED_INTERACTION_TEMPLATES},
         "objects": {
             "type": "array",
             "items": {
@@ -172,6 +177,7 @@ Si el usuario incluye un bloque `MATERIAL DE APOYO DEL PROFESOR` (texto entre `<
   "visual_metaphor": "Cómo se representa visualmente el tema",
   "estimated_duration": "3-5 min",
   "archetype": "solar_system" | "atom" | "cell" | "building" | "ecosystem" | "physics" | "math" | "historical" | "abstract",
+  "interaction_template": "gallery_walk" | "arena_zones" | "obby_path" | "obby_tower" | "probability_lab",
   "objects": [ ...ver abajo... ],
   "quiz": [ ...ver abajo... ]
 }}
@@ -187,6 +193,25 @@ Si el usuario incluye un bloque `MATERIAL DE APOYO DEL PROFESOR` (texto entre `<
 - "math": geometría, álgebra, números, funciones
 - "historical": eventos históricos, geografía, líneas de tiempo
 - "abstract": conceptos abstractos, filosofía, otros
+
+═══════════ PLANTILLA DE GAMEPLAY ═══════════
+
+Elige UNA plantilla. Tú NO inventas mecánicas nuevas; llenas contenido para estas:
+- "gallery_walk": exploración 3D guiada con objetos tangibles y labels cortos.
+- "arena_zones": trivia por zonas A/B/C/D con timer.
+- "obby_path": recorrido horizontal donde cada pregunta abre el camino correcto.
+- "obby_tower": torre por etapas para temas de física/movimiento/fuerzas.
+- "probability_lab": laboratorio interactivo con dado, moneda, bolsa y muestras.
+
+Reglas de elección:
+- Probabilidad, azar, conteo, dados, monedas o espacio muestral → "probability_lab".
+- Física, fuerza, energía, Newton, movimiento → "obby_tower".
+- Historia/sociales con debates o grupos → "arena_zones".
+- Sistemas visuales naturales/celulares/astronómicos → "gallery_walk".
+
+Si eliges "probability_lab", incluye objetos con estos nombres exactos cuando existan:
+"Dice", "Coin", "Bag" y al menos 3 pompones/colores. El quiz debe conectar
+acciones del laboratorio: lanzar dado, lanzar moneda, meter pompones y sacar muestra.
 
 ═══════════ OBJETOS ═══════════
 

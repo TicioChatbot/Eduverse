@@ -8,6 +8,11 @@
   "estimated_duration": "6 min",
   "archetype": "math",
   "game_mode": "gallery",
+  "interaction_template": "probability_lab",
+  "mechanics": {
+    "unlock_quiz_after_actions": 3,
+    "interactables": ["dice", "coin", "bag", "pompons"]
+  },
   "round_seconds": 18,
   "objects": [
     {
@@ -134,20 +139,6 @@
       "correct_index": 2,
       "feedback": "Correcto: cara-cara, cara-sello, sello-cara, sello-sello = 4. Multiplicas 2×2.",
       "difficulty": "medium"
-    },
-    {
-      "question": "Tienes 3 camisetas, 2 gorras y 3 pantalones. ¿Cuántos atuendos diferentes puedes formar?",
-      "options": ["8", "12", "18", "24"],
-      "correct_index": 2,
-      "feedback": "Exacto: 3 × 2 × 3 = 18. En combinaciones multiplicas las opciones de cada conjunto.",
-      "difficulty": "medium"
-    },
-    {
-      "question": "Tres atletas compiten por el podio. ¿De cuántas maneras pueden llegar en orden 1°, 2°, 3°?",
-      "options": ["3", "6", "9", "27"],
-      "correct_index": 1,
-      "feedback": "Correcto: 3! = 3×2×1 = 6 permutaciones. En permutaciones el orden SÍ importa.",
-      "difficulty": "hard"
     }
   ]
 }

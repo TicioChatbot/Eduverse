@@ -76,10 +76,16 @@ Run this before inviting anyone.
 4. Join the published Roblox experience with the owner account.
 5. Confirm the HUD shows an active session.
 6. Confirm `Workspace/EduVerse_Scene` appears in Studio when testing locally.
-7. Activate `Leyes de Newton` and verify obby platforms do not error.
-8. Activate `Revolucion Francesa` and verify arena zones/questions appear.
-9. Submit at least one quiz/arena/obby answer.
-10. Check dashboard analytics for the answer.
+7. Activate `Leyes de Newton` and verify `Obby torre` appears.
+8. In the obby, jump to one wrong answer: the pad must drop/fail and respawn
+   you at the checkpoint with HUD feedback.
+9. Jump to one correct answer: the next path/stair section must unlock.
+10. Activate `Probabilidad` and verify the lab prompts: roll die, flip coin,
+    add pompons to bag, draw sample.
+11. Confirm the quiz button unlocks after lab interactions.
+12. Activate `Revolucion Francesa` and verify arena zones/questions appear.
+13. Submit at least one quiz/arena/obby answer.
+14. Check dashboard analytics for the answer.
 
 ## Experience Improvement Roadmap
 
@@ -105,8 +111,10 @@ Run this before inviting anyone.
 ### P1: Turn Each Mode Into Real Gameplay
 
 - Gallery: guided path, object proximity cards, short reveal sequence.
-- Obby: checkpoints, stage progress, respawn/kill plane polish, completion
-  screen.
+- Obby: `obby_path` and `obby_tower`, checkpoints, real falls, respawn,
+  answer feedback, unlocked paths and completion screen.
+- Probability: `probability_lab` with tangible die, coin, bag and pompon
+  interactions before quiz.
 - Arena: timer, zone lock-in, answer feedback, round transitions, final score.
 - HUD: one Spanish vocabulary system across all modes.
 - Audio/VFX: mode-specific cues for load, correct, wrong, finish.

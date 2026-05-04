@@ -36,6 +36,7 @@ local Config = {
     TOPIC_KEY       = "EduVerse_Topic",
     SESSION_KEY     = "EduVerse_Session",
     GAME_MODE_KEY   = "EduVerse_GameMode",
+    INTERACTION_TEMPLATE_KEY = "EduVerse_InteractionTemplate",
     STATUS_KEY      = "EduVerse_BackendStatus",
     OBJECTIVE_KEY   = "EduVerse_Objective",   -- displayed in HUD as "Objetivo"
     PROGRESS_KEY    = "EduVerse_Progress",    -- displayed in HUD as "Progreso"
@@ -63,6 +64,7 @@ local Config = {
         gallery = "",
         arena   = "",
         obby    = "",
+        lab     = "",
     },
 
     -- Short SFX dispatched by SfxEngine. Empty string = silent (safe default).

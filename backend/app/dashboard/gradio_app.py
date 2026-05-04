@@ -351,11 +351,16 @@ def build_gradio_app() -> gr.Blocks:
             # ── 2. NEW SESSION ───────────────────────────────────────────────────
             with gr.Tab("🚀 Nueva Sesión"):
                 with gr.Column():
-                    gr.Markdown("## 🎓 Crear Nueva Sesión Educativa\nIngresa el **tema** del taller, ajusta el enfoque y opcionalmente sube material de apoyo. Gemma 4 diseñará la escena 3D y el quiz anclado al material.")
+                    gr.Markdown(
+                        "## 🎓 Crear Nueva Sesión Educativa\n"
+                        "1) Ingresa el **tema**, opcionalmente sube material y ajusta los controles.\n"
+                        "2) **Generar para revisar** crea el taller pero no lo envía a Roblox aún.\n"
+                        "3) Lee las preguntas, y si te gusta pulsa **Activar y enviar a Roblox**."
+                    )
                     with gr.Row():
                         with gr.Column(scale=2):
                             topic_input = gr.Textbox(label="📖 Tema del Taller", placeholder="Ej: El Sistema Solar, La Mitocondria, Revolución Francesa…", lines=1)
-                            details_input = gr.Textbox(label="📝 Instrucciones (opcional)", placeholder="Ej: grado 9, énfasis en causas económicas, evita ejemplos europeos…", lines=2)
+                            details_input = gr.Textbox(label="📝 Instrucciones (opcional)", placeholder="Ej: grado 9, énfasis en causas económicas…", lines=2)
                             with gr.Row():
                                 material_file = gr.File(
                                     label="📎 Material de Apoyo (PDF/DOCX/TXT)",
@@ -364,30 +369,102 @@ def build_gradio_app() -> gr.Blocks:
                                 )
                                 material_input = gr.Textbox(
                                     label="…o pega texto del libro",
-                                    placeholder="Texto literal del capítulo, definiciones, ejemplos…",
+                                    placeholder="Texto literal del capítulo, definiciones…",
                                     lines=4,
                                 )
-                            generate_btn = gr.Button("🚀 Generar y Enviar a Roblox", elem_classes=["btn-primary"], size="lg")
-                            gr.Markdown("### Demo segura")
+
+                            # ── Teacher controls (NEW) ─────────────────────
+                            gr.Markdown("### 🎛 Controles del profesor")
                             with gr.Row():
+                                mode_input = gr.Dropdown(
+                                    label="🎮 Modo de juego",
+                                    choices=[
+                                        ("Auto (decide la IA según el tema)", "auto"),
+                                        ("🖼 Galería — exploración 3D", "gallery"),
+                                        ("⚔️ Arena — trivia por zonas", "arena"),
+                                        ("🏃 Obby — recorrido por respuestas", "obby"),
+                                    ],
+                                    value="auto",
+                                )
+                                round_input = gr.Slider(
+                                    label="⏱ Tiempo por pregunta (Arena/Obby)",
+                                    minimum=8, maximum=45, step=1, value=12,
+                                )
+                            review_first = gr.Checkbox(
+                                label="👀 Revisar antes de enviar a Roblox (recomendado)",
+                                value=True,
+                            )
+
+                            with gr.Row():
+                                generate_btn = gr.Button(
+                                    "🧠 Generar para revisar",
+                                    elem_classes=["btn-primary"], size="lg",
+                                )
+                                activate_btn = gr.Button(
+                                    "✅ Activar y enviar a Roblox",
+                                    elem_classes=["btn-secondary"], size="lg",
+                                    visible=False,
+                                )
+
+                            gr.Markdown("### Demo segura (sin AI)")
+                            with gr.Row():
+                                demo_prob_btn = gr.Button("🎲 Probabilidad", size="sm")
                                 demo_water_btn = gr.Button("Ciclo del agua", size="sm")
                                 demo_newton_btn = gr.Button("Leyes de Newton", size="sm")
                                 demo_history_btn = gr.Button("Revolución Francesa", size="sm")
                         with gr.Column(scale=1):
-                            preview_box = gr.JSON(label="Workshop Generado", visible=True)
+                            preview_box = gr.JSON(label="JSON del Workshop", visible=True)
+                    quiz_preview = gr.Markdown(visible=False)
                     result_banner = gr.HTML()
+                    last_session_state = gr.State(value="")  # holds the most recent session_id
 
-                def do_generate(topic, details, inline_material, uploaded_file):
+                def _quiz_to_md(workshop: dict) -> str:
+                    quiz = workshop.get("quiz") or []
+                    if not quiz:
+                        return ""
+                    title = workshop.get("scene_title") or workshop.get("topic") or "Taller"
+                    mode  = workshop.get("game_mode") or "?"
+                    rs    = workshop.get("round_seconds")
+                    rs_txt = f" · timer {rs}s" if rs else ""
+                    lines = [
+                        f"## 🧐 Revisa el quiz — *{escape(title)}* ({escape(mode)}{rs_txt})",
+                        f"_{escape(workshop.get('learning_goal') or '')}_",
+                        "",
+                    ]
+                    for i, q in enumerate(quiz, start=1):
+                        opts = q.get("options") or []
+                        correct = (q.get("correct_index") or 0)
+                        lines.append(f"**{i}. {escape(q.get('question',''))}**  ·  _{escape(q.get('difficulty','medium'))}_")
+                        for j, opt in enumerate(opts):
+                            mark = "✅" if j == correct else "▫️"
+                            lines.append(f"- {mark} {escape(str(opt))}")
+                        feedback = (q.get("feedback") or "").strip()
+                        if feedback:
+                            lines.append(f"  > 💬 {escape(feedback)}")
+                        lines.append("")
+                    return "\n".join(lines)
+
+                def do_generate(topic, details, inline_material, uploaded_file,
+                                game_mode, round_seconds, review_first):
                     topic = (topic or "").strip()
                     if not topic:
-                        return {}, '<div class="status-error">❌ El tema no puede estar vacío.</div>'
+                        return ({}, gr.update(visible=False, value=""),
+                                '<div class="status-error">❌ El tema no puede estar vacío.</div>',
+                                "", gr.update(visible=False))
 
                     files = None
-                    data_form = {"topic": topic}
+                    data_form = {
+                        "topic": topic,
+                        "auto_activate": "false" if review_first else "true",
+                    }
                     if (details or "").strip():
                         data_form["teacher_notes"] = details.strip()
                     if (inline_material or "").strip():
                         data_form["inline_material"] = inline_material.strip()
+                    if game_mode and game_mode != "auto":
+                        data_form["game_mode"] = game_mode
+                    if round_seconds:
+                        data_form["round_seconds"] = str(int(round_seconds))
 
                     if uploaded_file is not None:
                         try:
@@ -396,7 +473,9 @@ def build_gradio_app() -> gr.Blocks:
                             filename = os.path.basename(uploaded_file.name)
                             files = {"file": (filename, file_bytes)}
                         except Exception as e:
-                            return {}, f'<div class="status-error">❌ No se pudo leer el archivo: {escape(str(e))}</div>'
+                            return ({}, gr.update(visible=False, value=""),
+                                    f'<div class="status-error">❌ No se pudo leer el archivo: {escape(str(e))}</div>',
+                                    "", gr.update(visible=False))
 
                     try:
                         resp = httpx.post(
@@ -407,42 +486,97 @@ def build_gradio_app() -> gr.Blocks:
                             timeout=180,
                         )
                         if resp.status_code != 200:
-                            return {}, f'<div class="status-error">❌ Error: {escape(_api_error(resp))}</div>'
+                            return ({}, gr.update(visible=False, value=""),
+                                    f'<div class="status-error">❌ Error: {escape(_api_error(resp))}</div>',
+                                    "", gr.update(visible=False))
                         data = resp.json()
+                        workshop = data.get("workshop", {})
+                        sid = data.get("session_id", "")
+                        sent = data.get("status") == "generated"
+                        verb = "creada y enviada" if sent else "lista para revisar"
                         banner = (
-                            f'<div class="status-ok">✅ Sesión <strong>{escape(str(data.get("session_id","?")))}</strong> '
-                            f'creada · modo <strong>{escape(str(data.get("game_mode","?")))}</strong>: '
+                            f'<div class="status-ok">✅ Sesión <strong>{escape(str(sid))}</strong> '
+                            f'{verb} · modo <strong>{escape(str(data.get("game_mode","?")))}</strong>: '
                             f'<em>{escape(str(data.get("scene_title","?")))}</em>'
                             f'{_quality_note(data)}</div>'
                         )
-                        return data.get("workshop", {}), banner
+                        md = _quiz_to_md(workshop)
+                        return (
+                            workshop,
+                            gr.update(visible=True, value=md),
+                            banner,
+                            sid,
+                            gr.update(visible=not sent),  # show activate btn only when not yet sent
+                        )
                     except Exception as e:
-                        return {}, f'<div class="status-error">❌ Connection Error: {escape(str(e))}</div>'
+                        return ({}, gr.update(visible=False, value=""),
+                                f'<div class="status-error">❌ Connection Error: {escape(str(e))}</div>',
+                                "", gr.update(visible=False))
+
+                def do_activate(session_id):
+                    sid = (session_id or "").strip()
+                    if not sid:
+                        return ('<div class="status-error">❌ No hay sesión para activar.</div>',
+                                gr.update(visible=False))
+                    try:
+                        resp = httpx.post(
+                            f"{_API}/workshop/sessions/{sid}/activate",
+                            params=_admin_params(), timeout=20,
+                        )
+                        if resp.status_code != 200:
+                            return (f'<div class="status-error">❌ {escape(_api_error(resp))}</div>',
+                                    gr.update(visible=True))
+                        return (f'<div class="status-ok">🚀 Sesión <strong>{escape(sid)}</strong> '
+                                f'enviada a Roblox.</div>',
+                                gr.update(visible=False))
+                    except Exception as e:
+                        return (f'<div class="status-error">❌ {escape(str(e))}</div>',
+                                gr.update(visible=True))
 
                 def activate_demo(slug):
                     try:
                         resp = httpx.post(f"{_API}/workshop/demo/{slug}/activate", params=_admin_params(), timeout=20)
                         if resp.status_code != 200:
-                            return {}, f'<div class="status-error">❌ Error demo: {escape(_api_error(resp))}</div>'
+                            return ({}, gr.update(visible=False, value=""),
+                                    f'<div class="status-error">❌ Error demo: {escape(_api_error(resp))}</div>',
+                                    "", gr.update(visible=False))
                         data = resp.json()
+                        workshop = data.get("workshop", {})
                         banner = (
                             f'<div class="status-ok">✅ Demo <strong>{escape(str(data.get("session_id","?")))}</strong> '
                             f'activa · modo <strong>{escape(str(data.get("game_mode","?")))}</strong>: '
                             f'<em>{escape(str(data.get("scene_title","?")))}</em>'
                             f'{_quality_note(data)}</div>'
                         )
-                        return data.get("workshop", {}), banner
+                        return (workshop,
+                                gr.update(visible=True, value=_quiz_to_md(workshop)),
+                                banner,
+                                data.get("session_id", ""),
+                                gr.update(visible=False))
                     except Exception as e:
-                        return {}, f'<div class="status-error">❌ Error demo: {escape(str(e))}</div>'
+                        return ({}, gr.update(visible=False, value=""),
+                                f'<div class="status-error">❌ Error demo: {escape(str(e))}</div>',
+                                "", gr.update(visible=False))
 
                 generate_btn.click(
                     fn=do_generate,
-                    inputs=[topic_input, details_input, material_input, material_file],
-                    outputs=[preview_box, result_banner],
+                    inputs=[topic_input, details_input, material_input, material_file,
+                            mode_input, round_input, review_first],
+                    outputs=[preview_box, quiz_preview, result_banner, last_session_state, activate_btn],
                 )
-                demo_water_btn.click(fn=lambda: activate_demo("ciclo-del-agua"), outputs=[preview_box, result_banner])
-                demo_newton_btn.click(fn=lambda: activate_demo("leyes-de-newton"), outputs=[preview_box, result_banner])
-                demo_history_btn.click(fn=lambda: activate_demo("revolucion-francesa"), outputs=[preview_box, result_banner])
+                activate_btn.click(
+                    fn=do_activate,
+                    inputs=[last_session_state],
+                    outputs=[result_banner, activate_btn],
+                )
+                demo_prob_btn.click(fn=lambda: activate_demo("probabilidad-eventos"),
+                    outputs=[preview_box, quiz_preview, result_banner, last_session_state, activate_btn])
+                demo_water_btn.click(fn=lambda: activate_demo("ciclo-del-agua"),
+                    outputs=[preview_box, quiz_preview, result_banner, last_session_state, activate_btn])
+                demo_newton_btn.click(fn=lambda: activate_demo("leyes-de-newton"),
+                    outputs=[preview_box, quiz_preview, result_banner, last_session_state, activate_btn])
+                demo_history_btn.click(fn=lambda: activate_demo("revolucion-francesa"),
+                    outputs=[preview_box, quiz_preview, result_banner, last_session_state, activate_btn])
 
             # ── 3. SESSION HISTORY ───────────────────────────────────────────────
             with gr.Tab("📚 Historial") as tab_history:

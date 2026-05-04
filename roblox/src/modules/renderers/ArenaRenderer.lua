@@ -1,19 +1,31 @@
 --[[
-    ArenaRenderer.lua — EduVerse Renderer Module v2.0
+    ArenaRenderer.lua — EduVerse Renderer Module v3.0  "Trivia Arena"
     Location in Studio: ReplicatedStorage > EduVerse_Modules > renderers > ArenaRenderer (ModuleScript)
 
     Color Block / Trivia zone game mode (Arena archetype).
-    Layout:
-        • 4 colored floor quadrants (A / B / C / D)
-        • One workshop object "totem" floats above each quadrant
-        • Overhead BillboardGui shows the active question + countdown
 
-    New in v2.0:
-        • Per-player local selection feedback via EduVerse_ArenaSelection RemoteEvent
-          (HUD shows "Tu zona: B (Mitocondria)" without spamming the world).
-        • Objective + Progress strings driven through ctx.Objective so the HUD
-          always knows the round state.
-        • Correct/wrong SFX dispatched via ctx.SfxEngine.
+    Layout
+        • 4 colored floor quadrants A / B / C / D (28×28 studs each)
+        • A 5×5×5 minimum-size totem floats above each quadrant with the
+          option's content
+        • Overhead BillboardGui shows the active question + countdown
+        • Each quadrant has an upward neon beacon column to make "where am I"
+          obvious from any angle
+
+    Interaction (new in v3)
+        • Stepping on a zone:
+            – Pulses that zone (color flash)
+            – Restores the previously-touched zone
+            – Plays a soft 'select' SFX for that player only
+            – Updates their HUD chip with letter + option text
+              (e.g., "Tu zona: B — Tercer Estado")
+        • Last 3 seconds of every round:
+            – `locked` flag freezes per-player choice
+            – Broadcaster turns red and prints "BLOQUEA TU RESPUESTA — 3"
+        • Reveal moment:
+            – Correct zone: bright green pulse + center particle burst
+            – Wrong zones: brief red flash
+            – Each player gets correct/wrong SFX based on their locked answer
 
     Public API:
         ArenaRenderer.render(data, folder, ctx)
@@ -21,20 +33,23 @@
 
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService      = game:GetService("TweenService")
 
 local ArenaRenderer = {}
 
--- ── Layout constants ─────────────────────────────────────────────────────────
+-- ── Constants ────────────────────────────────────────────────────────────────
 local COLORS = {
     Color3.fromRGB(220, 50,  50),   -- A: Red
     Color3.fromRGB(50,  100, 220),  -- B: Blue
     Color3.fromRGB(50,  190, 80),   -- C: Green
     Color3.fromRGB(240, 200, 40),   -- D: Yellow
 }
-local LETTERS = { "A", "B", "C", "D" }
-local ARENA_CENTER = Vector3.new(0, 0.5, -90)
-local ZONE_SIZE    = 28
-local ROUND_SECONDS = 12
+local LETTERS               = { "A", "B", "C", "D" }
+local ARENA_CENTER          = Vector3.new(0, 0.5, -90)
+local ZONE_SIZE             = 28
+local BEACON_HEIGHT         = 24
+local DEFAULT_ROUND_SECONDS = 12
+local LOCK_THRESHOLD        = 3   -- last 3 seconds: choices freeze
 
 local ZONE_OFFSETS = {
     Vector3.new(-ZONE_SIZE / 2, 0, -ZONE_SIZE / 2),  -- A
@@ -43,7 +58,7 @@ local ZONE_OFFSETS = {
     Vector3.new( ZONE_SIZE / 2, 0,  ZONE_SIZE / 2),  -- D
 }
 
--- Reuse one RemoteEvent for client-side selection chips.
+-- ── RemoteEvents owned by Arena ──────────────────────────────────────────────
 local function getSelectionEvent()
     local ev = ReplicatedStorage:FindFirstChild("EduVerse_ArenaSelection")
     if not ev then
@@ -53,7 +68,7 @@ local function getSelectionEvent()
     return ev
 end
 
--- ── Helpers ──────────────────────────────────────────────────────────────────
+-- ── Floor + beacon ───────────────────────────────────────────────────────────
 local function buildFloorZone(folder, i)
     local floor = Instance.new("Part", folder)
     floor.Name        = "ArenaZone_" .. LETTERS[i]
@@ -71,10 +86,11 @@ local function buildFloorZone(folder, i)
         off.Z + ZONE_SIZE / 2 * math.sign(off.Z)
     )
 
+    -- Big letter floating above
     local bb  = Instance.new("BillboardGui", floor)
-    bb.Size          = UDim2.new(8, 0, 4, 0)
-    bb.StudsOffset   = Vector3.new(0, 2.5, 0)
-    bb.MaxDistance   = 120
+    bb.Size           = UDim2.new(8, 0, 4, 0)
+    bb.StudsOffset    = Vector3.new(0, 2.5, 0)
+    bb.MaxDistance    = 150
     bb.LightInfluence = 0
     local lbl = Instance.new("TextLabel", bb)
     lbl.Size                   = UDim2.new(1, 0, 1, 0)
@@ -84,35 +100,50 @@ local function buildFloorZone(folder, i)
     lbl.Font                   = Enum.Font.GothamBlack
     lbl.TextScaled             = true
 
-    return floor
+    -- Vertical beacon column, dim by default (NEW)
+    local beacon = Instance.new("Part", folder)
+    beacon.Name         = "ArenaBeacon_" .. LETTERS[i]
+    beacon.Anchored     = true
+    beacon.CanCollide   = false
+    beacon.Size         = Vector3.new(2, BEACON_HEIGHT, 2)
+    beacon.Position     = floor.Position + Vector3.new(0, BEACON_HEIGHT / 2 + 0.5, 0)
+    beacon.Color        = COLORS[i]
+    beacon.Material     = Enum.Material.Neon
+    beacon.Transparency = 0.85   -- dim while not selected; brightens on touch
+    beacon.Shape        = Enum.PartType.Cylinder
+    beacon.CFrame       = CFrame.new(beacon.Position) * CFrame.Angles(0, 0, math.rad(90))
+
+    return floor, beacon
 end
 
 local function buildBroadcaster(folder, title)
     local part = Instance.new("Part", folder)
-    part.Name        = "ArenaBroadcaster"
-    part.Anchored    = true
-    part.CanCollide  = false
+    part.Name         = "ArenaBroadcaster"
+    part.Anchored     = true
+    part.CanCollide   = false
     part.Transparency = 1
     part.Size         = Vector3.new(1, 1, 1)
-    part.Position     = ARENA_CENTER + Vector3.new(0, 22, 0)
+    part.Position     = ARENA_CENTER + Vector3.new(0, 26, 0)
 
     local bb = Instance.new("BillboardGui", part)
-    bb.Size          = UDim2.new(30, 0, 6, 0)
-    bb.MaxDistance   = 150
+    bb.Size           = UDim2.new(34, 0, 8, 0)
+    bb.MaxDistance    = 180
     bb.LightInfluence = 0
-    bb.AlwaysOnTop   = true
+    bb.AlwaysOnTop    = true
 
     local frame = Instance.new("Frame", bb)
     frame.Size                   = UDim2.new(1, 0, 1, 0)
     frame.BackgroundColor3       = Color3.fromRGB(10, 20, 50)
-    frame.BackgroundTransparency = 0.1
+    frame.BackgroundTransparency = 0.05
     frame.BorderSizePixel        = 0
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0.1, 0)
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0.08, 0)
+    local stroke = Instance.new("UIStroke", frame)
+    stroke.Color = Color3.fromRGB(120, 180, 255); stroke.Thickness = 2; stroke.Transparency = 0.3
 
     local lbl = Instance.new("TextLabel", frame)
     lbl.Name                   = "QuestionDisplay"
-    lbl.Size                   = UDim2.new(0.95, 0, 0.9, 0)
-    lbl.Position               = UDim2.new(0.025, 0, 0.05, 0)
+    lbl.Size                   = UDim2.new(0.96, 0, 0.92, 0)
+    lbl.Position               = UDim2.new(0.02, 0, 0.04, 0)
     lbl.Text                   = "🧠 " .. (title or "Quiz")
     lbl.TextColor3             = Color3.new(1, 1, 1)
     lbl.BackgroundTransparency = 1
@@ -120,7 +151,7 @@ local function buildBroadcaster(folder, title)
     lbl.TextScaled             = true
     lbl.TextWrapped            = true
 
-    return lbl
+    return lbl, frame, stroke
 end
 
 local function optionText(question)
@@ -132,36 +163,113 @@ local function optionText(question)
     )
 end
 
-local function flashZone(zone, color, original)
+-- ── Visual feedback helpers ──────────────────────────────────────────────────
+
+local function pulseZone(zone, baseColor)
+    -- Quick neon flash without losing the base color.
+    local flash = Color3.fromRGB(
+        math.min(255, baseColor.R * 255 + 60),
+        math.min(255, baseColor.G * 255 + 60),
+        math.min(255, baseColor.B * 255 + 60)
+    )
+    TweenService:Create(zone, TweenInfo.new(0.18), { Color = flash }):Play()
+    task.delay(0.25, function()
+        if zone and zone.Parent then
+            TweenService:Create(zone, TweenInfo.new(0.4), { Color = baseColor }):Play()
+        end
+    end)
+end
+
+local function setBeacon(beacon, active)
+    if not beacon then return end
+    TweenService:Create(beacon, TweenInfo.new(0.25), {
+        Transparency = active and 0.25 or 0.85,
+    }):Play()
+end
+
+local function flashZone(zone, color, original, duration)
     zone.Color = color
-    task.delay(1.3, function()
+    task.delay(duration or 1.3, function()
         if zone and zone.Parent then zone.Color = original end
     end)
+end
+
+local function burstAt(parent, position, color, count)
+    local holder = Instance.new("Part", parent.Parent)
+    holder.Anchored      = true
+    holder.CanCollide    = false
+    holder.Transparency  = 1
+    holder.Size          = Vector3.new(0.5, 0.5, 0.5)
+    holder.Position      = position
+    local e = Instance.new("ParticleEmitter", holder)
+    e.Color         = ColorSequence.new(color, Color3.new(1, 1, 1))
+    e.LightEmission = 1
+    e.Rate          = 0
+    e.Lifetime      = NumberRange.new(0.9, 1.6)
+    e.Speed         = NumberRange.new(15, 35)
+    e.Size          = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.6),
+        NumberSequenceKeypoint.new(1, 0),
+    })
+    e.SpreadAngle = Vector2.new(180, 180)
+    e:Emit(count or 50)
+    task.delay(2.5, function() if holder and holder.Parent then holder:Destroy() end end)
 end
 
 -- ── Render ───────────────────────────────────────────────────────────────────
 function ArenaRenderer.render(data, folder, ctx)
     local objects = data.objects or {}
     local quiz    = data.quiz or {}
-    local zones, zoneBaseColors, playerZone = {}, {}, {}
+
+    -- Teacher-controlled timer (sent by backend). Falls back to module default.
+    local roundSeconds = tonumber(data.round_seconds) or DEFAULT_ROUND_SECONDS
+
+    local zones, beacons, baseColors = {}, {}, {}
+    local playerZone        = {}   -- current touched zone per player [uid] = i
+    local lockedAnswers     = {}   -- frozen answer per player at LOCK [uid] = i
+    local locked            = false
+
     local serverAnswer    = ReplicatedStorage:WaitForChild("EduVerse_QuizAnswerServer", 15)
     local selectionEvent  = getSelectionEvent()
 
+    -- Live access to the active question's option text (used for the chip).
+    local activeQuestion  = nil
+
+    -- Build zones + beacons
     for i = 1, 4 do
-        local floor = buildFloorZone(folder, i)
-        zones[i] = floor
-        zoneBaseColors[i] = COLORS[i]
+        local floor, beacon = buildFloorZone(folder, i)
+        zones[i]      = floor
+        beacons[i]    = beacon
+        baseColors[i] = COLORS[i]
 
         floor.Touched:Connect(function(hit)
+            if locked then return end
             local player = Players:GetPlayerFromCharacter(hit.Parent)
             if not player then return end
-            local prev = playerZone[tostring(player.UserId)]
+            local uid = tostring(player.UserId)
+            local prev = playerZone[uid]
             if prev == i then return end
-            playerZone[tostring(player.UserId)] = i
-            -- Push compact "you selected B" chip to that one client only
+
+            playerZone[uid] = i
+
+            -- Visual: pulse the new zone, dim the previous beacon
+            pulseZone(floor, baseColors[i])
+            setBeacon(beacons[i], true)
+            if prev and beacons[prev] then setBeacon(beacons[prev], false) end
+
+            -- SFX: small per-player select sound
+            ctx.SfxEngine.playForPlayer(player, "select", ctx.Config, { volume = 0.4 })
+
+            -- HUD chip with letter + option text
+            local optText = nil
+            if activeQuestion and activeQuestion.options then
+                optText = activeQuestion.options[i]
+            end
             selectionEvent:FireClient(player, {
-                letter = LETTERS[i],
+                letter       = LETTERS[i],
                 option_index = i,
+                option_text  = optText,
+                locked       = false,
             })
         end)
 
@@ -169,8 +277,10 @@ function ArenaRenderer.render(data, folder, ctx)
         local obj = objects[i]
         if obj then
             local color = ctx.colorFrom(obj.color or "#AAAAAA")
-            obj.position = { x = floor.Position.X, y = 6, z = floor.Position.Z }
+            obj.position = { x = floor.Position.X, y = 7, z = floor.Position.Z }
             obj.behavior = { type = "float", params = { amplitude = 1.2, speed = 0.6 } }
+            -- Force a generous minimum size so totems read from across the arena
+            obj.size = { x = 5, y = 5, z = 5 }
 
             local inst, anchorPart = ctx.buildObject(obj, folder)
             if anchorPart then
@@ -180,12 +290,12 @@ function ArenaRenderer.render(data, folder, ctx)
             end
             ctx.startBehavior(inst, obj.behavior, 0)
 
-            -- Letter accent above the totem (kept — it's a small label)
-            local sz  = obj.size or { y = 3 }
+            -- Letter accent above the totem
+            local sz  = obj.size or { y = 5 }
             local bbT = Instance.new("BillboardGui", anchorPart or inst)
             bbT.Size           = UDim2.new(4, 0, 1.5, 0)
-            bbT.StudsOffset    = Vector3.new(0, (sz.y or 3) + 2, 0)
-            bbT.MaxDistance    = 60
+            bbT.StudsOffset    = Vector3.new(0, (sz.y or 5) + 2, 0)
+            bbT.MaxDistance    = 90
             bbT.LightInfluence = 0
             local lblT = Instance.new("TextLabel", bbT)
             lblT.Size                   = UDim2.new(1, 0, 1, 0)
@@ -197,10 +307,11 @@ function ArenaRenderer.render(data, folder, ctx)
         end
     end
 
-    local questionDisplay = buildBroadcaster(folder, data.scene_title)
+    local questionDisplay, broadcasterFrame, broadcasterStroke = buildBroadcaster(folder, data.scene_title)
 
-    ctx.Objective.set("Camina hacia la zona con tu respuesta antes de que termine el tiempo.")
+    ctx.Objective.set("Camina hacia la zona con tu respuesta. Bloquea tu elección antes del final.")
 
+    -- ── Round runner ─────────────────────────────────────────────────────────
     task.spawn(function()
         if not serverAnswer then
             questionDisplay.Text = "Arena lista\nNo se encontró el canal de respuestas."
@@ -215,22 +326,65 @@ function ArenaRenderer.render(data, folder, ctx)
         end
 
         task.wait(2)
+
         for qIndex, question in ipairs(quiz) do
-            playerZone = {}
-            for secondsLeft = ROUND_SECONDS, 1, -1 do
+            -- Reset state per round
+            playerZone     = {}
+            lockedAnswers  = {}
+            locked         = false
+            activeQuestion = question
+            for i, beacon in ipairs(beacons) do setBeacon(beacon, false) end
+
+            -- Restore base broadcaster look
+            broadcasterFrame.BackgroundColor3 = Color3.fromRGB(10, 20, 50)
+            broadcasterStroke.Color = Color3.fromRGB(120, 180, 255)
+
+            for secondsLeft = roundSeconds, 1, -1 do
+                local entering_lock = (secondsLeft <= LOCK_THRESHOLD) and not locked
+                if entering_lock then
+                    locked = true
+                    -- Snapshot the current player choices as their final answers
+                    for uid, choice in pairs(playerZone) do
+                        lockedAnswers[uid] = choice
+                    end
+                    -- Notify each player their pick is locked
+                    for _, p in Players:GetPlayers() do
+                        local choice = playerZone[tostring(p.UserId)]
+                        if choice then
+                            selectionEvent:FireClient(p, {
+                                letter       = LETTERS[choice],
+                                option_index = choice,
+                                option_text  = (question.options or {})[choice],
+                                locked       = true,
+                            })
+                        end
+                    end
+                    -- Visual: switch broadcaster to red
+                    broadcasterFrame.BackgroundColor3 = Color3.fromRGB(80, 25, 30)
+                    broadcasterStroke.Color = Color3.fromRGB(255, 90, 90)
+                end
+
+                local prefix = locked and "🔒 BLOQUEADO" or string.format("%ds", secondsLeft)
                 questionDisplay.Text = string.format(
-                    "Pregunta %d/%d  |  %ds\n%s\n\n%s",
-                    qIndex, #quiz, secondsLeft,
+                    "Pregunta %d/%d  |  %s\n%s\n\n%s",
+                    qIndex, #quiz, prefix,
                     question.question or "?",
                     optionText(question)
                 )
-                ctx.Objective.setProgress(string.format("Pregunta %d/%d · %ds restantes", qIndex, #quiz, secondsLeft))
+                ctx.Objective.setProgress(string.format(
+                    "Pregunta %d/%d · %s",
+                    qIndex, #quiz,
+                    locked and "BLOQUEADO" or (secondsLeft .. "s restantes")
+                ))
                 task.wait(1)
             end
 
+            -- ── Reveal ──────────────────────────────────────────────────────
             local correctIdx = (question.correct_index or 0) + 1
+
+            -- Push the locked picks to QuizManager
             for _, player in Players:GetPlayers() do
-                local selected = playerZone[tostring(player.UserId)]
+                local selected = lockedAnswers[tostring(player.UserId)]
                 if selected then
                     serverAnswer:Fire(player, qIndex, selected)
                     if selected == correctIdx then
@@ -241,11 +395,15 @@ function ArenaRenderer.render(data, folder, ctx)
                 end
             end
 
+            -- Visual reveal: bright green on correct, brief red on others
             for i, zone in ipairs(zones) do
                 if i == correctIdx then
-                    flashZone(zone, Color3.fromRGB(40, 230, 110), zoneBaseColors[i])
+                    flashZone(zone, Color3.fromRGB(40, 230, 110), baseColors[i], 2.0)
+                    setBeacon(beacons[i], true)
+                    burstAt(zone, zone.Position + Vector3.new(0, 4, 0),
+                            Color3.fromRGB(80, 255, 140), 70)
                 else
-                    flashZone(zone, Color3.fromRGB(90, 35, 35), zoneBaseColors[i])
+                    flashZone(zone, Color3.fromRGB(90, 35, 35), baseColors[i], 1.4)
                 end
             end
 
@@ -261,10 +419,11 @@ function ArenaRenderer.render(data, folder, ctx)
         questionDisplay.Text = "Arena terminada\nRevisa resultados en el dashboard."
         ctx.Objective.set("Arena terminada · revisa el resultado en pantalla.")
         ctx.Objective.setProgress("")
+        for _, beacon in ipairs(beacons) do setBeacon(beacon, false) end
         ctx.SfxEngine.play("complete", ctx.Config)
     end)
 
-    print("[ArenaRenderer] ✅ 4-zone Color Block arena built for: " .. (data.scene_title or "?"))
+    print("[ArenaRenderer v3.0] ✅ 4-zone arena built — " .. (data.scene_title or "?"))
 end
 
 return ArenaRenderer

@@ -3,38 +3,47 @@
     Location in Studio: ReplicatedStorage > EduVerse_Modules > vfx > SfxEngine (ModuleScript)
 
     Centralised one-shot sound dispatcher used by renderers and the quiz
-    pipeline. Reads sound IDs from `Config.SFX` so audio swaps live in one
-    place.
+    pipeline. Looks up event sound IDs in two places (in this order):
 
-    Why a dedicated module:
-      • SoundscapeEngine handles ambient looping audio.
-      • SfxEngine handles short event sounds (correct, wrong, checkpoint…)
-        with safe fallbacks when the asset id is empty.
+      1. Config.SFX[eventName]  — explicit "rbxassetid://…" string.
+      2. ReplicatedStorage/EduVerse_Sfx/<eventName>  — a Sound instance you
+         dragged in from Toolbox (Studio: Toolbox > Audio > Insert > rename).
+         If the Sound exists, SfxEngine reads its SoundId automatically.
+
+    Designers can pick whichever path is easier — code config or drag&drop.
 
     Public API:
         SfxEngine.play(eventName, config[, options])
-            eventName : string  one of "correct" | "wrong" | "checkpoint" |
-                                "complete" | "scene_load"
-            config    : table   pass the full Config module so SfxEngine can
-                                read Config.SFX without circular requires
-            options   : { volume?, pitch?, target? Instance, soloPlayer? Player }
-
         SfxEngine.playForPlayer(player, eventName, config[, options])
-            Plays the sound only on `player` via SoundService:PlayLocalSound.
+
+    Event names used by EduVerse:
+        scene_load   correct   wrong   checkpoint   complete   select
 ]]
 
-local SoundService = game:GetService("SoundService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundService      = game:GetService("SoundService")
 
 local SfxEngine = {}
 
 local DEFAULT_VOLUME = 0.55
 
+local function _resolveFromFolder(eventName)
+    local folder = ReplicatedStorage:FindFirstChild("EduVerse_Sfx")
+    if not folder then return nil end
+    local sound = folder:FindFirstChild(eventName)
+    if sound and sound:IsA("Sound") and sound.SoundId ~= "" then
+        return sound.SoundId
+    end
+    return nil
+end
+
 local function _resolveSoundId(config, eventName)
     local sfx = config and config.SFX
-    if type(sfx) ~= "table" then return nil end
-    local id = sfx[eventName]
-    if type(id) == "string" and id ~= "" then return id end
-    return nil
+    if type(sfx) == "table" then
+        local id = sfx[eventName]
+        if type(id) == "string" and id ~= "" then return id end
+    end
+    return _resolveFromFolder(eventName)
 end
 
 local function _newSound(soundId, options)

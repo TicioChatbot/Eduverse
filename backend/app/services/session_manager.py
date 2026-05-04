@@ -53,11 +53,20 @@ class SessionManager:
 
     # ── Create ───────────────────────────────────────────────────────────
 
-    def create_session(self, workshop: Workshop, topic: str) -> WorkshopSession:
+    def create_session(self, workshop: Workshop, topic: str,
+                        auto_activate: bool = True) -> WorkshopSession:
+        """Create and persist a session.
+
+        When `auto_activate=False` the session is saved to SQLite and the
+        in-memory cache, but it is NOT pushed to Roblox. Useful for the
+        teacher-review flow where the dashboard wants to preview before
+        activating.
+        """
         with self._lock:
             session = WorkshopSession(workshop=workshop, topic=topic)
             self._sessions[session.id] = session
-            self._set_active(session.id)
+            if auto_activate:
+                self._set_active(session.id)
 
             # ── Persist to SQLite ──────────────────────────────────────
             try:
@@ -72,7 +81,7 @@ class SessionManager:
                     workshop_json=workshop.model_dump_json(),
                     created_at=session.created_at,
                 )
-                logger.info(f"[SessionManager] ✅ Persisted session {session.id} — '{topic}'")
+                logger.info(f"[SessionManager] ✅ Persisted session {session.id} — '{topic}' (auto_activate={auto_activate})")
             except Exception as exc:
                 # Persistence failure should never break the game
                 logger.error(f"[SessionManager] ❌ Failed to persist session: {exc}")

@@ -21,6 +21,7 @@
             returns: { floor = Part, focusPos = Vector3, focusRadius = number }
 ]]
 
+local Lighting          = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local SceneDirector = {}
@@ -88,6 +89,22 @@ end
 
 -- Public ---------------------------------------------------------------------
 
+-- Ensure there's an Atmosphere instance in Lighting and tune it so the
+-- horizon doesn't look like a flat blue gradient. Idempotent.
+local function _ensureAtmosphere(style)
+    local atm = Lighting:FindFirstChildOfClass("Atmosphere")
+    if not atm then
+        atm = Instance.new("Atmosphere")
+        atm.Parent = Lighting
+    end
+    atm.Density   = 0.32
+    atm.Offset    = 0.25
+    atm.Color     = Color3.fromRGB(210, 215, 235)
+    atm.Decay     = style.accent
+    atm.Glare     = 0.15
+    atm.Haze      = 1.4
+end
+
 function SceneDirector.stage(folder, data)
     local archetype = (data.archetype or "abstract"):lower()
     local gameMode  = (data.game_mode or "gallery"):lower()
@@ -97,6 +114,7 @@ function SceneDirector.stage(folder, data)
     if floor then
         _buildAccentRing(folder, style)
     end
+    _ensureAtmosphere(style)
 
     local focusPos = SCENE_CENTER + Vector3.new(0, 8, 0)
     local focusRadius = style.radius

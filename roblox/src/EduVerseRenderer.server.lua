@@ -303,17 +303,39 @@ local function buildObject(obj, folder)
         end
         anchorPart = getPrimaryPart(assetClone) or assetClone:FindFirstChildWhichIsA("BasePart")
     else
+        -- ── Fallback primitive ──────────────────────────────────────────
+        -- When the AI asks for a name we don't have in EduVerse_Library
+        -- (especially for historical/abstract topics), make sure the
+        -- placeholder still reads as "intentional" instead of a flat block:
+        --   • Minimum 4 studs per axis (no tiny invisible prims)
+        --   • Halo SelectionBox in the requested color
+        --   • Ambient PointLight when the material is Neon
+        local MIN_DIM = 4.0
         local part = Instance.new("Part")
         part.Anchored = true; part.CanCollide = false; part.Name = obj.name
         local shape = (obj.shape or ""):lower()
         if shape == "sphere" then part.Shape = Enum.PartType.Ball
         elseif shape == "cylinder" then part.Shape = Enum.PartType.Cylinder
         else part.Shape = Enum.PartType.Block end
-        part.Size  = Vector3.new(math.max(sz.x, 0.5), math.max(sz.y, 0.5), math.max(sz.z, 0.5))
+        part.Size  = Vector3.new(
+            math.max(sz.x, MIN_DIM),
+            math.max(sz.y, MIN_DIM),
+            math.max(sz.z, MIN_DIM)
+        )
         part.Color = color
         local mat, refl = MaterialClassifier.get(obj.name)
         part.Material = mat; part.Reflectance = refl
         if mat == Enum.Material.Neon then addPointLight(part, color) end
+
+        -- Halo so the placeholder doesn't look "flat".
+        local halo = Instance.new("SelectionBox", part)
+        halo.Adornee        = part
+        halo.LineThickness  = 0.08
+        halo.SurfaceColor3  = color
+        halo.SurfaceTransparency = 0.7
+        halo.Color3         = color
+        halo.Transparency   = 0.45
+
         assetClone = part; anchorPart = part
     end
 

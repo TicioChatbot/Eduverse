@@ -53,20 +53,30 @@ local Config = {
     -- Anti-spam window (seconds) for QuizManager.processAnswer per (player, q)
     QUIZ_DEBOUNCE_SECONDS = 1.5,
 
-    -- Ambient sound IDs per game mode (swap for production tracks)
+    -- Ambient looping sound IDs per game mode.
+    -- Empty string = silent (safe default — no errors in Output panel).
+    -- Two ways to wire ambient music:
+    --   A) Paste rbxassetid://NUMBER here.
+    --   B) Drag Sounds from Toolbox into ReplicatedStorage/EduVerse_Sfx and
+    --      rename them: ambient_gallery, ambient_arena, ambient_obby.
     SOUNDS = {
-        gallery = "rbxassetid://1843323456",
-        arena   = "rbxassetid://1843323456",
-        obby    = "rbxassetid://1843323456",
+        gallery = "",
+        arena   = "",
+        obby    = "",
     },
 
     -- Short SFX dispatched by SfxEngine. Empty string = silent (safe default).
-    -- Populate with your own rbxassetid:// strings before publishing.
+    -- Two ways to wire sound:
+    --   A) Paste rbxassetid://NUMBER strings here.
+    --   B) Drag Sounds from Toolbox into ReplicatedStorage/EduVerse_Sfx and
+    --      rename them: scene_load, correct, wrong, checkpoint, complete, select.
+    --      SfxEngine picks them up automatically when the entry below is "".
     SFX = {
         scene_load = "",
         correct    = "",
         wrong      = "",
         checkpoint = "",
+        select     = "",
         complete   = "rbxassetid://12222076",  -- existing victory horn
     },
 }

@@ -128,6 +128,15 @@ async def generate_workshop(
     teacher_material: Optional[str] = Query(
         None, description="Inline supporting material (pasted text)."
     ),
+    game_mode: Optional[str] = Query(
+        None, description="Force gallery|arena|obby. Empty = let archetype auto-pick."
+    ),
+    round_seconds: Optional[int] = Query(
+        None, ge=5, le=60, description="Per-question countdown (Arena/Obby)."
+    ),
+    auto_activate: bool = Query(
+        True, description="If false, the session goes to history without pushing to Roblox."
+    ),
     _: None = Depends(require_admin_key),
 ):
     """Topic-only generation entrypoint.
@@ -136,7 +145,8 @@ async def generate_workshop(
     which accepts a multipart payload and runs the file through the
     material parser before sending it to Gemma.
     """
-    logger.info(f"[API] Generate request — topic: '{topic}'")
+    logger.info(f"[API] Generate request — topic: '{topic}' (mode={game_mode}, "
+                f"round_s={round_seconds}, auto_activate={auto_activate})")
     material = parse_inline_material(teacher_material or "")
     try:
         workshop = await gemma_service.generate_workshop(
@@ -144,13 +154,18 @@ async def generate_workshop(
             model_name=model,
             teacher_notes=teacher_notes,
             teacher_material=material.text,
+            game_mode_override=game_mode,
+            round_seconds=round_seconds,
         )
         quality = evaluate_workshop(workshop, topic).to_dict()
         if material.warning:
             quality.setdefault("warnings", []).append(material.warning)
-        session = session_manager.create_session(workshop=workshop, topic=topic)
+        session = session_manager.create_session(
+            workshop=workshop, topic=topic, auto_activate=auto_activate,
+        )
 
-        return _session_response("generated", session, quality)
+        status = "generated" if auto_activate else "drafted"
+        return _session_response(status, session, quality)
     except RuntimeError as e:
         logger.error(f"[API] AI error: {e}")
         raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")
@@ -167,13 +182,21 @@ async def generate_workshop_with_material(
     inline_material: Optional[str] = Form(None,
         description="Optional pasted material; combined with the uploaded file when both exist."),
     model: Optional[str] = Form(None),
+    game_mode: Optional[str] = Form(None,
+        description="Force gallery|arena|obby. Empty = let archetype auto-pick."),
+    round_seconds: Optional[int] = Form(None,
+        description="Per-question countdown for Arena/Obby (5-60 s)."),
+    auto_activate: bool = Form(True,
+        description="False = save to history without pushing to Roblox (review-first flow)."),
     file: Optional[UploadFile] = File(None),
     _: None = Depends(require_admin_key),
 ):
     """Multipart variant: parses an uploaded file and uses it as authoritative
     teacher material. Accepts .pdf, .docx, .txt, .md.
     """
-    logger.info(f"[API] Generate-with-material — topic: '{topic}', file: {file.filename if file else 'none'}")
+    logger.info(f"[API] Generate-with-material — topic: '{topic}', "
+                f"file: {file.filename if file else 'none'}, "
+                f"mode={game_mode}, round_s={round_seconds}, auto_activate={auto_activate}")
 
     inline = parse_inline_material(inline_material or "")
     parsed_warnings: list[str] = []
@@ -195,18 +218,26 @@ async def generate_workshop_with_material(
 
     combined_material = "\n\n".join(t for t in (file_text, inline.text) if t)
 
+    if round_seconds is not None and not (5 <= round_seconds <= 60):
+        raise HTTPException(status_code=422, detail="round_seconds debe estar entre 5 y 60.")
+
     try:
         workshop = await gemma_service.generate_workshop(
             topic=topic,
             model_name=model,
             teacher_notes=teacher_notes,
             teacher_material=combined_material,
+            game_mode_override=game_mode,
+            round_seconds=round_seconds,
         )
         quality = evaluate_workshop(workshop, topic).to_dict()
         for w in parsed_warnings:
             quality.setdefault("warnings", []).append(w)
-        session = session_manager.create_session(workshop=workshop, topic=topic)
-        return _session_response("generated", session, quality)
+        session = session_manager.create_session(
+            workshop=workshop, topic=topic, auto_activate=auto_activate,
+        )
+        status = "generated" if auto_activate else "drafted"
+        return _session_response(status, session, quality)
     except RuntimeError as e:
         logger.error(f"[API] AI error: {e}")
         raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")

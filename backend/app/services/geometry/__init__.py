@@ -13,7 +13,7 @@ Public API (used by gemma.py):
 """
 
 import math
-from typing import Callable
+from typing import Callable, Optional
 
 # Scene Z-offset so objects land away from the SpawnLocation
 SCENE_OFFSET = {"x": 0, "y": 0, "z": -90}
@@ -307,12 +307,17 @@ _ARCHETYPE_TO_GAME_MODE: dict[str, str] = {
 _SHAPE_MAP = {"esfera": "sphere", "cubo": "cube", "cilindro": "cylinder", "cuña": "wedge"}
 
 
-def run_archetype_engine(raw: dict, color_resolver) -> dict:
+def run_archetype_engine(raw: dict, color_resolver,
+                          game_mode_override: Optional[str] = None,
+                          round_seconds: Optional[int] = None) -> dict:
     """Apply deterministic geometry to AI concept objects.
 
     Args:
-        raw:            Raw dict from Gemma 4 (archetype, objects, quiz …).
-        color_resolver: Callable(hint: str) → hex string.
+        raw:                 Raw dict from Gemma 4 (archetype, objects, quiz …).
+        color_resolver:      Callable(hint: str) → hex string.
+        game_mode_override:  When set, forces the renderer mode regardless of
+                             the archetype's auto-pick. Valid: gallery | arena | obby.
+        round_seconds:       Optional per-question timer pushed to the workshop.
 
     Returns:
         Fully resolved workshop dict ready for the Workshop model.
@@ -320,7 +325,10 @@ def run_archetype_engine(raw: dict, color_resolver) -> dict:
     from app.services.prompt_builder import get_canonical_asset_name
 
     archetype = raw.get("archetype", "abstract").lower()
-    game_mode = _ARCHETYPE_TO_GAME_MODE.get(archetype, "gallery")
+    if game_mode_override and game_mode_override in {"gallery", "arena", "obby"}:
+        game_mode = game_mode_override
+    else:
+        game_mode = _ARCHETYPE_TO_GAME_MODE.get(archetype, "gallery")
     ai_objects = raw.get("objects", [])
 
     for obj in ai_objects:
@@ -361,6 +369,7 @@ def run_archetype_engine(raw: dict, color_resolver) -> dict:
         "estimated_duration": raw.get("estimated_duration", ""),
         "archetype":         archetype,
         "game_mode":         game_mode,
+        "round_seconds":     round_seconds,
         "objects":           final,
         "quiz":              raw.get("quiz", []),
     }

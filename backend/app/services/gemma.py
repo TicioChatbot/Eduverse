@@ -55,24 +55,16 @@ class GemmaService:
         model_name: Optional[str] = None,
         teacher_notes: Optional[str] = None,
         teacher_material: Optional[str] = None,
+        game_mode_override: Optional[str] = None,
+        round_seconds: Optional[int] = None,
     ) -> Workshop:
         """Generate a complete EduVerse workshop.
 
-        Args:
-            topic:            Educational topic (1 line, no instructions).
-            model_name:       Override the model specified in settings (optional).
-            teacher_notes:    Free-text instructions from the teacher (audience,
-                              level, focus). Optional.
-            teacher_material: Plain text extracted from a teacher-uploaded file
-                              (PDF/DOCX/TXT). When present, Gemma is instructed
-                              to anchor the scene and at least one quiz question
-                              to it. Optional.
-
-        Returns:
-            A fully validated Workshop instance ready for the session manager.
-
-        Raises:
-            RuntimeError: If Gemma4 fails to return valid JSON after all retries.
+        Teacher-driven overrides:
+            game_mode_override: 'gallery' | 'arena' | 'obby' to force the
+                                rendering mode regardless of the AI's archetype
+                                auto-pick. None = let the engine choose.
+            round_seconds:      Per-question timer (Arena/Obby). None = renderer default.
         """
         model = model_name or settings.AI_MODEL_NAME
         prompt = build_user_prompt(
@@ -82,7 +74,7 @@ class GemmaService:
         )
 
         data = await self._request_json(model=model, prompt=prompt, topic=topic)
-        workshop = self._build_workshop(data, topic)
+        workshop = self._build_workshop(data, topic, game_mode_override, round_seconds)
         report = evaluate_workshop(workshop, topic)
 
         if not report.ok and settings.GEMMA_REPAIR_ON_QUALITY_FAIL:
@@ -93,7 +85,7 @@ class GemmaService:
                 report.errors,
             )
             data = await self._request_json(model=model, prompt=repair_prompt, topic=topic)
-            workshop = self._build_workshop(data, topic)
+            workshop = self._build_workshop(data, topic, game_mode_override, round_seconds)
             report = evaluate_workshop(workshop, topic)
 
         if not report.ok:
@@ -169,8 +161,14 @@ class GemmaService:
 
         return data
 
-    def _build_workshop(self, data: dict, topic: str) -> Workshop:
-        resolved = run_archetype_engine(data, resolve_color)
+    def _build_workshop(self, data: dict, topic: str,
+                        game_mode_override: Optional[str] = None,
+                        round_seconds: Optional[int] = None) -> Workshop:
+        resolved = run_archetype_engine(
+            data, resolve_color,
+            game_mode_override=game_mode_override,
+            round_seconds=round_seconds,
+        )
 
         behavior_counts: dict = {}
         for obj in resolved["objects"]:

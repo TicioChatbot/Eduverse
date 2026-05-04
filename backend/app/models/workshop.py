@@ -180,6 +180,10 @@ class Workshop(BaseModel):
         "gallery",
         description="Roblox rendering mode: gallery (exploration) | arena (Color Block trivia) | obby (platform)"
     )
+    round_seconds: Optional[int] = Field(
+        None,
+        description="Per-question countdown for Arena/Obby. When None, the renderer uses its default (12s)."
+    )
     objects: List[WorkshopObject] = Field(default_factory=list)
     quiz: List[QuizQuestion] = Field(default_factory=list)
 

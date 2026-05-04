@@ -259,13 +259,34 @@ bindStringValue("EduVerse_Objective", objectiveLabel, "Esperando taller del prof
 bindStringValue("EduVerse_Progress",  progressLabel,  "")
 
 -- ── Arena selection chip (per-player feedback only) ─────────────────────
+-- Width comes back from the Arena via EduVerse_ArenaSelection. The chip
+-- shows the letter, the option text (when known), and a 🔒 marker when
+-- the round entered the lock-in window.
+do
+    -- Resize the chip a bit to fit "Tu zona: B — Tercer Estado".
+    selectionChip.Size = UDim2.new(1, -16, 0, 36)
+    selectionChip.TextWrapped = true
+    selectionChip.TextSize = 12
+end
+
 task.spawn(function()
     local arenaSel = ReplicatedStorage:WaitForChild("EduVerse_ArenaSelection", 30)
     if not arenaSel then return end
     arenaSel.OnClientEvent:Connect(function(payload)
         if not payload or not payload.letter then return end
-        selectionChip.Text = "  Tu zona: " .. payload.letter .. "  "
-        selectionChip.BackgroundTransparency = 0.15
+        local opt = payload.option_text
+        local marker = payload.locked and "🔒 " or ""
+        local body
+        if opt and opt ~= "" then
+            body = string.format("  %sTu zona: %s — %s  ", marker, payload.letter, opt)
+        else
+            body = string.format("  %sTu zona: %s  ", marker, payload.letter)
+        end
+        selectionChip.Text = body
+        selectionChip.BackgroundTransparency = 0.10
+        selectionChip.BackgroundColor3 = payload.locked
+            and Color3.fromRGB(120, 50, 60)
+            or Color3.fromRGB(40, 60, 100)
         selectionChip.Visible = true
     end)
 end)

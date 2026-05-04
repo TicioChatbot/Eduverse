@@ -83,22 +83,22 @@
   "quiz": [
     {
       "question": "Observa la flecha de fuerza: si la fuerza neta sobre un objeto es cero, que ocurre?",
-      "options": ["Mantiene su reposo o movimiento rectilineo uniforme", "Siempre acelera hacia arriba", "Pierde toda su masa", "Desaparece la gravedad"],
-      "correct_index": 0,
+      "options": ["Siempre acelera hacia arriba", "Mantiene su reposo o movimiento rectilineo uniforme", "Pierde toda su masa", "Desaparece la gravedad"],
+      "correct_index": 1,
       "feedback": "Correcto: esa es la idea central de la primera ley o ley de inercia.",
       "difficulty": "easy"
     },
     {
       "question": "Segun la segunda ley, que pasa si aumenta la fuerza neta sobre la misma masa?",
-      "options": ["Aumenta la aceleracion", "Aumenta la masa automaticamente", "La velocidad siempre baja", "La fuerza deja de existir"],
-      "correct_index": 0,
+      "options": ["Aumenta la masa automaticamente", "La velocidad siempre baja", "Aumenta la aceleracion", "La fuerza deja de existir"],
+      "correct_index": 2,
       "feedback": "Bien: F = m*a, entonces con la misma masa, mas fuerza produce mas aceleracion.",
       "difficulty": "medium"
     },
     {
       "question": "El resorte empuja un bloque y el bloque empuja al resorte. Que ley describe esa pareja?",
-      "options": ["Tercera ley de Newton", "Ley de Ohm", "Principio de Arquimedes", "Ley de Coulomb"],
-      "correct_index": 0,
+      "options": ["Ley de Ohm", "Principio de Arquimedes", "Ley de Coulomb", "Tercera ley de Newton"],
+      "correct_index": 3,
       "feedback": "Exacto: accion y reaccion son fuerzas iguales en magnitud y opuestas en direccion.",
       "difficulty": "medium"
     },

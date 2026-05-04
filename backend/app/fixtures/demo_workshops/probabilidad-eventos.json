@@ -1,0 +1,139 @@
+{
+  "topic": "Probabilidad: experimentos aleatorios y técnicas de conteo",
+  "scene_title": "El laboratorio del azar",
+  "scene_description": "Explora el espacio muestral, los eventos y las combinaciones con objetos cotidianos.",
+  "learning_goal": "Distinguir experimento aleatorio, espacio muestral y evento; aplicar combinaciones y permutaciones para contar resultados posibles.",
+  "teacher_brief": "Demo segura para introducir probabilidad. Usa la metáfora de pompones de colores en una bolsa, dado y combinaciones de ropa. Anclado a la clase del 4 de mayo.",
+  "visual_metaphor": "Una mesa de experimentos con una bolsa de pompones, un dado, una moneda y un perchero con prendas, que muestran cómo se cuentan posibilidades.",
+  "estimated_duration": "5 min",
+  "archetype": "math",
+  "game_mode": "gallery",
+  "round_seconds": 15,
+  "objects": [
+    {
+      "name": "Bag",
+      "shape": "sphere",
+      "color": "#7A5635",
+      "size": {"x": 4, "y": 5, "z": 4},
+      "position": {"x": 0, "y": 5, "z": -90},
+      "label": "Bolsa con pompones",
+      "description": "Dentro hay 7 pompones de colores distintos. Sacar uno sin mirar es un experimento aleatorio: sabemos el proceso, pero no el resultado.",
+      "behavior": {"type": "pulse", "params": {"intensity": 0.05, "speed": 0.6}}
+    },
+    {
+      "name": "PomponRojo",
+      "shape": "sphere",
+      "color": "#E94A4A",
+      "size": {"x": 1.6, "y": 1.6, "z": 1.6},
+      "position": {"x": -10, "y": 6, "z": -80},
+      "label": "Pompón rojo",
+      "description": "Cada pompón es un elemento del espacio muestral. Aquí hay 7 colores: rojo, azul, verde, amarillo, blanco, naranja y morado.",
+      "behavior": {"type": "float", "params": {"amplitude": 0.5, "speed": 0.8}}
+    },
+    {
+      "name": "PomponAzul",
+      "shape": "sphere",
+      "color": "#3F8AE8",
+      "size": {"x": 1.6, "y": 1.6, "z": 1.6},
+      "position": {"x": -7, "y": 6, "z": -78},
+      "label": "Pompón azul",
+      "description": "Si apuesto por colores primarios, mi evento es {rojo, azul, amarillo}. Tres resultados favorables sobre siete posibles.",
+      "behavior": {"type": "float", "params": {"amplitude": 0.5, "speed": 0.7}}
+    },
+    {
+      "name": "PomponAmarillo",
+      "shape": "sphere",
+      "color": "#F2D24E",
+      "size": {"x": 1.6, "y": 1.6, "z": 1.6},
+      "position": {"x": -4, "y": 6, "z": -80},
+      "label": "Pompón amarillo",
+      "description": "Tercer color primario. Probabilidad del evento 'colores primarios' = 3/7 ≈ 0.43.",
+      "behavior": {"type": "float", "params": {"amplitude": 0.5, "speed": 0.6}}
+    },
+    {
+      "name": "Dice",
+      "shape": "cube",
+      "color": "#F0F0F5",
+      "size": {"x": 3, "y": 3, "z": 3},
+      "position": {"x": 8, "y": 5, "z": -88},
+      "label": "Dado de 6 caras",
+      "description": "Lanzar el dado es otro experimento aleatorio. Espacio muestral = {1,2,3,4,5,6}. Evento 'pares' = {2,4,6} → 3/6 = 1/2.",
+      "behavior": {"type": "rotate", "params": {"speed": 1.2}}
+    },
+    {
+      "name": "Coin",
+      "shape": "cylinder",
+      "color": "#D4AF37",
+      "size": {"x": 2.6, "y": 0.4, "z": 2.6},
+      "position": {"x": 12, "y": 6, "z": -82},
+      "label": "Moneda",
+      "description": "Solo dos resultados posibles: cara o sello. Aún así, no podemos saber cuál saldrá: el experimento es aleatorio.",
+      "behavior": {"type": "rotate", "params": {"speed": 2.5}}
+    },
+    {
+      "name": "Camiseta",
+      "shape": "cube",
+      "color": "#2E9BFF",
+      "size": {"x": 3, "y": 3, "z": 0.6},
+      "position": {"x": -10, "y": 4, "z": -100},
+      "label": "Camiseta (3 opciones)",
+      "description": "Para combinaciones: si tengo 3 camisetas, 2 gorras y 3 pantalones, hay 3×2×3 = 18 atuendos posibles.",
+      "behavior": {"type": "float", "params": {"amplitude": 0.4, "speed": 0.5}}
+    },
+    {
+      "name": "Gorra",
+      "shape": "wedge",
+      "color": "#39A85A",
+      "size": {"x": 2.4, "y": 1.4, "z": 2},
+      "position": {"x": -5, "y": 4, "z": -100},
+      "label": "Gorra (2 opciones)",
+      "description": "En combinaciones el orden no importa: ponerme primero la gorra o la camiseta es lo mismo. Lo que cuenta es el conjunto.",
+      "behavior": {"type": "float", "params": {"amplitude": 0.4, "speed": 0.5}}
+    },
+    {
+      "name": "Podio",
+      "shape": "cube",
+      "color": "#C0C0C0",
+      "size": {"x": 6, "y": 4, "z": 3},
+      "position": {"x": 4, "y": 3, "z": -100},
+      "label": "Podio (permutaciones)",
+      "description": "En permutaciones SÍ importa el orden. Con 3 atletas el podio puede llenarse de 3! = 6 maneras: 123, 132, 213, 231, 312, 321.",
+      "behavior": {"type": "static", "params": {}}
+    }
+  ],
+  "quiz": [
+    {
+      "question": "Observa la bolsa con 7 pompones. ¿Qué es el espacio muestral en este experimento?",
+      "options": [
+        "Solo el pompón que sale",
+        "Los 7 colores que están dentro de la bolsa",
+        "El número de veces que se repite el experimento",
+        "La probabilidad del color rojo"
+      ],
+      "correct_index": 1,
+      "feedback": "Correcto: el espacio muestral son TODOS los resultados posibles, los 7 colores que hay en la bolsa.",
+      "difficulty": "easy"
+    },
+    {
+      "question": "Si el evento es 'sacar un color primario' y los primarios son rojo, azul y amarillo, ¿cuál es la probabilidad?",
+      "options": ["1/7", "2/7", "3/7", "7/3"],
+      "correct_index": 2,
+      "feedback": "Bien: el evento tiene 3 resultados favorables (rojo, azul, amarillo) sobre 7 posibles del espacio muestral.",
+      "difficulty": "medium"
+    },
+    {
+      "question": "Tienes 3 camisetas, 2 gorras y 3 pantalones. ¿Cuántas combinaciones diferentes de atuendo puedes formar?",
+      "options": ["8", "12", "18", "24"],
+      "correct_index": 2,
+      "feedback": "Exacto: 3 × 2 × 3 = 18. En combinaciones multiplicas las opciones de cada conjunto porque el orden no importa.",
+      "difficulty": "medium"
+    },
+    {
+      "question": "Tres atletas compiten por el podio. ¿De cuántas maneras pueden llegar en orden 1°, 2°, 3°?",
+      "options": ["3", "6", "9", "27"],
+      "correct_index": 1,
+      "feedback": "Correcto: 3! = 3×2×1 = 6 permutaciones. En permutaciones el orden SÍ importa, por eso hay más casos que en combinaciones.",
+      "difficulty": "hard"
+    }
+  ]
+}

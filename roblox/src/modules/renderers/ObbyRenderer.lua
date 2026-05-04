@@ -158,7 +158,7 @@ end
 
 -- Builds one stage for a single quiz question.
 -- Returns the CFrame of the checkpoint (used for respawn).
-local function buildStage(folder, stageIdx, question, checkpointZ, serverAnswer, playerDebounce, playerCheckpoint, stageCompleted)
+local function buildStage(folder, stageIdx, totalStages, question, checkpointZ, serverAnswer, playerDebounce, playerCheckpoint, stageCompleted, ctx)
     -- Add upward slope (climb) and sequential animation delay per stage
     local runwayY  = PATH.RUNWAY_Y + (stageIdx - 1) * 6
     local cpPos    = Vector3.new(0, runwayY, checkpointZ)
@@ -265,6 +265,16 @@ local function buildStage(folder, stageIdx, question, checkpointZ, serverAnswer,
                 -- ── CORRECT ──────────────────────────────────────────────
                 plat.Color = Color3.fromRGB(40, 220, 100)
                 burstParticles(plat, Color3.fromRGB(80, 255, 120), 60, 1.0)
+                if ctx and ctx.SfxEngine then
+                    ctx.SfxEngine.playForPlayer(player, "correct", ctx.Config)
+                end
+                if ctx and ctx.Objective then
+                    if stageIdx < totalStages then
+                        ctx.Objective.setProgress(string.format("Etapa %d/%d · ¡Bien!", stageIdx + 1, totalStages))
+                    else
+                        ctx.Objective.setProgress(string.format("Etapa %d/%d · meta a la vista", stageIdx, totalStages))
+                    end
+                end
                 -- Add a point light for a celebratory glow
                 local light = Instance.new("PointLight", plat)
                 light.Color      = Color3.fromRGB(80, 255, 120)
@@ -300,6 +310,9 @@ local function buildStage(folder, stageIdx, question, checkpointZ, serverAnswer,
                 -- ── WRONG ────────────────────────────────────────────────
                 plat.Color = Color3.fromRGB(220, 60, 60)
                 burstParticles(plat, Color3.fromRGB(255, 60, 60), 30, 0.5)
+                if ctx and ctx.SfxEngine then
+                    ctx.SfxEngine.playForPlayer(player, "wrong", ctx.Config)
+                end
 
                 -- Shake the platform slightly for drama
                 task.spawn(function()
@@ -358,6 +371,12 @@ function ObbyRenderer.render(data, folder, ctx)
         GalleryRenderer.render(data, folder, ctx)
         return
     end
+
+    -- HUD guidance for the path challenge.
+    ctx.Objective.set(
+        "Salta a la respuesta correcta en cada etapa. Si fallas, regresas al checkpoint."
+    )
+    ctx.Objective.setProgress(string.format("Etapa 1/%d · ¡Empecemos!", #quiz))
 
     -- State tables (per-play, destroyed with folder)
     local playerDebounce = {}
@@ -427,7 +446,8 @@ function ObbyRenderer.render(data, folder, ctx)
         local stageZ = PATH.START_Z + PATH.ANSWER_OFFSET_Z
                        - (stageIdx - 1) * PATH.STAGE_STRIDE
 
-        buildStage(folder, stageIdx, question, stageZ, serverAnswer, playerDebounce, playerCheckpoint, stageCompleted)
+        buildStage(folder, stageIdx, numStages, question, stageZ, serverAnswer,
+                   playerDebounce, playerCheckpoint, stageCompleted, ctx)
     end
 
     -- ── Kill plane / safety respawn ──────────────────────────────────────────
@@ -478,9 +498,9 @@ function ObbyRenderer.render(data, folder, ctx)
         if player and not finishDebounce then
             finishDebounce = true
             ctx.ParticleEngine.addFireworks(finishPlat)
-            local sound = Instance.new("Sound", finishPlat)
-            sound.SoundId = "rbxassetid://12222076" -- victory horn
-            sound:Play()
+            ctx.SfxEngine.play("complete", ctx.Config, { target = finishPlat })
+            ctx.Objective.set("¡Recorrido completado! Pulsa el botón de Quiz para revisar resultados.")
+            ctx.Objective.setProgress(string.format("Etapa %d/%d · meta", numStages, numStages))
             task.delay(10, function() finishDebounce = false end)
         end
     end)
@@ -500,7 +520,7 @@ function ObbyRenderer.render(data, folder, ctx)
 
         local inst, anchorPart, color = ctx.buildObject(obj, folder)
         if anchorPart then
-            ctx.createLabel(obj, anchorPart, color)
+            ctx.attachLabel(obj, anchorPart, color)
             ctx.addProximityGlow(inst, color)
             ctx.ParticleEngine.addSparkle(anchorPart, color)
         end

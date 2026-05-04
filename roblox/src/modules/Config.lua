@@ -25,17 +25,20 @@ local Config = {
     BACKEND_ENV = useLocalBackend and "local" or "production",
     BACKEND_URL   = selectedBackend,
     ANALYTICS_PATH = "/workshop/analytics/answer",
+    ASSETS_PATH    = "/workshop/assets",
     POLL_INTERVAL = 5,           -- seconds between backend polls
 
     -- Workspace folder name that holds the active scene
     SCENE_FOLDER  = "EduVerse_Scene",
 
     -- ReplicatedStorage key names (StringValues / RemoteEvents)
-    QUIZ_KEY      = "EduVerse_Quiz",
-    TOPIC_KEY     = "EduVerse_Topic",
-    SESSION_KEY   = "EduVerse_Session",
-    GAME_MODE_KEY = "EduVerse_GameMode",
-    STATUS_KEY    = "EduVerse_BackendStatus",
+    QUIZ_KEY        = "EduVerse_Quiz",
+    TOPIC_KEY       = "EduVerse_Topic",
+    SESSION_KEY     = "EduVerse_Session",
+    GAME_MODE_KEY   = "EduVerse_GameMode",
+    STATUS_KEY      = "EduVerse_BackendStatus",
+    OBJECTIVE_KEY   = "EduVerse_Objective",   -- displayed in HUD as "Objetivo"
+    PROGRESS_KEY    = "EduVerse_Progress",    -- displayed in HUD as "Progreso"
 
     -- Object spawn / animation timing
     SPAWN_HEIGHT  = 70,          -- studs above final position (dramatic drop)
@@ -47,11 +50,24 @@ local Config = {
     PLAYER_START_POS = Vector3.new(8, 5, -76),
     AUTO_TELEPORT_PLAYERS = true,
 
+    -- Anti-spam window (seconds) for QuizManager.processAnswer per (player, q)
+    QUIZ_DEBOUNCE_SECONDS = 1.5,
+
     -- Ambient sound IDs per game mode (swap for production tracks)
     SOUNDS = {
         gallery = "rbxassetid://1843323456",
         arena   = "rbxassetid://1843323456",
         obby    = "rbxassetid://1843323456",
+    },
+
+    -- Short SFX dispatched by SfxEngine. Empty string = silent (safe default).
+    -- Populate with your own rbxassetid:// strings before publishing.
+    SFX = {
+        scene_load = "",
+        correct    = "",
+        wrong      = "",
+        checkpoint = "",
+        complete   = "rbxassetid://12222076",  -- existing victory horn
     },
 }
 

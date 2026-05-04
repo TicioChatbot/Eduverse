@@ -71,3 +71,24 @@ def prompt_asset_lines() -> str:
         suffix = f" — {aliases}" if aliases else ""
         lines.append(f'  - "{asset["name"]}" ({asset.get("category", "asset")}){suffix}')
     return "\n".join(lines)
+
+
+def assets_contract() -> List[Dict[str, Any]]:
+    """Public contract used by Roblox audit and the dashboard.
+
+    Returns the raw registry entries plus their normalized lookup keys, so a
+    Roblox-side script can compare what `EduVerse_Library` actually contains
+    against what generation expects.
+    """
+    contract: list[dict[str, Any]] = []
+    for asset in list_assets():
+        name = str(asset["name"])
+        contract.append({
+            "name": name,
+            "normalized": normalize_key(name),
+            "category": asset.get("category", "asset"),
+            "topics": list(asset.get("topics", [])),
+            "aliases": list(asset.get("aliases", [])),
+            "priority": int(asset.get("priority", 0)),
+        })
+    return contract

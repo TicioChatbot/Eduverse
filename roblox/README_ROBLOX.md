@@ -1,4 +1,4 @@
-# EduVerse — Roblox Engine Integration Guide
+# EduVerse — Roblox Engine Integration Guide (v8 "Director Engine")
 
 ## Script Architecture
 
@@ -6,12 +6,19 @@
 Roblox Studio
 ├── ServerScriptService/           ← Server scripts (invisible to players)
 │   ├── EduVerseRenderer           ← Polls the FastAPI backend, builds 3D scenes
-│   └── QuizManager                ← Validates answers, posts analytics to backend
+│   ├── QuizManager                ← Validates answers, posts analytics to backend
+│   └── LibraryAuditor             ← Audits EduVerse_Library vs backend registry
 ├── ReplicatedStorage/
 │   └── EduVerse_Modules/          ← Config, asset lookup, VFX and renderers
+│       ├── Config / ColorUtils / AssetLibrary / MaterialClassifier
+│       ├── LabelEngine            ← Compact title + proximity description
+│       ├── Objective              ← Pushes "what to do now" to the HUD
+│       ├── SceneDirector          ← Floor disc + camera focus per archetype
+│       ├── vfx/ParticleEngine BeamEngine LightingEngine SoundscapeEngine SfxEngine
+│       └── renderers/Gallery Arena Obby
 └── StarterPlayerScripts/          ← Client scripts (run on each player)
     ├── QuizUI                     ← Glassmorphism quiz interface
-    └── EduVerseHUD                ← Active topic HUD, game mode badge, quiz button
+    └── EduVerseHUD                ← Topic + Objective + Progress + Arena chip
 ```
 
 > **Important:** `.client.lua` scripts go in **StarterPlayerScripts**.  
@@ -53,6 +60,7 @@ Right-click **ServerScriptService** → **Insert Object → Script**.
 |---|---|
 | `EduVerseRenderer` | `roblox/src/EduVerseRenderer.server.lua` |
 | `QuizManager` | `roblox/src/QuizManager.server.lua` |
+| `LibraryAuditor` | `roblox/src/LibraryAuditor.server.lua` |
 
 Clear the default `print("Hello world!")` and paste the full file contents.
 
@@ -65,9 +73,13 @@ Then create these ModuleScripts/Folders under
 | `ColorUtils` | `roblox/src/modules/ColorUtils.lua` |
 | `AssetLibrary` | `roblox/src/modules/AssetLibrary.lua` |
 | `MaterialClassifier` | `roblox/src/modules/MaterialClassifier.lua` |
+| `LabelEngine` | `roblox/src/modules/LabelEngine.lua` |
+| `Objective` | `roblox/src/modules/Objective.lua` |
+| `SceneDirector` | `roblox/src/modules/SceneDirector.lua` |
 | `vfx/ParticleEngine` | `roblox/src/modules/vfx/ParticleEngine.lua` |
 | `vfx/LightingEngine` | `roblox/src/modules/vfx/LightingEngine.lua` |
 | `vfx/SoundscapeEngine` | `roblox/src/modules/vfx/SoundscapeEngine.lua` |
+| `vfx/SfxEngine` | `roblox/src/modules/vfx/SfxEngine.lua` |
 | `vfx/BeamEngine` | `roblox/src/modules/vfx/BeamEngine.lua` |
 | `renderers/GalleryRenderer` | `roblox/src/modules/renderers/GalleryRenderer.lua` |
 | `renderers/ArenaRenderer` | `roblox/src/modules/renderers/ArenaRenderer.lua` |

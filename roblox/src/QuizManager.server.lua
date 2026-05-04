@@ -63,6 +63,12 @@ local serverAnswer = getOrCreate("EduVerse_QuizAnswerServer", "BindableEvent")
 local playerScores  = {}   -- [userId] = { correct=0, total=0 }
 local activeSession = ""   -- tracks session changes for score resets
 
+-- Anti-spam: last accepted answer timestamp per (userId, sessionId, qIndex).
+-- Protects analytics from runaway clicks and race conditions in Arena/Obby
+-- where Touched events can fire many times per second.
+local lastAcceptedAt = {}  -- ["uid|sid|q"] = os.clock()
+local DEBOUNCE_SECONDS = (Config.QUIZ_DEBOUNCE_SECONDS or 1.5)
+
 -- ══════════════════════════════════════════════════════════
 --  HELPERS
 -- ══════════════════════════════════════════════════════════
@@ -135,11 +141,22 @@ local function processAnswer(player, questionIndex, selectedIndex)
         return
     end
 
-    -- If the session changed, reset this player's score
+    -- If the session changed, reset this player's score and debounce table
     if sessionId ~= activeSession then
-        activeSession = sessionId
-        playerScores  = {}  -- reset all players on session change
+        activeSession    = sessionId
+        playerScores     = {}
+        lastAcceptedAt   = {}
     end
+
+    -- Anti-spam: drop duplicate answers for the same (player, question) inside
+    -- the debounce window. Silently — don't spam the client with errors.
+    local key = string.format("%s|%s|%d", userId, sessionId, questionIndex)
+    local now = os.clock()
+    local prev = lastAcceptedAt[key]
+    if prev and (now - prev) < DEBOUNCE_SECONDS then
+        return
+    end
+    lastAcceptedAt[key] = now
 
     -- Initialize score tracker for first answer
     if not playerScores[userId] then

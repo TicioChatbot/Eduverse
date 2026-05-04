@@ -11,6 +11,9 @@ Endpoints mapping:
     DELETE /current                → Clears the active session
     GET  /sessions                 → Retrieves historical sessions
     POST /sessions/{id}/activate   → Switches the globally active session
+    GET  /assets                   → Asset contract for Roblox Library audit
+    GET  /demo                     → List safe demo fixture workshops
+    POST /demo/{slug}/activate     → Activate a fixture without calling AI
     POST /analytics/answer         → Records a student's quiz answer
     GET  /analytics/{id}           → Fetches aggregated session results
     GET  /analytics/{id}/questions → Fetches per-question analytics
@@ -19,13 +22,15 @@ Endpoints mapping:
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Path
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Path, Query, UploadFile
 from pydantic import BaseModel
 from datetime import datetime, timezone
 
 from app.core.config import settings
+from app.services.asset_registry import assets_contract
 from app.services.demo_fixtures import list_demo_fixtures, load_demo_fixture
 from app.services.gemma import gemma_service
+from app.services.material_parser import parse_inline_material, parse_material
 from app.services.session_manager import session_manager
 from app.services.analytics import analytics_service
 from app.services.quality_gate import evaluate_workshop
@@ -117,14 +122,90 @@ async def get_current_workshop():
 async def generate_workshop(
     topic: str = Query(..., description="Educational topic"),
     model: Optional[str] = Query(None, description="Gemini model override"),
+    teacher_notes: Optional[str] = Query(
+        None, description="Free-text teacher instructions (audience, level, focus)."
+    ),
+    teacher_material: Optional[str] = Query(
+        None, description="Inline supporting material (pasted text)."
+    ),
     _: None = Depends(require_admin_key),
 ):
+    """Topic-only generation entrypoint.
+
+    For teacher uploads (PDF/DOCX/TXT) prefer `/generate/with-material`,
+    which accepts a multipart payload and runs the file through the
+    material parser before sending it to Gemma.
+    """
     logger.info(f"[API] Generate request — topic: '{topic}'")
+    material = parse_inline_material(teacher_material or "")
     try:
-        workshop = await gemma_service.generate_workshop(topic=topic, model_name=model)
+        workshop = await gemma_service.generate_workshop(
+            topic=topic,
+            model_name=model,
+            teacher_notes=teacher_notes,
+            teacher_material=material.text,
+        )
         quality = evaluate_workshop(workshop, topic).to_dict()
+        if material.warning:
+            quality.setdefault("warnings", []).append(material.warning)
         session = session_manager.create_session(workshop=workshop, topic=topic)
 
+        return _session_response("generated", session, quality)
+    except RuntimeError as e:
+        logger.error(f"[API] AI error: {e}")
+        raise HTTPException(status_code=502, detail=f"AI error: {str(e)}")
+    except Exception as e:
+        logger.error(f"[API] Unexpected: {e}")
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
+
+@router.post("/generate/with-material",
+             summary="Generate a workshop anchored to an uploaded file")
+async def generate_workshop_with_material(
+    topic: str = Form(..., description="Educational topic"),
+    teacher_notes: Optional[str] = Form(None),
+    inline_material: Optional[str] = Form(None,
+        description="Optional pasted material; combined with the uploaded file when both exist."),
+    model: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    _: None = Depends(require_admin_key),
+):
+    """Multipart variant: parses an uploaded file and uses it as authoritative
+    teacher material. Accepts .pdf, .docx, .txt, .md.
+    """
+    logger.info(f"[API] Generate-with-material — topic: '{topic}', file: {file.filename if file else 'none'}")
+
+    inline = parse_inline_material(inline_material or "")
+    parsed_warnings: list[str] = []
+    file_text = ""
+    if file is not None:
+        raw = await file.read()
+        parsed = parse_material(file.filename or "material", raw)
+        file_text = parsed.text
+        if parsed.warning:
+            parsed_warnings.append(parsed.warning)
+        if parsed.truncated:
+            parsed_warnings.append(
+                f"Material '{parsed.source_filename}' truncado a 6000 caracteres."
+            )
+    if inline.warning:
+        parsed_warnings.append(inline.warning)
+    if inline.truncated:
+        parsed_warnings.append("Material inline truncado a 6000 caracteres.")
+
+    combined_material = "\n\n".join(t for t in (file_text, inline.text) if t)
+
+    try:
+        workshop = await gemma_service.generate_workshop(
+            topic=topic,
+            model_name=model,
+            teacher_notes=teacher_notes,
+            teacher_material=combined_material,
+        )
+        quality = evaluate_workshop(workshop, topic).to_dict()
+        for w in parsed_warnings:
+            quality.setdefault("warnings", []).append(w)
+        session = session_manager.create_session(workshop=workshop, topic=topic)
         return _session_response("generated", session, quality)
     except RuntimeError as e:
         logger.error(f"[API] AI error: {e}")
@@ -167,6 +248,25 @@ async def activate_session(
         "session_id": session.id,
         "topic": session.topic,
         "scene_title": session.workshop.scene_title,
+    }
+
+
+# ─────────────────────────────────────────────────────────
+#  ASSET CONTRACT — used by Roblox audit script
+# ─────────────────────────────────────────────────────────
+@router.get("/assets", summary="Asset registry contract for Library audit")
+async def get_assets_contract():
+    """Returns the canonical asset names and metadata that Gemma may request.
+
+    The Roblox-side audit script compares this list against what's actually
+    inside `ReplicatedStorage/EduVerse_Library` so missing assets are visible
+    before they fall back to generic primitives.
+    """
+    contract = assets_contract()
+    return {
+        "version": settings.VERSION,
+        "total": len(contract),
+        "assets": contract,
     }
 
 

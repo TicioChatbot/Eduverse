@@ -2,15 +2,16 @@
     GalleryRenderer.lua — EduVerse Renderer Module
     Location in Studio: ReplicatedStorage > EduVerse_Modules > renderers > GalleryRenderer (ModuleScript)
 
-    Renders the default 3D exploration experience (Gallery archetype).
-    Objects drop from the sky with a Back easing tween and are given
-    behaviors (orbit, float, pulse, rotate) driven by the backend payload.
+    Renders the default 3D exploration experience.
+    Objects drop from the sky with a Back-easing tween and animate based on
+    their `behavior` (orbit, float, pulse, rotate, flow, grow_shrink).
+
+    Adds in v8:
+      • Compact two-tier labels via ctx.attachLabel (LabelEngine).
+      • Sets a clear objective in the HUD: "Encuentra los X elementos".
 
     Public API:
         GalleryRenderer.render(data, folder, ctx)
-            data   : workshop payload from the backend (objects, quiz, etc.)
-            folder : Workspace Folder to parent all created instances
-            ctx    : shared rendering context (objectRegistry, helpers)
 ]]
 
 local GalleryRenderer = {}
@@ -23,7 +24,7 @@ function GalleryRenderer.render(data, folder, ctx)
     for _, obj in ipairs(objects) do
         local inst, anchorPart, color = ctx.buildObject(obj, folder)
         if anchorPart then
-            ctx.createLabel(obj, anchorPart, color)
+            ctx.attachLabel(obj, anchorPart, color)
             ctx.addProximityGlow(inst, color)
 
             -- Particle effects: sparkle for neon materials, trail for orbiters
@@ -52,6 +53,13 @@ function GalleryRenderer.render(data, folder, ctx)
 
     -- Phase 3: draw orbit beams now that all instances exist
     ctx.BeamEngine.processObjects(data.objects or {}, ctx.objectRegistry, ctx.colorFrom)
+
+    -- HUD guidance — student knows what to do without reading floating text
+    ctx.Objective.set(string.format(
+        "Recorre la escena y descubre los %d elementos. Acércate para leer cada concepto.",
+        #objects
+    ))
+    ctx.Objective.setProgress("Modo Galería · sin tiempo límite")
 
     print("[GalleryRenderer] ✅ Scene built — " .. #objects .. " objects")
 end

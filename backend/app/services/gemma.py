@@ -27,7 +27,11 @@ from google.genai import types
 
 from app.core.config import settings
 from app.models.workshop import Workshop
-from app.services.prompt_builder import CONCEPT_PROMPT, CONCEPT_RESPONSE_SCHEMA
+from app.services.prompt_builder import (
+    CONCEPT_PROMPT,
+    CONCEPT_RESPONSE_SCHEMA,
+    build_user_prompt,
+)
 from app.services.color_resolver import resolve as resolve_color
 from app.services.geometry import run_archetype_engine
 from app.services.quality_gate import evaluate_workshop
@@ -49,12 +53,20 @@ class GemmaService:
         self,
         topic: str,
         model_name: Optional[str] = None,
+        teacher_notes: Optional[str] = None,
+        teacher_material: Optional[str] = None,
     ) -> Workshop:
-        """Generate a complete EduVerse workshop from a topic string.
+        """Generate a complete EduVerse workshop.
 
         Args:
-            topic:      Educational topic (can include teacher instructions).
-            model_name: Override the model specified in settings (optional).
+            topic:            Educational topic (1 line, no instructions).
+            model_name:       Override the model specified in settings (optional).
+            teacher_notes:    Free-text instructions from the teacher (audience,
+                              level, focus). Optional.
+            teacher_material: Plain text extracted from a teacher-uploaded file
+                              (PDF/DOCX/TXT). When present, Gemma is instructed
+                              to anchor the scene and at least one quiz question
+                              to it. Optional.
 
         Returns:
             A fully validated Workshop instance ready for the session manager.
@@ -63,13 +75,10 @@ class GemmaService:
             RuntimeError: If Gemma4 fails to return valid JSON after all retries.
         """
         model = model_name or settings.AI_MODEL_NAME
-        prompt = (
-            f"Genera un taller educativo 3D inmersivo para bachillerato colombiano sobre: {topic}\n"
-            f"Usa el archetype MÁS APROPIADO para este tema.\n"
-            f"Usa assets 3D disponibles cuando sea posible.\n"
-            f"Nombres de objetos: sin paréntesis, sin descripciones en el name "
-            f"(bien: 'SolCentral', mal: 'Sol (Estrella)').\n"
-            f"Mínimo 7, máximo 11 objetos. EXACTAMENTE 4 preguntas de quiz."
+        prompt = build_user_prompt(
+            topic=topic,
+            teacher_notes=teacher_notes,
+            teacher_material=teacher_material,
         )
 
         data = await self._request_json(model=model, prompt=prompt, topic=topic)

@@ -11,9 +11,11 @@ from typing import Iterable
 
 from app.models.workshop import Workshop
 from app.services.asset_registry import known_asset_names, relevant_asset_names
+from app.services.prompt_builder import ALLOWED_ARCHETYPES
 
 _GENERIC_LABELS = {"objeto", "objeto 1", "concepto", "elemento", "elemento 1", "item"}
 _VISUAL_TERMS = {"observa", "escena", "objeto", "mundo", "plataforma", "zona", "centro", "más grande", "mas grande"}
+_ALLOWED_ARCHETYPES_SET = set(ALLOWED_ARCHETYPES)
 
 
 @dataclass
@@ -57,6 +59,11 @@ def evaluate_workshop(workshop: Workshop, source_topic: str) -> QualityReport:
         errors.append("La escena debe tener entre 7 y 11 objetos.")
     if len(workshop.quiz) != 4:
         errors.append("El quiz debe tener exactamente 4 preguntas.")
+    if workshop.archetype not in _ALLOWED_ARCHETYPES_SET:
+        errors.append(
+            f"Archetype '{workshop.archetype}' no está soportado. "
+            f"Permitidos: {sorted(_ALLOWED_ARCHETYPES_SET)}."
+        )
 
     if len(relevant) >= 2 and len(asset_matches) < 2:
         errors.append("La escena usa pocos assets reales para un tema que sí tiene assets relevantes.")

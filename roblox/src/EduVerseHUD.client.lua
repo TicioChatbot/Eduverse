@@ -1,12 +1,20 @@
 --[[
-    EduVerseHUD.client.lua — v2.0
+    EduVerseHUD.client.lua — v3.0 "Guided HUD"
     Install in: StarterPlayerScripts
 
     Student-facing HUD providing:
-      - Active topic indicator (top-right corner)
-      - Game mode badge (Gallery / Arena / Obby)
-      - Quiz open/close button
-      - Slide-in notification on new workshop load
+      • Active topic indicator (top-right corner)
+      • Game mode badge (Gallery / Arena / Obby)
+      • NEW: Objective line (what to do now) + Progress line (Etapa 2/4 · 12s)
+      • NEW: Arena selection chip (your zone: B)
+      • Quiz open/close button
+      • Slide-in notification on new workshop load
+
+    The HUD reads three StringValues that the renderers update:
+        EduVerse_Objective    → main "what to do" line
+        EduVerse_Progress     → secondary "where am I" line
+        EduVerse_BackendStatus→ connection status
+    plus the EduVerse_ArenaSelection RemoteEvent for per-player chips.
 ]]
 
 local Players           = game:GetService("Players")
@@ -48,9 +56,10 @@ sg.ResetOnSpawn = false
 sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 -- ── Panel principal (esquina superior derecha) ───────────
+-- Taller en v3.0 to fit objective + progress + arena chip lines.
 local panel = Instance.new("Frame", sg)
 panel.Name = "HudPanel"
-panel.Size = UDim2.new(0, 260, 0, 140)
+panel.Size = UDim2.new(0, 280, 0, 230)
 panel.AnchorPoint = Vector2.new(1, 0)
 panel.Position = UDim2.new(1, -16, 0, 16)
 panel.BackgroundColor3 = CLR.pill
@@ -125,11 +134,51 @@ modeLabel.Font = Enum.Font.Gotham
 modeLabel.TextSize = 10
 modeLabel.TextXAlignment = Enum.TextXAlignment.Left
 
+-- Objective line ("Camina hacia la zona…", "Encuentra los 5 elementos")
+local objectiveLabel = Instance.new("TextLabel", panel)
+objectiveLabel.Name = "ObjectiveLabel"
+objectiveLabel.Size = UDim2.new(1, -16, 0, 32)
+objectiveLabel.Position = UDim2.new(0, 10, 0, 102)
+objectiveLabel.Text = "Esperando taller del profesor."
+objectiveLabel.TextColor3 = Color3.fromRGB(220, 230, 255)
+objectiveLabel.BackgroundTransparency = 1
+objectiveLabel.Font = Enum.Font.GothamSemibold
+objectiveLabel.TextSize = 12
+objectiveLabel.TextXAlignment = Enum.TextXAlignment.Left
+objectiveLabel.TextYAlignment = Enum.TextYAlignment.Top
+objectiveLabel.TextWrapped = true
+
+-- Progress line ("Etapa 2/4 · 12s", "Pregunta 1/4")
+local progressLabel = Instance.new("TextLabel", panel)
+progressLabel.Name = "ProgressLabel"
+progressLabel.Size = UDim2.new(1, -16, 0, 14)
+progressLabel.Position = UDim2.new(0, 10, 0, 138)
+progressLabel.Text = ""
+progressLabel.TextColor3 = Color3.fromRGB(160, 200, 255)
+progressLabel.BackgroundTransparency = 1
+progressLabel.Font = Enum.Font.GothamMedium
+progressLabel.TextSize = 11
+progressLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Arena selection chip ("Tu zona: B")
+local selectionChip = Instance.new("TextLabel", panel)
+selectionChip.Name = "SelectionChip"
+selectionChip.Size = UDim2.new(1, -16, 0, 18)
+selectionChip.Position = UDim2.new(0, 10, 0, 156)
+selectionChip.Text = ""
+selectionChip.TextColor3 = Color3.fromRGB(255, 240, 200)
+selectionChip.BackgroundColor3 = Color3.fromRGB(40, 60, 100)
+selectionChip.BackgroundTransparency = 1
+selectionChip.Font = Enum.Font.GothamBold
+selectionChip.TextSize = 11
+selectionChip.TextXAlignment = Enum.TextXAlignment.Left
+selectionChip.Visible = false
+
 -- ── Botón de Quiz ─────────────────────────────────────────
 local quizBtn = Instance.new("TextButton", panel)
 quizBtn.Name = "QuizBtn"
-quizBtn.Size = UDim2.new(1, -20, 0, 28)
-quizBtn.Position = UDim2.new(0, 10, 0, 106)
+quizBtn.Size = UDim2.new(1, -20, 0, 32)
+quizBtn.Position = UDim2.new(0, 10, 0, 184)
 quizBtn.BackgroundColor3 = CLR.accent
 quizBtn.Text = "Quiz no disponible"
 quizBtn.TextColor3 = Color3.new(1, 1, 1)
@@ -192,6 +241,35 @@ if statusVal then
     end)
 end
 
+-- ── Objective + Progress (driven by renderers via the Objective module) ──
+local function bindStringValue(name, label, fallback)
+    task.spawn(function()
+        local sv = ReplicatedStorage:WaitForChild(name, 30)
+        if not sv then return end
+        local function refresh()
+            local v = sv.Value
+            label.Text = (v ~= "" and v) or (fallback or "")
+        end
+        refresh()
+        sv.Changed:Connect(refresh)
+    end)
+end
+
+bindStringValue("EduVerse_Objective", objectiveLabel, "Esperando taller del profesor.")
+bindStringValue("EduVerse_Progress",  progressLabel,  "")
+
+-- ── Arena selection chip (per-player feedback only) ─────────────────────
+task.spawn(function()
+    local arenaSel = ReplicatedStorage:WaitForChild("EduVerse_ArenaSelection", 30)
+    if not arenaSel then return end
+    arenaSel.OnClientEvent:Connect(function(payload)
+        if not payload or not payload.letter then return end
+        selectionChip.Text = "  Tu zona: " .. payload.letter .. "  "
+        selectionChip.BackgroundTransparency = 0.15
+        selectionChip.Visible = true
+    end)
+end)
+
 task.spawn(function()
     local quizVal = ReplicatedStorage:WaitForChild("EduVerse_Quiz", 30)
     if quizVal then
@@ -248,6 +326,10 @@ remoteLoaded.OnClientEvent:Connect(function(info)
     -- Game mode badge
     local modeIcons = { gallery="Galería", arena="Arena", obby="Obby" }
     modeLabel.Text = modeIcons[info.game_mode] or (info.game_mode or "")
+
+    -- Reset transient chip on every new workshop
+    selectionChip.Text = ""
+    selectionChip.Visible = false
 
     updateQuizButton()
 

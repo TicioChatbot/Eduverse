@@ -351,12 +351,22 @@ def build_gradio_app() -> gr.Blocks:
             # ── 2. NEW SESSION ───────────────────────────────────────────────────
             with gr.Tab("🚀 Nueva Sesión"):
                 with gr.Column():
-                    gr.Markdown("## 🎓 Crear Nueva Sesión Educativa\nIngresa el **tema** del taller y pulsa **Generar**. Gemma 4 diseñará la escena 3D y el quiz.")
+                    gr.Markdown("## 🎓 Crear Nueva Sesión Educativa\nIngresa el **tema** del taller, ajusta el enfoque y opcionalmente sube material de apoyo. Gemma 4 diseñará la escena 3D y el quiz anclado al material.")
                     with gr.Row():
                         with gr.Column(scale=2):
                             topic_input = gr.Textbox(label="📖 Tema del Taller", placeholder="Ej: El Sistema Solar, La Mitocondria, Revolución Francesa…", lines=1)
-                            details_input = gr.Textbox(label="📝 Instrucciones (opcional)", placeholder="Ej: enfocarse en edad de 14 años…", lines=2)
-                            material_input = gr.Textbox(label="📎 Material de Apoyo (opcional)", placeholder="Pega texto de libro…", lines=3)
+                            details_input = gr.Textbox(label="📝 Instrucciones (opcional)", placeholder="Ej: grado 9, énfasis en causas económicas, evita ejemplos europeos…", lines=2)
+                            with gr.Row():
+                                material_file = gr.File(
+                                    label="📎 Material de Apoyo (PDF/DOCX/TXT)",
+                                    file_types=[".pdf", ".docx", ".txt", ".md"],
+                                    file_count="single",
+                                )
+                                material_input = gr.Textbox(
+                                    label="…o pega texto del libro",
+                                    placeholder="Texto literal del capítulo, definiciones, ejemplos…",
+                                    lines=4,
+                                )
                             generate_btn = gr.Button("🚀 Generar y Enviar a Roblox", elem_classes=["btn-primary"], size="lg")
                             gr.Markdown("### Demo segura")
                             with gr.Row():
@@ -367,13 +377,35 @@ def build_gradio_app() -> gr.Blocks:
                             preview_box = gr.JSON(label="Workshop Generado", visible=True)
                     result_banner = gr.HTML()
 
-                def do_generate(topic, details, material):
-                    if not topic.strip(): return {}, '<div class="status-error">❌ El tema no puede estar vacío.</div>'
-                    payload = topic
-                    if details.strip() or material.strip():
-                        payload = topic + "\n\n" + details + "\n\n" + material[:2000]
+                def do_generate(topic, details, inline_material, uploaded_file):
+                    topic = (topic or "").strip()
+                    if not topic:
+                        return {}, '<div class="status-error">❌ El tema no puede estar vacío.</div>'
+
+                    files = None
+                    data_form = {"topic": topic}
+                    if (details or "").strip():
+                        data_form["teacher_notes"] = details.strip()
+                    if (inline_material or "").strip():
+                        data_form["inline_material"] = inline_material.strip()
+
+                    if uploaded_file is not None:
+                        try:
+                            with open(uploaded_file.name, "rb") as fh:
+                                file_bytes = fh.read()
+                            filename = os.path.basename(uploaded_file.name)
+                            files = {"file": (filename, file_bytes)}
+                        except Exception as e:
+                            return {}, f'<div class="status-error">❌ No se pudo leer el archivo: {escape(str(e))}</div>'
+
                     try:
-                        resp = httpx.post(f"{_API}/workshop/generate", params=_admin_params({"topic": payload}), timeout=150)
+                        resp = httpx.post(
+                            f"{_API}/workshop/generate/with-material",
+                            params=_admin_params(),
+                            data=data_form,
+                            files=files,
+                            timeout=180,
+                        )
                         if resp.status_code != 200:
                             return {}, f'<div class="status-error">❌ Error: {escape(_api_error(resp))}</div>'
                         data = resp.json()
@@ -402,8 +434,12 @@ def build_gradio_app() -> gr.Blocks:
                         return data.get("workshop", {}), banner
                     except Exception as e:
                         return {}, f'<div class="status-error">❌ Error demo: {escape(str(e))}</div>'
-                
-                generate_btn.click(fn=do_generate, inputs=[topic_input, details_input, material_input], outputs=[preview_box, result_banner])
+
+                generate_btn.click(
+                    fn=do_generate,
+                    inputs=[topic_input, details_input, material_input, material_file],
+                    outputs=[preview_box, result_banner],
+                )
                 demo_water_btn.click(fn=lambda: activate_demo("ciclo-del-agua"), outputs=[preview_box, result_banner])
                 demo_newton_btn.click(fn=lambda: activate_demo("leyes-de-newton"), outputs=[preview_box, result_banner])
                 demo_history_btn.click(fn=lambda: activate_demo("revolucion-francesa"), outputs=[preview_box, result_banner])

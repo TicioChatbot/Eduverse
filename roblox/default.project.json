@@ -17,6 +17,15 @@
         "MaterialClassifier": {
           "$path": "src/modules/MaterialClassifier.lua"
         },
+        "LabelEngine": {
+          "$path": "src/modules/LabelEngine.lua"
+        },
+        "Objective": {
+          "$path": "src/modules/Objective.lua"
+        },
+        "SceneDirector": {
+          "$path": "src/modules/SceneDirector.lua"
+        },
         "vfx": {
           "$className": "Folder",
           "ParticleEngine": {
@@ -27,6 +36,9 @@
           },
           "SoundscapeEngine": {
             "$path": "src/modules/vfx/SoundscapeEngine.lua"
+          },
+          "SfxEngine": {
+            "$path": "src/modules/vfx/SfxEngine.lua"
           },
           "BeamEngine": {
             "$path": "src/modules/vfx/BeamEngine.lua"
@@ -52,6 +64,9 @@
       },
       "QuizManager": {
         "$path": "src/QuizManager.server.lua"
+      },
+      "LibraryAuditor": {
+        "$path": "src/LibraryAuditor.server.lua"
       }
     },
     "StarterPlayer": {

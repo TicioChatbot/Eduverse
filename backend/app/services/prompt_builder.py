@@ -17,6 +17,50 @@ from app.services.asset_registry import (
 
 KNOWN_ASSETS: set[str] = known_asset_names()
 
+ALLOWED_ARCHETYPES: list[str] = [
+    "solar_system", "atom", "cell", "building", "ecosystem",
+    "physics", "math", "historical", "abstract",
+]
+
+ALLOWED_ROLES: list[str] = ["center", "primary", "secondary", "detail"]
+ALLOWED_SHAPES: list[str] = ["esfera", "cubo", "cilindro", "cuña"]
+ALLOWED_DIFFICULTIES: list[str] = ["easy", "medium", "hard"]
+
+
+def build_user_prompt(topic: str, teacher_material: Optional[str] = None,
+                      teacher_notes: Optional[str] = None) -> str:
+    """Compose the per-request user prompt.
+
+    Keeps `topic`, `teacher_notes` (free-text instructions) and
+    `teacher_material` (extracted from a file) as distinct fields. Gemma
+    is instructed in the system prompt to anchor the scene to the material
+    when present.
+    """
+    parts = [f"Genera un taller educativo 3D inmersivo para bachillerato colombiano."]
+    parts.append(f"TEMA: {topic.strip()}")
+
+    notes = (teacher_notes or "").strip()
+    if notes:
+        parts.append(f"INSTRUCCIONES DEL PROFESOR (úsalas para enfocar el nivel y el ángulo):\n{notes}")
+
+    material = (teacher_material or "").strip()
+    if material:
+        parts.append(
+            "MATERIAL DE APOYO DEL PROFESOR (es la fuente autoritativa: usa sus términos, "
+            "ejemplos y datos exactos antes de inventar otros):\n"
+            f"<<<\n{material}\n>>>"
+        )
+
+    parts.append(
+        "REGLAS:\n"
+        "- Usa el archetype MÁS APROPIADO para este tema.\n"
+        "- Usa nombres exactos de la lista de assets cuando apliquen al tema.\n"
+        "- Sin paréntesis ni descripciones en `name` (bien: 'SolCentral', mal: 'Sol (Estrella)').\n"
+        "- Mínimo 7, máximo 11 objetos. EXACTAMENTE 4 preguntas de quiz.\n"
+        "- Al menos una pregunta debe referirse a algo visible en la escena."
+    )
+    return "\n\n".join(parts)
+
 
 CONCEPT_RESPONSE_SCHEMA: dict = {
     "type": "object",
@@ -40,7 +84,7 @@ CONCEPT_RESPONSE_SCHEMA: dict = {
         "teacher_brief": {"type": "string"},
         "visual_metaphor": {"type": "string"},
         "estimated_duration": {"type": "string"},
-        "archetype": {"type": "string"},
+        "archetype": {"type": "string", "enum": ALLOWED_ARCHETYPES},
         "objects": {
             "type": "array",
             "items": {
@@ -55,11 +99,11 @@ CONCEPT_RESPONSE_SCHEMA: dict = {
                 ],
                 "properties": {
                     "name": {"type": "string"},
-                    "role": {"type": "string"},
+                    "role": {"type": "string", "enum": ALLOWED_ROLES},
                     "color_hint": {"type": "string"},
                     "label": {"type": "string"},
                     "description": {"type": "string"},
-                    "shape_hint": {"type": "string"},
+                    "shape_hint": {"type": "string", "enum": ALLOWED_SHAPES},
                 },
             },
         },
@@ -80,8 +124,8 @@ CONCEPT_RESPONSE_SCHEMA: dict = {
                         "type": "array",
                         "items": {"type": "string"},
                     },
-                    "correct_index": {"type": "integer"},
-                    "difficulty": {"type": "string"},
+                    "correct_index": {"type": "integer", "minimum": 0, "maximum": 3},
+                    "difficulty": {"type": "string", "enum": ALLOWED_DIFFICULTIES},
                     "feedback": {"type": "string"},
                 },
             },
@@ -106,6 +150,16 @@ Debes diseñar una experiencia concreta: objetivo de aprendizaje, metáfora visu
 objetos con función pedagógica y preguntas conectadas a lo que el jugador ve.
 
 RESPONDE EN JSON PURO (sin markdown, sin código, sin texto extra).
+
+═══════════ MATERIAL DEL PROFESOR ═══════════
+
+Si el usuario incluye un bloque `MATERIAL DE APOYO DEL PROFESOR` (texto entre `<<<` y `>>>`),
+ÚSALO COMO FUENTE AUTORITATIVA:
+- Mantén términos, ejemplos y datos exactos del material.
+- Si el material contradice tu conocimiento general, gana el material.
+- El `learning_goal` y al menos UNA pregunta del quiz deben citar literalmente
+  un término o ejemplo presente en el material.
+- Si el material está vacío, procede solo con el TEMA y tu conocimiento.
 
 ═══════════ ESTRUCTURA ═══════════
 

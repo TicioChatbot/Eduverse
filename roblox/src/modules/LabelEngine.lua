@@ -35,7 +35,10 @@ local CFG = {
 
     DESC_WIDTH_STUDS     = 11,
     DESC_HEIGHT_STUDS    = 4.5,
-    DESC_MAX_DISTANCE    = 24,   -- only shows when player is close
+    -- Tightened so descriptions only appear when the player is right next
+    -- to ONE object. Otherwise overlapping objects show all their bubbles
+    -- at once and become unreadable (was 24 → now 12).
+    DESC_MAX_DISTANCE    = 12,
     DESC_FONT            = Enum.Font.Gotham,
 
     BG_TITLE             = Color3.fromRGB(10, 16, 38),

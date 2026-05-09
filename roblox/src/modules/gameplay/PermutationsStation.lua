@@ -20,6 +20,7 @@ local Modules = game:GetService("ReplicatedStorage"):WaitForChild("EduVerse_Modu
 local Gameplay = Modules:WaitForChild("gameplay")
 local InteractionService = require(Gameplay:WaitForChild("InteractionService"))
 local FeedbackService    = require(Gameplay:WaitForChild("FeedbackService"))
+local SignBoard          = require(Gameplay:WaitForChild("SignBoard"))
 
 local ATHLETES = {
     { name = "Ana",   color = Color3.fromRGB(245, 95, 95) },
@@ -52,6 +53,8 @@ local function makeBillboard(parent, text, offset, width, height, textSize)
     bb.StudsOffset = Vector3.new(0, offset, 0)
     bb.MaxDistance = 80
     bb.LightInfluence = 0
+    bb.AlwaysOnTop = true -- Fix clipping
+    bb.ZIndexBehavior = Enum.ZIndexBehavior.Global
     bb.Parent = parent
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(1, 0, 1, 0)
@@ -124,7 +127,11 @@ function PermutationsStation.build(folder, ctx, options)
         Vector3.new(12, 4.4, 0.4),
         Color3.fromRGB(20, 32, 70),
         Enum.Material.SmoothPlastic)
-    local boardLabel = makeBillboard(board, "", 2.2, 12, 4.4, 17)
+    local boardSign = SignBoard.create(board, {
+        isFixed = true,
+        title = "Permutaciones",
+        face = Enum.NormalId.Front
+    })
 
     local function applyPerm()
         local p = PERMUTATIONS[state.permIdx]
@@ -137,10 +144,10 @@ function PermutationsStation.build(folder, ctx, options)
         local p1 = ATHLETES[p[1]].name
         local p2 = ATHLETES[p[2]].name
         local p3 = ATHLETES[p[3]].name
-        boardLabel.Text = string.format(
-            "Permutaciones\n1° %s · 2° %s · 3° %s\nTotal: 3! = 6 órdenes posibles\nVas viendo la #%d",
+        boardSign.update(string.format(
+            "1° %s · 2° %s · 3° %s\nTotal: 3! = 6 órdenes posibles\nMostrando: #%d",
             p1, p2, p3, state.permIdx
-        )
+        ))
     end
 
     -- Interactor to cycle to the next permutation.

@@ -240,16 +240,21 @@ local function startBehavior(obj, behavior, selfRot)
         elseif bType == "orbit" then
             local radius    = tonumber(params.radius) or 15
             local spd       = tonumber(params.speed) or 0.5
-            local centerObj = params.center and objectRegistry[params.center]
+            local centerName = tostring(params.center or "")
+
+            -- Wait for center object to exist in registry
+            local centerObj = nil
+            for _=1, 30 do
+                centerObj = objectRegistry[centerName]
+                if centerObj then break end
+                task.wait(0.2)
+            end
+
             if not centerObj then
-                -- Strict mode: previously we picked "any other object" which
-                -- created confusing visuals. Now we just skip and warn.
-                warn(string.format(
-                    "[Renderer] orbit '%s' has missing center '%s' — skipping motion",
-                    obj.Name or "?", tostring(params.center)
-                ))
+                warn(string.format("[Renderer] orbit '%s' center '%s' not found — skipping", obj.Name or "?", centerName))
                 return
             end
+
             while obj and obj.Parent and centerObj and centerObj.Parent do
                 t += 0.016 * spd
                 local cP = (getPrimaryPart(centerObj) or centerObj).Position
@@ -329,9 +334,16 @@ local function buildObject(obj, folder)
             local ext  = assetClone:GetExtentsSize()
             local largest = math.max(ext.X, ext.Y, ext.Z)
             local target  = math.max(sz.x, sz.y, sz.z)
-            if largest > 0.1 then assetClone:ScaleTo(target / largest) end
-        else
-            assetClone.Size = Vector3.new(sz.x, sz.y, sz.z)
+            if largest > 0.01 then assetClone:ScaleTo(target / largest) end
+        elseif assetClone:IsA("BasePart") then
+            -- MeshPart scaling: maintain aspect ratio
+            local current = assetClone.Size
+            local largest = math.max(current.X, current.Y, current.Z)
+            local target = math.max(sz.x, sz.y, sz.z)
+            if largest > 0.01 then
+                local ratio = target / largest
+                assetClone.Size = current * ratio
+            end
         end
         anchorPart = getPrimaryPart(assetClone) or assetClone:FindFirstChildWhichIsA("BasePart")
     else

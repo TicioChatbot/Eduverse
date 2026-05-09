@@ -54,6 +54,9 @@
           },
           "PermutationsStation": {
             "$path": "src/modules/gameplay/PermutationsStation.lua"
+          },
+          "SignBoard": {
+            "$path": "src/modules/gameplay/SignBoard.lua"
           }
         },
         "dressing": {

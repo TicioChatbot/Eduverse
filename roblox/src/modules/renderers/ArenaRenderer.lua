@@ -105,12 +105,13 @@ local function buildFloorZone(folder, i)
     beacon.Name         = "ArenaBeacon_" .. LETTERS[i]
     beacon.Anchored     = true
     beacon.CanCollide   = false
-    beacon.Size         = Vector3.new(2, BEACON_HEIGHT, 2)
+    beacon.Size         = Vector3.new(BEACON_HEIGHT, 2, 2) -- Length is X for cylinders
     beacon.Position     = floor.Position + Vector3.new(0, BEACON_HEIGHT / 2 + 0.5, 0)
     beacon.Color        = COLORS[i]
     beacon.Material     = Enum.Material.Neon
-    beacon.Transparency = 0.85   -- dim while not selected; brightens on touch
+    beacon.Transparency = 0.9 -- Even more subtle
     beacon.Shape        = Enum.PartType.Cylinder
+    -- Rotate to be vertical (X-axis along Y-world)
     beacon.CFrame       = CFrame.new(beacon.Position) * CFrame.Angles(0, 0, math.rad(90))
 
     return floor, beacon

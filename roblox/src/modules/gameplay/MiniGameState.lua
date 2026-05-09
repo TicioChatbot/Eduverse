@@ -20,7 +20,9 @@ function MiniGameState.new(requiredActions)
         self.requiredSet[actionKey] = true
     end
     self.playerActions = {}
+    self.playerData = {} -- Per-player arbitrary data
     self.classActions = {}
+    self.classData = {}  -- Global arbitrary data
     self.logs = {}
     self.quizUnlocked = false
     return self
@@ -91,6 +93,52 @@ end
 
 function MiniGameState:getLogs()
     return self.logs
+end
+
+-- Data Management
+function MiniGameState:setPlayerData(player, key, value)
+    local uid = self:_uid(player)
+    self.playerData[uid] = self.playerData[uid] or {}
+    self.playerData[uid][key] = value
+end
+
+function MiniGameState:getPlayerData(player, key, default)
+    local uid = self:_uid(player)
+    local data = self.playerData[uid]
+    if not data or data[key] == nil then return default end
+    return data[key]
+end
+
+function MiniGameState:pushPlayerData(player, key, value, limit)
+    local list = self:getPlayerData(player, key, {})
+    table.insert(list, 1, value)
+    if limit then
+        while #list > limit do table.remove(list) end
+    end
+    self:setPlayerData(player, key, list)
+end
+
+function MiniGameState:setClassData(key, value)
+    self.classData[key] = value
+end
+
+function MiniGameState:getClassData(key, default)
+    if self.classData[key] == nil then return default end
+    return self.classData[key]
+end
+
+function MiniGameState:incrementClassData(key, amount)
+    local val = self:getClassData(key, 0)
+    self:setClassData(key, val + (amount or 1))
+end
+
+function MiniGameState:pushClassData(key, value, limit)
+    local list = self:getClassData(key, {})
+    table.insert(list, 1, value)
+    if limit then
+        while #list > limit do table.remove(list) end
+    end
+    self:setClassData(key, list)
 end
 
 return MiniGameState

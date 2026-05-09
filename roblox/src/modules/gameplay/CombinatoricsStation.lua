@@ -25,6 +25,7 @@ local Modules = game:GetService("ReplicatedStorage"):WaitForChild("EduVerse_Modu
 local Gameplay = Modules:WaitForChild("gameplay")
 local InteractionService = require(Gameplay:WaitForChild("InteractionService"))
 local FeedbackService    = require(Gameplay:WaitForChild("FeedbackService"))
+local SignBoard          = require(Gameplay:WaitForChild("SignBoard"))
 
 local CAMISETAS = {
     { name = "azul",     color = Color3.fromRGB(60, 130, 230) },
@@ -55,6 +56,8 @@ local function makeBillboard(parent, text, offset, width, height, textSize)
     bb.StudsOffset = Vector3.new(0, offset, 0)
     bb.MaxDistance = 80
     bb.LightInfluence = 0
+    bb.AlwaysOnTop = true
+    bb.ZIndexBehavior = Enum.ZIndexBehavior.Global
     bb.Parent = parent
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(1, 0, 1, 0)
@@ -124,17 +127,19 @@ function CombinatoricsStation.build(folder, ctx, options)
         Vector3.new(11, 4.2, 0.4),
         Color3.fromRGB(20, 32, 70),
         Enum.Material.SmoothPlastic)
-    local boardLabel = makeBillboard(board,
-        "Combinaciones\nCamiseta x Gorra = 3 x 2 = 6",
-        2.2, 11, 4.2, 18)
+    local boardSign = SignBoard.create(board, {
+        isFixed = true,
+        title = "Combinaciones",
+        face = Enum.NormalId.Front
+    })
 
     local function refreshBoard()
         local cInfo = CAMISETAS[state.camiseta]
         local gInfo = GORRAS[state.gorra]
-        boardLabel.Text = string.format(
-            "Combinaciones\nCamiseta %s x Gorra %s\n%d x %d = %d",
+        boardSign.update(string.format(
+            "Camiseta %s x Gorra %s\n%d x %d = %d",
             cInfo.name, gInfo.name, #CAMISETAS, #GORRAS, #CAMISETAS * #GORRAS
-        )
+        ))
     end
 
     local function notify(player, kind)

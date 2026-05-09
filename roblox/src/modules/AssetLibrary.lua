@@ -23,12 +23,27 @@ local function searchFolder(folder, queryNorm)
             local found = searchFolder(child, queryNorm)
             if found then return found end
         else
-            if child.Name == queryNorm then return child:Clone() end
+            local match = false
+            if child.Name == queryNorm then match = true end
             local childNorm = normalize(child.Name)
             if childNorm == queryNorm
             or childNorm:find(queryNorm, 1, true)
             or queryNorm:find(childNorm, 1, true) then
-                return child:Clone()
+                match = true
+            end
+
+            if match then
+                local clone = child:Clone()
+                -- If it's an Accessory or Tool, the real geometry is in the Handle.
+                if clone:IsA("Accessory") or clone:IsA("Tool") then
+                    local handle = clone:FindFirstChild("Handle")
+                    if handle then
+                        handle.Name = child.Name
+                        handle.Parent = nil
+                        return handle
+                    end
+                end
+                return clone
             end
         end
     end
@@ -40,7 +55,29 @@ end
 function AssetLibrary.get(name)
     local lib = ReplicatedStorage:FindFirstChild("EduVerse_Library")
     if not lib then return nil end
-    return searchFolder(lib, normalize(name))
+    local queryNorm = normalize(name)
+    
+    -- 1. Try direct/fuzzy match first
+    local found = searchFolder(lib, queryNorm)
+    if found then return found end
+    
+    -- 2. Second chance: Common Spanish-English translations for the library
+    local commonTranslations = {
+        moneda = "coin",
+        dado = "dice",
+        bolsa = "bag",
+        sol = "sun",
+        tierra = "earth",
+        luna = "moon",
+        atomo = "atom",
+        celula = "cell"
+    }
+    local translated = commonTranslations[queryNorm]
+    if translated then
+        return searchFolder(lib, normalize(translated))
+    end
+    
+    return nil
 end
 
 return AssetLibrary

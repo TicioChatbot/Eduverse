@@ -55,15 +55,14 @@ local PATH = {
 local TOWER = {
     y = 20,
     startZ = -64,
-    stageRise = 12,
-    stageStride = 32,
-    answerOffset = 18,
-    answerSpread = 20,
-    checkpointSize = Vector3.new(24, 2, 20),
-    answerSize = Vector3.new(14, 1.4, 12),
+    stageRise = 14,     -- Slightly higher for better verticality
+    stageStride = 38,   -- More forward room
+    answerOffset = 16,  -- Closer to the checkpoint for easier jumps
+    answerSpread = 12,  -- Tighter spread: diagonal jumps are now possible (max ~16 studs)
+    checkpointSize = Vector3.new(32, 2, 20),
+    answerSize = Vector3.new(18, 1.4, 12), -- Much wider pads
     startSize = Vector3.new(30, 2, 28),
-    approachWidth = 14,
-    -- Guardrail height (purely visual + collision wall on each side of the deck)
+    approachWidth = 24, -- Wide enough to run towards any answer
     guardrailHeight = 7,
     guardrailThickness = 0.9,
 }
@@ -659,7 +658,8 @@ function ObbyRenderer.render(data, folder, ctx)
     makeBillboard(start, trim(data.scene_title or title, 36) .. "\n" .. title, 5.5, 10, 2.2, 16)
 
     if template == "obby_tower" then
-        addScaffold(folder, Vector3.new(0, cfg.y, cfg.startZ), (#quiz + 1) * cfg.stageRise + 18)
+        -- The scaffold now spans the entire height of the tower
+        ObbyGeometry.scaffold(folder, Vector3.new(0, cfg.y, cfg.startZ), (#quiz + 1) * cfg.stageRise + 20, Color3.fromRGB(80, 80, 90))
     end
 
     local director = GameplayDirector.new(#quiz, CFrame.new(startPos))

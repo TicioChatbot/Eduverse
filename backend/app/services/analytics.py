@@ -13,7 +13,7 @@ long-term student progress.
 import logging
 import threading
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from app.db import repository
 
@@ -63,9 +63,49 @@ class AnswerRecord:
         }
 
 
+class GameplayEventRecord:
+    """In-memory representation of a non-quiz Roblox interaction."""
+
+    __slots__ = (
+        "student_id", "student_name", "session_id", "event_type",
+        "template", "detail", "timestamp", "db_id",
+    )
+
+    def __init__(
+        self,
+        session_id: str,
+        event_type: str,
+        student_id: Optional[str] = None,
+        student_name: Optional[str] = None,
+        template: Optional[str] = None,
+        detail: Optional[Dict[str, Any]] = None,
+    ):
+        self.student_id = student_id
+        self.student_name = student_name
+        self.session_id = session_id
+        self.event_type = event_type
+        self.template = template
+        self.detail = detail or {}
+        self.timestamp = datetime.now(timezone.utc).isoformat()
+        self.db_id: Optional[int] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "db_id": self.db_id,
+            "student_id": self.student_id,
+            "student_name": self.student_name,
+            "session_id": self.session_id,
+            "event_type": self.event_type,
+            "template": self.template,
+            "detail": self.detail,
+            "timestamp": self.timestamp,
+        }
+
+
 class AnalyticsService:
     def __init__(self):
         self._records: List[AnswerRecord] = []
+        self._gameplay_events: List[GameplayEventRecord] = []
         self._lock = threading.RLock()
 
     # ── Write ─────────────────────────────────────────────────────────────
@@ -120,6 +160,48 @@ class AnalyticsService:
 
         return record
 
+    def record_gameplay_event(
+        self,
+        session_id: str,
+        event_type: str,
+        student_id: Optional[str] = None,
+        student_name: Optional[str] = None,
+        template: Optional[str] = None,
+        detail: Optional[Dict[str, Any]] = None,
+    ) -> GameplayEventRecord:
+        """Record a non-quiz mini-game event in memory and SQLite."""
+        record = GameplayEventRecord(
+            session_id=session_id,
+            event_type=event_type,
+            student_id=student_id,
+            student_name=student_name,
+            template=template,
+            detail=detail,
+        )
+
+        try:
+            db_id = repository.save_gameplay_event(
+                session_id=session_id,
+                student_id=student_id,
+                student_name=student_name,
+                event_type=event_type,
+                template=template,
+                detail=detail,
+                timestamp=record.timestamp,
+            )
+            record.db_id = db_id
+            logger.debug(
+                f"[Analytics] ✅ Gameplay event persisted (db_id={db_id}) — "
+                f"session={session_id} type={event_type}"
+            )
+        except Exception as exc:
+            logger.error(f"[Analytics] ❌ Gameplay event DB persist failed: {exc}")
+
+        with self._lock:
+            self._gameplay_events.append(record)
+
+        return record
+
     # ── Read — delegates to DB for full historical accuracy ───────────────
 
     def get_session_results(self, session_id: str) -> dict:
@@ -161,6 +243,35 @@ class AnalyticsService:
                 "total_answers": 0,
                 "unique_students": 0,
                 "global_accuracy": 0.0,
+            }
+
+    def get_gameplay_events(self, session_id: str) -> List[dict]:
+        try:
+            return repository.get_gameplay_events_for_session(session_id)
+        except Exception as exc:
+            logger.error(f"[Analytics] get_gameplay_events DB error: {exc}")
+            with self._lock:
+                return [
+                    event.to_dict()
+                    for event in self._gameplay_events
+                    if event.session_id == session_id
+                ]
+
+    def get_gameplay_summary(self, session_id: str) -> dict:
+        try:
+            return repository.get_gameplay_event_summary(session_id)
+        except Exception as exc:
+            logger.error(f"[Analytics] get_gameplay_summary DB error: {exc}")
+            events = self.get_gameplay_events(session_id)
+            by_type: Dict[str, int] = {}
+            for event in events:
+                event_type = event.get("event_type") or "unknown"
+                by_type[event_type] = by_type.get(event_type, 0) + 1
+            return {
+                "session_id": session_id,
+                "total_events": len(events),
+                "by_type": by_type,
+                "students": [],
             }
 
     def get_all_records(self) -> List[dict]:

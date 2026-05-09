@@ -24,6 +24,9 @@
 local Lighting          = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Modules           = ReplicatedStorage:WaitForChild("EduVerse_Modules")
+local Dressing          = require(Modules:WaitForChild("dressing"))
+
 local SceneDirector = {}
 
 local SCENE_CENTER = Vector3.new(0, 0, -90)
@@ -108,6 +111,7 @@ end
 function SceneDirector.stage(folder, data)
     local archetype = (data.archetype or "abstract"):lower()
     local gameMode  = (data.game_mode or "gallery"):lower()
+    local interactionTemplate = (data.interaction_template or ""):lower()
     local style     = _styleFor(archetype)
 
     local floor = _buildFloor(folder, gameMode, style)
@@ -115,6 +119,9 @@ function SceneDirector.stage(folder, data)
         _buildAccentRing(folder, style)
     end
     _ensureAtmosphere(style)
+
+    -- Decorative props (walls, lights, columns, grass…) per archetype.
+    Dressing.apply(folder, archetype, gameMode, interactionTemplate)
 
     local focusPos = SCENE_CENTER + Vector3.new(0, 8, 0)
     local focusRadius = style.radius

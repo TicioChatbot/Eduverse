@@ -6,7 +6,9 @@ FastAPI router exposing external REST endpoints for the EduVerse backend.
 
 Endpoints mapping:
     GET  /health                   → Server and active session status
+    GET  /readiness                → Pilot readiness checklist
     GET  /current                  → Polled by Roblox to fetch the active workshop
+    POST /roblox/ping              → Explicit Roblox heartbeat/readiness ping
     POST /generate                 → Generates a new workshop via Gemini 4
     DELETE /current                → Clears the active session
     GET  /sessions                 → Retrieves historical sessions
@@ -15,15 +17,17 @@ Endpoints mapping:
     GET  /demo                     → List safe demo fixture workshops
     POST /demo/{slug}/activate     → Activate a fixture without calling AI
     POST /analytics/answer         → Records a student's quiz answer
+    POST /analytics/event          → Records a non-quiz mini-game event
     GET  /analytics/{id}           → Fetches aggregated session results
     GET  /analytics/{id}/questions → Fetches per-question analytics
+    GET  /analytics/{id}/events    → Fetches mini-game event analytics
 """
 
 import logging
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Path, Query, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime, timezone
 
 from app.core.config import settings
@@ -37,6 +41,25 @@ from app.services.quality_gate import evaluate_workshop
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+class RobloxPingPayload(BaseModel):
+    session_id: Optional[str] = None
+    place_id: Optional[str] = None
+    job_id: Optional[str] = None
+    player_count: Optional[int] = None
+    backend_env: Optional[str] = None
+    game_mode: Optional[str] = None
+    interaction_template: Optional[str] = None
+
+
+class GameplayEventPayload(BaseModel):
+    session_id: str
+    event_type: str = Field(..., min_length=2, max_length=80)
+    student_id: Optional[str] = None
+    student_name: Optional[str] = None
+    template: Optional[str] = None
+    detail: Dict[str, Any] = Field(default_factory=dict)
 
 
 async def require_admin_key(
@@ -96,7 +119,39 @@ async def health_check():
         "active_topic": active.topic if active else None,
         "active_session_id": active.id if active else None,
         "total_sessions": session_manager.session_count,
+        "roblox": session_manager.get_roblox_status(),
         "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.get("/readiness", summary="Class pilot readiness snapshot")
+async def readiness(_: None = Depends(require_admin_key)):
+    active = session_manager.get_active()
+    roblox = session_manager.get_roblox_status()
+    roblox_recent = (
+        bool(roblox.get("seen")) and
+        roblox.get("seconds_since_last_seen") is not None and
+        roblox["seconds_since_last_seen"] <= 20
+    )
+    fixture_slugs = [fixture["slug"] for fixture in list_demo_fixtures()]
+    checks = {
+        "backend_ok": True,
+        "has_active_session": active is not None,
+        "roblox_poll_recent": roblox_recent,
+        "safe_fixtures_available": all(
+            slug in fixture_slugs
+            for slug in ("leyes-de-newton", "probabilidad-eventos", "revolucion-francesa")
+        ),
+        "active_template": active.workshop.interaction_template if active else None,
+        "active_quiz_ready": len(active.workshop.quiz) == 4 if active else False,
+        "active_objects_count": len(active.workshop.objects) if active else 0,
+    }
+    return {
+        "status": "ok",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "active_session": active.to_summary() if active else None,
+        "roblox": roblox,
+        "checks": checks,
     }
 
 
@@ -107,13 +162,32 @@ async def health_check():
 async def get_current_workshop():
     session = session_manager.get_active()
     if not session:
+        session_manager.record_roblox_poll("current", {"ready": False})
         return {"ready": False}
+    session_manager.record_roblox_poll(
+        "current",
+        {
+            "ready": True,
+            "session_id": session.id,
+            "game_mode": session.workshop.game_mode,
+            "interaction_template": session.workshop.interaction_template,
+        },
+    )
     return {
         "ready": True,
         "session_id": session.id,
         "generated_at": session.created_at,
         **session.workshop.model_dump(),
     }
+
+
+@router.post("/roblox/ping", summary="Roblox heartbeat for dashboard readiness")
+async def roblox_ping(payload: RobloxPingPayload):
+    status = session_manager.record_roblox_poll(
+        "roblox_ping",
+        payload.model_dump(exclude_none=True),
+    )
+    return {"status": "ok", "roblox": status}
 
 
 # ─────────────────────────────────────────────────────────
@@ -363,6 +437,19 @@ async def record_answer(payload: AnswerPayload):
     return {"status": "recorded", "record": record.to_dict()}
 
 
+@router.post("/analytics/event", summary="Record a non-quiz gameplay event")
+async def record_gameplay_event(payload: GameplayEventPayload):
+    record = analytics_service.record_gameplay_event(
+        session_id=payload.session_id,
+        event_type=payload.event_type,
+        student_id=payload.student_id,
+        student_name=payload.student_name,
+        template=payload.template,
+        detail=payload.detail,
+    )
+    return {"status": "recorded", "record": record.to_dict()}
+
+
 @router.get("/analytics/{session_id}", summary="Get session results for dashboard")
 async def get_session_analytics(session_id: str = Path(...)):
     return analytics_service.get_session_results(session_id)
@@ -371,3 +458,12 @@ async def get_session_analytics(session_id: str = Path(...)):
 @router.get("/analytics/{session_id}/questions", summary="Per-question stats")
 async def get_question_stats(session_id: str = Path(...)):
     return {"session_id": session_id, "questions": analytics_service.get_question_stats(session_id)}
+
+
+@router.get("/analytics/{session_id}/events", summary="Mini-game event stats")
+async def get_gameplay_events(session_id: str = Path(...)):
+    return {
+        "session_id": session_id,
+        "summary": analytics_service.get_gameplay_summary(session_id),
+        "events": analytics_service.get_gameplay_events(session_id),
+    }

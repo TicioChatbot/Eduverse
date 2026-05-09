@@ -70,8 +70,40 @@ getOrCreate("EduVerse_GameplayFeedback", "RemoteEvent")
 local statusValue          = getOrCreate(Config.STATUS_KEY, "StringValue")
 statusValue.Value = "Conectando con backend..."
 
+-- ── State (rebuilt each render) ──────────────────────────────────────────────
+local activeSessionId = nil
+local objectRegistry  = {}   -- [name] → Instance
+local highlights      = {}   -- [instance] → Highlight
+
 local function setBackendStatus(text)
     statusValue.Value = text
+end
+
+local function postJson(path, payload)
+    task.spawn(function()
+        local ok, err = pcall(function()
+            HttpService:PostAsync(
+                Config.BACKEND_URL .. path,
+                HttpService:JSONEncode(payload or {}),
+                Enum.HttpContentType.ApplicationJson
+            )
+        end)
+        if not ok then
+            warn("[Renderer] POST " .. tostring(path) .. " failed: " .. tostring(err))
+        end
+    end)
+end
+
+local function sendRobloxPing(gameMode, interactionTemplate)
+    postJson(Config.ROBLOX_PING_PATH, {
+        session_id = activeSessionId,
+        place_id = tostring(game.PlaceId),
+        job_id = tostring(game.JobId),
+        player_count = #Players:GetPlayers(),
+        backend_env = Config.BACKEND_ENV,
+        game_mode = gameMode,
+        interaction_template = interactionTemplate,
+    })
 end
 
 -- ── Renderer dispatch table ──────────────────────────────────────────────────
@@ -81,11 +113,6 @@ local RENDERERS = {
     obby    = ObbyRenderer,
     lab     = ProbabilityLabRenderer,
 }
-
--- ── State (rebuilt each render) ──────────────────────────────────────────────
-local activeSessionId = nil
-local objectRegistry  = {}   -- [name] → Instance
-local highlights      = {}   -- [instance] → Highlight
 
 -- ══════════════════════════════════════════════════════════
 --  SHARED BUILDING HELPERS
@@ -294,7 +321,7 @@ local function buildObject(obj, folder)
             or desc:IsA("Script") or desc:IsA("LocalScript") then
                 desc:Destroy()
             elseif desc:IsA("BasePart") then
-                desc.Anchored = true; desc.CanCollide = false; desc.CanTouch = true; desc.CanQuery = true
+                desc.Anchored = true; desc.CanCollide = true; desc.CanTouch = true; desc.CanQuery = true
             end
         end
         if assetClone:IsA("Model") then
@@ -317,7 +344,7 @@ local function buildObject(obj, folder)
         --   • Ambient PointLight when the material is Neon
         local MIN_DIM = 4.0
         local part = Instance.new("Part")
-        part.Anchored = true; part.CanCollide = false; part.CanTouch = true; part.CanQuery = true; part.Name = obj.name
+        part.Anchored = true; part.CanCollide = true; part.CanTouch = true; part.CanQuery = true; part.Name = obj.name
         local shape = (obj.shape or ""):lower()
         if shape == "sphere" then part.Shape = Enum.PartType.Ball
         elseif shape == "cylinder" then part.Shape = Enum.PartType.Cylinder
@@ -400,6 +427,17 @@ local function buildCtx()
         addProximityGlow = addProximityGlow,
         startBehavior    = startBehavior,
         getSelfRot       = getSelfRot,
+        recordGameplayEvent = function(player, eventType, template, detail)
+            if not activeSessionId or activeSessionId == "" then return end
+            postJson(Config.ANALYTICS_EVENT_PATH, {
+                session_id = activeSessionId,
+                event_type = eventType,
+                student_id = player and tostring(player.UserId) or nil,
+                student_name = player and player.Name or nil,
+                template = template,
+                detail = detail or {},
+            })
+        end,
     }
 end
 
@@ -588,6 +626,7 @@ while true do
             if data.ready and data.session_id ~= activeSessionId then
                 activeSessionId = data.session_id
                 renderWorkshop(data)
+                sendRobloxPing(data.game_mode, data.interaction_template)
             elseif data.ready == false then
                 setBackendStatus("Esperando taller...")
                 if activeSessionId ~= nil then
@@ -595,6 +634,9 @@ while true do
                     clearScene()
                     clearReplicatedState()
                 end
+                sendRobloxPing(nil, nil)
+            elseif data.ready then
+                sendRobloxPing(data.game_mode, data.interaction_template)
             end
         else
             setBackendStatus("Respuesta inválida del backend")

@@ -297,6 +297,57 @@ def get_health_status():
     except Exception as exc:
         return f'<div class="status-error">❌ Sin conexión al backend: {exc}</div>'
 
+def _active_session_blocker(pilot_mode: bool, replace_active: bool) -> Optional[str]:
+    if not pilot_mode or replace_active:
+        return None
+    try:
+        resp = httpx.get(f"{_API}/workshop/health", timeout=5)
+        data = resp.json()
+        if data.get("has_active_session"):
+            active = data.get("active_topic") or data.get("active_session_id") or "sesión activa"
+            return (
+                "Modo clase piloto: ya hay una sesión activa "
+                f"({active}). Marca 'Reemplazar sesión activa' para cambiarla."
+            )
+    except Exception:
+        return None
+    return None
+
+def get_readiness_status():
+    try:
+        resp = httpx.get(f"{_API}/workshop/readiness", params=_admin_params(), timeout=5)
+        if resp.status_code != 200:
+            return f'<div class="status-error">❌ Readiness error: {escape(_api_error(resp))}</div>'
+        data = resp.json()
+        checks = data.get("checks") or {}
+        roblox = data.get("roblox") or {}
+        active = data.get("active_session") or {}
+
+        def mark(ok):
+            return "✅" if ok else "⚠️"
+
+        rows = [
+            ("Backend", True, "API responde."),
+            ("Sesión activa", checks.get("has_active_session"), active.get("topic") or "Ninguna"),
+            ("Roblox poll reciente", checks.get("roblox_poll_recent"), f'{roblox.get("seconds_since_last_seen")}s desde último poll' if roblox.get("seen") else "Aún no visto"),
+            ("Fixtures seguros", checks.get("safe_fixtures_available"), "Newton, Probabilidad, Historia"),
+            ("Quiz activo listo", checks.get("active_quiz_ready"), f'{checks.get("active_template") or "—"}'),
+            ("Objetos activos", checks.get("active_objects_count", 0) >= 7, str(checks.get("active_objects_count", 0))),
+        ]
+        items = "".join(
+            f"<li><strong>{mark(ok)} {escape(name)}</strong>: {escape(str(detail))}</li>"
+            for name, ok, detail in rows
+        )
+        return (
+            '<div class="status-ok">'
+            '<strong>Checklist de clase piloto</strong>'
+            f'<ul>{items}</ul>'
+            f'<small>Última actualización: {escape(str(data.get("timestamp", "")))}</small>'
+            '</div>'
+        )
+    except Exception as exc:
+        return f'<div class="status-error">❌ Sin readiness: {escape(str(exc))}</div>'
+
 def build_gradio_app() -> gr.Blocks:
     with gr.Blocks(
         title="EduVerse Control Center",
@@ -406,6 +457,15 @@ def build_gradio_app() -> gr.Blocks:
                                 label="👀 Revisar antes de enviar a Roblox (recomendado)",
                                 value=True,
                             )
+                            with gr.Row():
+                                pilot_mode = gr.Checkbox(
+                                    label="🧪 Modo clase piloto",
+                                    value=True,
+                                )
+                                replace_active = gr.Checkbox(
+                                    label="Reemplazar sesión activa",
+                                    value=False,
+                                )
 
                             with gr.Row():
                                 generate_btn = gr.Button(
@@ -458,11 +518,17 @@ def build_gradio_app() -> gr.Blocks:
                     return "\n".join(lines)
 
                 def do_generate(topic, details, inline_material, uploaded_file,
-                                game_mode, interaction_template, round_seconds, review_first):
+                                game_mode, interaction_template, round_seconds,
+                                review_first, pilot_mode, replace_active):
                     topic = (topic or "").strip()
                     if not topic:
                         return ({}, gr.update(visible=False, value=""),
                                 '<div class="status-error">❌ El tema no puede estar vacío.</div>',
+                                "", gr.update(visible=False))
+                    blocker = _active_session_blocker(pilot_mode, replace_active)
+                    if blocker:
+                        return ({}, gr.update(visible=False, value=""),
+                                f'<div class="status-error">❌ {escape(blocker)}</div>',
                                 "", gr.update(visible=False))
 
                     files = None
@@ -549,7 +615,12 @@ def build_gradio_app() -> gr.Blocks:
                         return (f'<div class="status-error">❌ {escape(str(e))}</div>',
                                 gr.update(visible=True))
 
-                def activate_demo(slug):
+                def activate_demo(slug, pilot_mode=True, replace_active=True):
+                    blocker = _active_session_blocker(pilot_mode, replace_active)
+                    if blocker:
+                        return ({}, gr.update(visible=False, value=""),
+                                f'<div class="status-error">❌ {escape(blocker)}</div>',
+                                "", gr.update(visible=False))
                     try:
                         resp = httpx.post(f"{_API}/workshop/demo/{slug}/activate", params=_admin_params(), timeout=20)
                         if resp.status_code != 200:
@@ -577,7 +648,8 @@ def build_gradio_app() -> gr.Blocks:
                 generate_btn.click(
                     fn=do_generate,
                     inputs=[topic_input, details_input, material_input, material_file,
-                            mode_input, template_input, round_input, review_first],
+                            mode_input, template_input, round_input,
+                            review_first, pilot_mode, replace_active],
                     outputs=[preview_box, quiz_preview, result_banner, last_session_state, activate_btn],
                 )
                 activate_btn.click(
@@ -585,14 +657,48 @@ def build_gradio_app() -> gr.Blocks:
                     inputs=[last_session_state],
                     outputs=[result_banner, activate_btn],
                 )
-                demo_prob_btn.click(fn=lambda: activate_demo("probabilidad-eventos"),
+                demo_prob_btn.click(fn=lambda pilot, replace: activate_demo("probabilidad-eventos", pilot, replace),
+                    inputs=[pilot_mode, replace_active],
                     outputs=[preview_box, quiz_preview, result_banner, last_session_state, activate_btn])
-                demo_water_btn.click(fn=lambda: activate_demo("ciclo-del-agua"),
+                demo_water_btn.click(fn=lambda pilot, replace: activate_demo("ciclo-del-agua", pilot, replace),
+                    inputs=[pilot_mode, replace_active],
                     outputs=[preview_box, quiz_preview, result_banner, last_session_state, activate_btn])
-                demo_newton_btn.click(fn=lambda: activate_demo("leyes-de-newton"),
+                demo_newton_btn.click(fn=lambda pilot, replace: activate_demo("leyes-de-newton", pilot, replace),
+                    inputs=[pilot_mode, replace_active],
                     outputs=[preview_box, quiz_preview, result_banner, last_session_state, activate_btn])
-                demo_history_btn.click(fn=lambda: activate_demo("revolucion-francesa"),
+                demo_history_btn.click(fn=lambda pilot, replace: activate_demo("revolucion-francesa", pilot, replace),
+                    inputs=[pilot_mode, replace_active],
                     outputs=[preview_box, quiz_preview, result_banner, last_session_state, activate_btn])
+
+            # ── CLASS PILOT ────────────────────────────────────────────────────
+            with gr.Tab("✅ Clase Piloto") as tab_pilot:
+                with gr.Column():
+                    gr.Markdown(
+                        "## Checklist operativo\n"
+                        "Usa esta vista antes de abrir la clase: confirma backend, Roblox polling, "
+                        "fixture activo y quiz listo."
+                    )
+                    readiness_box = gr.HTML()
+                    readiness_btn = gr.Button("🔄 Refrescar checklist", elem_classes=["btn-secondary"])
+                    gr.Markdown("### Fixtures recomendados")
+                    with gr.Row():
+                        pilot_newton_btn = gr.Button("Activar Newton Tower", elem_classes=["btn-primary"])
+                        pilot_prob_btn = gr.Button("Activar Probability Lab", elem_classes=["btn-primary"])
+                        pilot_arena_btn = gr.Button("Activar Arena Historia", elem_classes=["btn-secondary"])
+                    pilot_preview = gr.JSON(label="Workshop activo")
+                    pilot_quiz_preview = gr.Markdown(visible=False)
+                    pilot_banner = gr.HTML()
+                    pilot_session_state = gr.State(value="")
+                    pilot_activate_btn = gr.Button(visible=False)
+
+                readiness_btn.click(fn=get_readiness_status, outputs=[readiness_box])
+                tab_pilot.select(fn=get_readiness_status, outputs=[readiness_box])
+                pilot_newton_btn.click(fn=lambda: activate_demo("leyes-de-newton", True, True),
+                    outputs=[pilot_preview, pilot_quiz_preview, pilot_banner, pilot_session_state, pilot_activate_btn])
+                pilot_prob_btn.click(fn=lambda: activate_demo("probabilidad-eventos", True, True),
+                    outputs=[pilot_preview, pilot_quiz_preview, pilot_banner, pilot_session_state, pilot_activate_btn])
+                pilot_arena_btn.click(fn=lambda: activate_demo("revolucion-francesa", True, True),
+                    outputs=[pilot_preview, pilot_quiz_preview, pilot_banner, pilot_session_state, pilot_activate_btn])
 
             # ── 3. SESSION HISTORY ───────────────────────────────────────────────
             with gr.Tab("📚 Historial") as tab_history:
@@ -662,22 +768,34 @@ def build_gradio_app() -> gr.Blocks:
                     with gr.Row():
                         res_students = gr.Dataframe(headers=["Estudiante", "Correctas", "Total", "Precisión"], datatype=["str", "number", "number", "str"], interactive=False)
                         res_questions = gr.Dataframe(headers=["Pregunta #", "Intentos", "Correctas", "% Acierto"], datatype=["number"]*3 + ["str"], interactive=False)
+                    res_events = gr.Dataframe(headers=["Evento", "Conteo"], datatype=["str", "number"], interactive=False)
 
                 def load_res(sid):
-                    if not sid.strip(): return '<div class="status-error">❌ ID vacío.</div>', [], []
+                    if not sid.strip(): return '<div class="status-error">❌ ID vacío.</div>', [], [], []
                     try:
-                        summary = repository.get_session_summary(sid.strip())
-                        q_stats = repository.get_question_stats(sid.strip())
-                        if summary.get("total_answers", 0) == 0:
-                            return '<div class="status-error">📭 No hay respuestas registradas aún.</div>', [], []
+                        clean_sid = sid.strip()
+                        summary = repository.get_session_summary(clean_sid)
+                        q_stats = repository.get_question_stats(clean_sid)
+                        event_summary = repository.get_gameplay_event_summary(clean_sid)
+                        e_rows = [
+                            [event_type, count]
+                            for event_type, count in sorted((event_summary.get("by_type") or {}).items())
+                        ]
+                        if summary.get("total_answers", 0) == 0 and not e_rows:
+                            return '<div class="status-error">📭 No hay respuestas ni eventos registrados aún.</div>', [], [], []
                         
-                        html = f'<div class="status-ok">📊 Sesión <strong>{sid}</strong>: {summary["unique_students"]} estudiante(s) · {summary["total_answers"]} respuestas</div>'
+                        html = (
+                            f'<div class="status-ok">📊 Sesión <strong>{sid}</strong>: '
+                            f'{summary["unique_students"]} estudiante(s) · '
+                            f'{summary["total_answers"]} respuestas · '
+                            f'{event_summary.get("total_events", 0)} eventos de gameplay</div>'
+                        )
                         s_rows = [[s["student_name"], s["correct"], s["total"], _color_pct(s["pct"])] for s in summary.get("students", [])]
                         q_rows = [[q["question_index"]+1, q["attempts"], q["correct"], _color_pct(q["accuracy"])] for q in q_stats]
-                        return html, s_rows, q_rows
-                    except Exception as e: return f'<div class="status-error">❌ {e}</div>', [], []
+                        return html, s_rows, q_rows, e_rows
+                    except Exception as e: return f'<div class="status-error">❌ {e}</div>', [], [], []
 
-                res_load_btn.click(fn=load_res, inputs=[res_session_id], outputs=[res_summary, res_students, res_questions])
+                res_load_btn.click(fn=load_res, inputs=[res_session_id], outputs=[res_summary, res_students, res_questions, res_events])
 
             # ── 5. STUDENT PROFILE ───────────────────────────────────────────────
             with gr.Tab("👤 Perfil Estudiante"):

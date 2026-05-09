@@ -21,6 +21,7 @@ ALLOWED_ARCHETYPES: list[str] = [
     "solar_system", "atom", "cell", "building", "ecosystem",
     "physics", "math", "historical", "abstract",
 ]
+ALLOWED_GAME_MODES: list[str] = ["gallery", "arena", "obby", "lab"]
 
 ALLOWED_ROLES: list[str] = ["center", "primary", "secondary", "detail"]
 ALLOWED_SHAPES: list[str] = ["esfera", "cubo", "cilindro", "cuña"]
@@ -76,7 +77,9 @@ CONCEPT_RESPONSE_SCHEMA: dict = {
         "visual_metaphor",
         "estimated_duration",
         "archetype",
+        "game_mode",
         "interaction_template",
+        "mechanics",
         "objects",
         "quiz",
     ],
@@ -89,7 +92,9 @@ CONCEPT_RESPONSE_SCHEMA: dict = {
         "visual_metaphor": {"type": "string"},
         "estimated_duration": {"type": "string"},
         "archetype": {"type": "string", "enum": ALLOWED_ARCHETYPES},
+        "game_mode": {"type": "string", "enum": ALLOWED_GAME_MODES},
         "interaction_template": {"type": "string", "enum": ALLOWED_INTERACTION_TEMPLATES},
+        "mechanics": {"type": "object"},
         "objects": {
             "type": "array",
             "items": {
@@ -177,7 +182,13 @@ Si el usuario incluye un bloque `MATERIAL DE APOYO DEL PROFESOR` (texto entre `<
   "visual_metaphor": "Cómo se representa visualmente el tema",
   "estimated_duration": "3-5 min",
   "archetype": "solar_system" | "atom" | "cell" | "building" | "ecosystem" | "physics" | "math" | "historical" | "abstract",
+  "game_mode": "gallery" | "arena" | "obby" | "lab",
   "interaction_template": "gallery_walk" | "arena_zones" | "obby_path" | "obby_tower" | "probability_lab",
+  "mechanics": {{
+    "difficulty": "easy" | "moderate" | "hard",
+    "stage_count": 4,
+    "actions_required": ["accion concreta 1", "accion concreta 2"]
+  }},
   "objects": [ ...ver abajo... ],
   "quiz": [ ...ver abajo... ]
 }}
@@ -212,6 +223,11 @@ Reglas de elección:
 Si eliges "probability_lab", incluye objetos con estos nombres exactos cuando existan:
 "Dice", "Coin", "Bag" y al menos 3 pompones/colores. El quiz debe conectar
 acciones del laboratorio: lanzar dado, lanzar moneda, meter pompones y sacar muestra.
+
+`mechanics` debe ser breve y parametrico, no narrativo. Ejemplos:
+- obby_tower → {{"difficulty":"moderate","stage_count":4,"wrong_answer":"fall_to_checkpoint"}}
+- probability_lab → {{"unlock_quiz_after_actions":3,"interactables":["dice","coin","bag","pompons"]}}
+- arena_zones → {{"round_count":4,"lock_in_seconds":3}}
 
 ═══════════ OBJETOS ═══════════
 

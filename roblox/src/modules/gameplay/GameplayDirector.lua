@@ -92,4 +92,20 @@ function GameplayDirector:bindCharacterRespawn(player)
     end)
 end
 
+-- Move the player forward to a new stage's checkpoint with a small delay so
+-- they see the success feedback first. Updates the checkpoint so subsequent
+-- respawns target it. Use this instead of :respawn() for forward progress.
+function GameplayDirector:advancePlayer(player, cframe, stage, delaySeconds)
+    self:setCheckpoint(player, cframe, stage)
+    task.delay(delaySeconds or 1.1, function()
+        local character = player.Character
+        local root = character and character:FindFirstChild("HumanoidRootPart")
+        if root then
+            root.AssemblyLinearVelocity = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+            root.CFrame = cframe + Vector3.new(0, 5, 0)
+        end
+    end)
+end
+
 return GameplayDirector

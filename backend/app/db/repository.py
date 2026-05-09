@@ -12,6 +12,8 @@ Public API Overview:
     - Sessions: save_session, get_session, list_sessions, session_exists
     - Answers: save_answer, get_answers_for_session, get_session_summary, 
                get_question_stats, get_student_history, get_global_stats
+    - Gameplay Events: save_gameplay_event, get_gameplay_events_for_session,
+                       get_gameplay_event_summary
 """
 
 import json
@@ -291,4 +293,104 @@ def get_global_stats() -> Dict[str, Any]:
         "total_answers": total_answers,
         "unique_students": unique_students,
         "global_accuracy": global_accuracy,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  GAMEPLAY EVENT REPOSITORY
+# ═══════════════════════════════════════════════════════════════════════════
+
+def save_gameplay_event(
+    session_id: str,
+    student_id: Optional[str],
+    student_name: Optional[str],
+    event_type: str,
+    template: Optional[str],
+    detail: Optional[Dict[str, Any]],
+    timestamp: str,
+) -> int:
+    """Persist a non-quiz gameplay interaction from Roblox."""
+    conn = get_connection()
+
+    if not session_exists(session_id):
+        logger.warning(
+            f"[Repo] Gameplay event for unknown session '{session_id}' — creating stub."
+        )
+        now = datetime.now(timezone.utc).isoformat()
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO sessions
+                (id, topic, scene_title, objects_count, quiz_count,
+                 workshop_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (session_id, "unknown", "Unknown Session", 0, 0, "{}", now),
+        )
+        conn.commit()
+
+    cursor = conn.execute(
+        """
+        INSERT INTO gameplay_events
+            (session_id, student_id, student_name, event_type,
+             template, detail_json, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            session_id,
+            student_id,
+            student_name,
+            event_type,
+            template,
+            json.dumps(detail or {}, ensure_ascii=False),
+            timestamp,
+        ),
+    )
+    conn.commit()
+    return cursor.lastrowid
+
+
+def get_gameplay_events_for_session(session_id: str) -> List[Dict[str, Any]]:
+    conn = get_connection()
+    rows = conn.execute(
+        """
+        SELECT * FROM gameplay_events
+        WHERE session_id = ?
+        ORDER BY timestamp ASC
+        """,
+        (session_id,),
+    ).fetchall()
+    result = [_row_to_dict(r) for r in rows]
+    for row in result:
+        try:
+            row["detail"] = json.loads(row.pop("detail_json") or "{}")
+        except Exception:
+            row["detail"] = {}
+    return result
+
+
+def get_gameplay_event_summary(session_id: str) -> Dict[str, Any]:
+    records = get_gameplay_events_for_session(session_id)
+    by_type: Dict[str, int] = {}
+    by_student: Dict[str, Dict[str, Any]] = {}
+    for record in records:
+        event_type = record.get("event_type") or "unknown"
+        by_type[event_type] = by_type.get(event_type, 0) + 1
+
+        student_id = record.get("student_id") or "unknown"
+        if student_id not in by_student:
+            by_student[student_id] = {
+                "student_id": student_id,
+                "student_name": record.get("student_name") or "Unknown",
+                "events": 0,
+                "by_type": {},
+            }
+        student = by_student[student_id]
+        student["events"] += 1
+        student["by_type"][event_type] = student["by_type"].get(event_type, 0) + 1
+
+    return {
+        "session_id": session_id,
+        "total_events": len(records),
+        "by_type": by_type,
+        "students": sorted(by_student.values(), key=lambda item: item["events"], reverse=True),
     }

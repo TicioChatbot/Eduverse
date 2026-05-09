@@ -10,6 +10,7 @@ connections across Uvicorn worker threads.
 Schema:
     sessions : Stores the generated workshops (topic, layout, questions, etc.).
     answers  : Stores individual student responses to quiz questions.
+    gameplay_events : Stores non-quiz interactions from Roblox mini-games.
 """
 
 import json
@@ -75,12 +76,30 @@ def init_db() -> None:
             timestamp       TEXT NOT NULL
         );
 
+        -- ── Gameplay Events ─────────────────────────────────────────────
+        CREATE TABLE IF NOT EXISTS gameplay_events (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id      TEXT NOT NULL REFERENCES sessions(id),
+            student_id      TEXT,
+            student_name    TEXT,
+            event_type      TEXT NOT NULL,
+            template        TEXT,
+            detail_json     TEXT,
+            timestamp       TEXT NOT NULL
+        );
+
         -- ── Indexes ─────────────────────────────────────────────────────
         CREATE INDEX IF NOT EXISTS idx_answers_session
             ON answers(session_id);
 
         CREATE INDEX IF NOT EXISTS idx_answers_student
             ON answers(student_id);
+
+        CREATE INDEX IF NOT EXISTS idx_gameplay_events_session
+            ON gameplay_events(session_id);
+
+        CREATE INDEX IF NOT EXISTS idx_gameplay_events_type
+            ON gameplay_events(event_type);
         """
     )
     conn.commit()

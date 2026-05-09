@@ -37,9 +37,27 @@
           "InteractionService": {
             "$path": "src/modules/gameplay/InteractionService.lua"
           },
+          "MiniGameState": {
+            "$path": "src/modules/gameplay/MiniGameState.lua"
+          },
           "PhysicsPolicy": {
             "$path": "src/modules/gameplay/PhysicsPolicy.lua"
+          },
+          "PadFeedback": {
+            "$path": "src/modules/gameplay/PadFeedback.lua"
+          },
+          "BridgeBuilder": {
+            "$path": "src/modules/gameplay/BridgeBuilder.lua"
+          },
+          "CombinatoricsStation": {
+            "$path": "src/modules/gameplay/CombinatoricsStation.lua"
+          },
+          "PermutationsStation": {
+            "$path": "src/modules/gameplay/PermutationsStation.lua"
           }
+        },
+        "dressing": {
+          "$path": "src/modules/dressing"
         },
         "vfx": {
           "$className": "Folder",

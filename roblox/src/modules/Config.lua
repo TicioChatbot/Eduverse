@@ -25,6 +25,8 @@ local Config = {
     BACKEND_ENV = useLocalBackend and "local" or "production",
     BACKEND_URL   = selectedBackend,
     ANALYTICS_PATH = "/workshop/analytics/answer",
+    ANALYTICS_EVENT_PATH = "/workshop/analytics/event",
+    ROBLOX_PING_PATH = "/workshop/roblox/ping",
     ASSETS_PATH    = "/workshop/assets",
     POLL_INTERVAL = 5,           -- seconds between backend polls
 

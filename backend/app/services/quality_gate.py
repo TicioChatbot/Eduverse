@@ -97,8 +97,21 @@ def evaluate_workshop(workshop: Workshop, source_topic: str) -> QualityReport:
         for label, aliases in required_terms.items():
             if not any(alias in term for term in all_object_terms for alias in aliases):
                 errors.append(f"probability_lab requiere un objeto de {label}.")
+        pompon_like = [
+            term for term in all_object_terms
+            if any(alias in term for alias in ("pompon", "pompón", "color", "rojo", "azul", "amarillo"))
+        ]
+        if len(set(pompon_like)) < 3:
+            errors.append("probability_lab requiere al menos 3 pompones/colores visibles.")
     elif template in {"obby_path", "obby_tower"} and len(workshop.quiz) < 4:
         errors.append("Los obbys requieren 4 preguntas para 4 etapas.")
+    elif template == "arena_zones" and len(workshop.quiz) < 4:
+        errors.append("arena_zones requiere 4 preguntas para 4 rondas.")
+
+    if template in {"obby_path", "obby_tower"} and workshop.game_mode != "obby":
+        errors.append("Los obbys deben usar game_mode='obby'.")
+    if template == "arena_zones" and workshop.game_mode != "arena":
+        errors.append("arena_zones debe usar game_mode='arena'.")
 
     object_terms = {
         term.lower()

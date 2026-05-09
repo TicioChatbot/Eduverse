@@ -13,7 +13,7 @@ import json
 import logging
 import threading
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from app.models.workshop import Workshop
 from app.db import repository
@@ -50,6 +50,7 @@ class SessionManager:
     def __init__(self):
         self._sessions: Dict[str, WorkshopSession] = {}
         self._active_id: Optional[str] = None
+        self._last_roblox_poll: Optional[dict] = None
         self._lock = threading.RLock()  # reentrant: safe for nested calls
 
     # ── Create ───────────────────────────────────────────────────────────
@@ -134,6 +135,44 @@ class SessionManager:
             if self._active_id and self._active_id in self._sessions:
                 self._sessions[self._active_id].is_active = False
             self._active_id = None
+
+    def record_roblox_poll(self, source: str = "current",
+                           payload: Optional[Dict[str, Any]] = None) -> dict:
+        """Track the last Roblox heartbeat/poll for class readiness checks."""
+        with self._lock:
+            active = self.get_active()
+            now = datetime.now(timezone.utc)
+            self._last_roblox_poll = {
+                "last_seen_at": now.isoformat(),
+                "source": source,
+                "active_session_id": active.id if active else None,
+                "active_topic": active.topic if active else None,
+                "payload": payload or {},
+            }
+            return dict(self._last_roblox_poll)
+
+    def get_roblox_status(self) -> dict:
+        with self._lock:
+            if not self._last_roblox_poll:
+                return {
+                    "seen": False,
+                    "last_seen_at": None,
+                    "seconds_since_last_seen": None,
+                    "source": None,
+                    "active_session_id": None,
+                    "active_topic": None,
+                    "payload": {},
+                }
+            status = dict(self._last_roblox_poll)
+            try:
+                seen_at = datetime.fromisoformat(status["last_seen_at"])
+                delta = datetime.now(timezone.utc) - seen_at
+                seconds = max(0, int(delta.total_seconds()))
+            except Exception:
+                seconds = None
+            status["seen"] = True
+            status["seconds_since_last_seen"] = seconds
+            return status
 
     def list_sessions(self) -> List[dict]:
         """

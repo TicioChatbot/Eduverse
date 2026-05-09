@@ -17,15 +17,21 @@ local FeedbackService = require(Gameplay:WaitForChild("FeedbackService"))
 local GameplayDirector = require(Gameplay:WaitForChild("GameplayDirector"))
 local InteractionService = require(Gameplay:WaitForChild("InteractionService"))
 local PhysicsPolicy = require(Gameplay:WaitForChild("PhysicsPolicy"))
+local PadFeedback = require(Gameplay:WaitForChild("PadFeedback"))
+local BridgeBuilder = require(Gameplay:WaitForChild("BridgeBuilder"))
 
 local ObbyRenderer = {}
 
 local LETTERS = { "A", "B", "C", "D" }
+-- Calmer answer palette in v3. The previous saturated red/blue/green/yellow
+-- combined with neon material was visually exhausting next to the dressing
+-- and the question billboards. These mid-tones still distinguish A/B/C/D
+-- clearly but stop fighting for attention.
 local ANSWER_COLORS = {
-    Color3.fromRGB(220, 60, 70),
-    Color3.fromRGB(55, 115, 230),
-    Color3.fromRGB(55, 200, 95),
-    Color3.fromRGB(245, 210, 50),
+    Color3.fromRGB(190, 78, 88),     -- A — muted red
+    Color3.fromRGB(80, 120, 200),    -- B — muted blue
+    Color3.fromRGB(85, 175, 110),    -- C — muted green
+    Color3.fromRGB(220, 180, 75),    -- D — muted yellow
 }
 
 local PATH = {
@@ -39,16 +45,26 @@ local PATH = {
     startSize = Vector3.new(22, 2, 22),
 }
 
+-- TOWER tuned in v3 for actual playability:
+--   • answerSpread (20) > answerSize.X (12) → 8-stud gap between pads (was 0)
+--   • stageStride (32) > answerOffset (18)  → next checkpoint is FORWARD,
+--     not behind the answer line, so cameras and makeSteps point the right way
+--   • stageRise (12) reduced from 16 so the auto-stairs stay walkable
+--     (each step ≈ 1.6 studs, 7+ steps minimum)
 local TOWER = {
-    y = 22,
+    y = 20,
     startZ = -64,
-    stageRise = 20,
-    stageStride = 13,
-    answerOffset = 23,
-    answerSpread = 15,
-    checkpointSize = Vector3.new(20, 2, 18),
-    answerSize = Vector3.new(11, 1.4, 11),
-    startSize = Vector3.new(24, 2, 24),
+    stageRise = 12,
+    stageStride = 32,
+    answerOffset = 18,
+    answerSpread = 20,
+    checkpointSize = Vector3.new(28, 2, 22),
+    answerSize = Vector3.new(12, 1.4, 12),
+    startSize = Vector3.new(30, 2, 28),
+    approachWidth = 12,
+    -- Guardrail height (purely visual + collision wall on each side of the deck)
+    guardrailHeight = 7,
+    guardrailThickness = 0.9,
 }
 
 local function trim(text, maxChars)
@@ -86,7 +102,9 @@ local function makeBillboard(parent, text, studsOffset, width, height, textSize)
     local bb = Instance.new("BillboardGui")
     bb.Size = UDim2.new(width, 0, height, 0)
     bb.StudsOffset = Vector3.new(0, studsOffset, 0)
-    bb.MaxDistance = math.clamp(width * 4, 38, 95)
+    -- Tighter MaxDistance so billboards don't dominate the screen when the
+    -- camera ends up close to a sign right after spawn/teleport. Was 4*width.
+    bb.MaxDistance = math.clamp(width * 3, 32, 70)
     bb.LightInfluence = 0
     bb.AlwaysOnTop = false
     bb.Parent = parent
@@ -148,8 +166,8 @@ local function teleportAllTo(cframe)
 end
 
 local function makeSteps(folder, name, fromPos, toPos, color, width)
-    local steps = 7
     local dir = toPos - fromPos
+    local steps = math.max(7, math.ceil(math.abs(dir.Y) / 2.25))
     local flat = Vector3.new(dir.X, 0, dir.Z)
     local forward = flat.Magnitude > 0.1 and flat.Unit or Vector3.new(0, 0, -1)
     local length = math.max(4, flat.Magnitude / steps + 1)
@@ -170,7 +188,7 @@ local function makeSteps(folder, name, fromPos, toPos, color, width)
     end
 end
 
-local function makeGuideBeam(folder, name, fromPos, toPos, color)
+local function makeGuideBeam(folder, name, fromPos, toPos, color, width, height)
     local dir = toPos - fromPos
     local flat = Vector3.new(dir.X, 0, dir.Z)
     if flat.Magnitude < 1 then return nil end
@@ -179,7 +197,7 @@ local function makeGuideBeam(folder, name, fromPos, toPos, color)
         folder,
         name,
         pos,
-        Vector3.new(3.4, 0.7, flat.Magnitude),
+        Vector3.new(width or 3.4, height or 0.7, flat.Magnitude),
         color,
         Enum.Material.SmoothPlastic,
         0
@@ -189,22 +207,70 @@ local function makeGuideBeam(folder, name, fromPos, toPos, color)
 end
 
 local function addScaffold(folder, center, height)
-    local railColor = Color3.fromRGB(65, 85, 120)
-    local radius = 34
+    -- v3 simplification: the per-level horizontal rails created a confusing
+    -- floating-line pattern across the player's view that wasn't collidable
+    -- and didn't help navigation. PhysicsDressing now provides the warehouse
+    -- I-beams; here we only add 4 SLIM vertical pillars as a "tower silhouette"
+    -- so the obby still reads as a tower instead of floating slabs.
+    local pillarColor = Color3.fromRGB(65, 85, 120)
+    local radius = 31
+    local zBack = -31
+    local zFront = 11
     for _, x in ipairs({ -radius, radius }) do
-        for _, zOffset in ipairs({ -24, 8 }) do
+        for _, zOffset in ipairs({ zBack, zFront }) do
             local col = makePart(
                 folder,
                 "TowerScaffoldColumn",
                 Vector3.new(x, center.Y + height / 2, center.Z + zOffset),
-                Vector3.new(1.2, height, 1.2),
-                railColor,
+                Vector3.new(0.9, height, 0.9),
+                pillarColor,
                 Enum.Material.Metal,
                 0
             )
             col.CanCollide = false
+            col.Transparency = 0.25
         end
     end
+end
+
+local function addTowerStageScaffold(folder, stageIdx, checkpointPos, answerCenter, delayBase)
+    local cfg = TOWER
+    local deckColor = Color3.fromRGB(24, 42, 88)
+    local railColor = Color3.fromRGB(110, 190, 255)
+
+    local approach = makeGuideBeam(
+        folder,
+        "TowerApproachDeck_" .. stageIdx,
+        checkpointPos + Vector3.new(0, -0.12, -cfg.checkpointSize.Z / 2),
+        answerCenter + Vector3.new(0, -0.12, cfg.answerSize.Z / 2),
+        deckColor,
+        cfg.approachWidth,
+        1.1
+    )
+    if approach then
+        approach.Material = Enum.Material.SmoothPlastic
+        approach.Transparency = 0.06
+    end
+
+    for _, x in ipairs({ -cfg.approachWidth / 2 - 1.2, cfg.approachWidth / 2 + 1.2 }) do
+        local fromPos = checkpointPos + Vector3.new(x, 2.8, -cfg.checkpointSize.Z / 2)
+        local toPos = answerCenter + Vector3.new(x, 2.8, cfg.answerSize.Z / 2)
+        local rail = makeGuideBeam(
+            folder,
+            "TowerApproachRail_" .. stageIdx,
+            fromPos,
+            toPos,
+            railColor,
+            0.7,
+            0.7
+        )
+        if rail then rail.CanCollide = false end
+    end
+
+    -- v3 cleanup: removed the 54-stud "spine" and the two metal posts that
+    -- crossed every stage — they appeared as floating bars that the player
+    -- couldn't collide with, breaking the visual contract. The approach deck
+    -- is enough to read the stage as a connected platform.
 end
 
 local function stagePosition(template, stageIdx)
@@ -246,7 +312,7 @@ local function buildAnswerStage(folder, data, stageIdx, question, director, serv
         delayBase
     )
     makeBillboard(checkpoint, string.format("Etapa %d/%d", stageIdx, #data.quiz), 3.4, 7, 1.6, 18)
-    makeBillboard(checkpoint, trim(question.question, 128), 8.2, 16, 3.2, 16)
+    makeBillboard(checkpoint, trim(question.question, isTower and 92 or 128), isTower and 6.6 or 8.2, isTower and 12 or 16, isTower and 2.4 or 3.2, isTower and 14 or 16)
 
     local checkpointSeen = {}
     InteractionService.bindTouch(checkpoint, function(player)
@@ -258,6 +324,11 @@ local function buildAnswerStage(folder, data, stageIdx, question, director, serv
         local seenKey = tostring(player.UserId) .. ":" .. stageIdx
         if not checkpointSeen[seenKey] then
             checkpointSeen[seenKey] = true
+            if ctx and ctx.recordGameplayEvent then
+                ctx.recordGameplayEvent(player, "checkpoint", template, {
+                    stage = stageIdx,
+                })
+            end
             FeedbackService.player(player, "info", "Checkpoint", "Etapa " .. stageIdx .. " guardada.")
             FeedbackService.sfx(ctx, player, "checkpoint", checkpoint, { volume = 0.35 })
         end
@@ -265,41 +336,84 @@ local function buildAnswerStage(folder, data, stageIdx, question, director, serv
 
     local answers = answerPositions(template, checkpointPos)
     local centerAnswer = Vector3.new(0, checkpointPos.Y, checkpointPos.Z - cfg.answerOffset)
-    makeGuideBeam(
-        folder,
-        "ChoiceBridge_" .. stageIdx,
-        checkpointPos + Vector3.new(0, -0.15, -cfg.checkpointSize.Z / 2),
-        centerAnswer + Vector3.new(0, -0.15, cfg.answerSize.Z / 2),
-        isTower and Color3.fromRGB(45, 70, 120) or Color3.fromRGB(45, 85, 150)
-    )
+    if isTower then
+        addTowerStageScaffold(folder, stageIdx, checkpointPos, centerAnswer, delayBase)
+    else
+        makeGuideBeam(
+            folder,
+            "ChoiceBridge_" .. stageIdx,
+            checkpointPos + Vector3.new(0, -0.15, -cfg.checkpointSize.Z / 2),
+            centerAnswer + Vector3.new(0, -0.15, cfg.answerSize.Z / 2),
+            Color3.fromRGB(45, 85, 150)
+        )
+    end
 
     if isTower then
+        -- Visual front rail (decorative, no collision)
         local guard = makePart(
             folder,
             "TowerGuardRail_" .. stageIdx,
-            checkpointPos + Vector3.new(0, 2.4, -10),
-            Vector3.new(42, 0.8, 0.8),
+            checkpointPos + Vector3.new(0, 2.5, -11),
+            Vector3.new(48, 0.8, 0.8),
             Color3.fromRGB(100, 180, 255),
             Enum.Material.Neon,
             delayBase + 0.05
         )
         guard.CanCollide = false
+
+        -- Side walls so a wide jump doesn't drop the player off the tower.
+        -- They span from the checkpoint back-edge to just past the answer line.
+        local sideWallLength = cfg.checkpointSize.Z + cfg.answerOffset + cfg.answerSize.Z + 4
+        local sideWallCenterZ = checkpointPos.Z - cfg.answerOffset / 2
+        local sideX = cfg.answerSpread * 1.5 + cfg.answerSize.X / 2 + 1.5
+        for _, signX in ipairs({ -1, 1 }) do
+            local wall = makePart(
+                folder,
+                "TowerSideWall_" .. stageIdx .. (signX < 0 and "_L" or "_R"),
+                Vector3.new(signX * sideX, checkpointPos.Y + cfg.guardrailHeight / 2,
+                            sideWallCenterZ),
+                Vector3.new(cfg.guardrailThickness, cfg.guardrailHeight, sideWallLength),
+                Color3.fromRGB(60, 90, 140),
+                Enum.Material.Glass,
+                delayBase + 0.06
+            )
+            wall.CanCollide = true
+            wall.Transparency = 0.55
+        end
     end
 
     for optIdx = 1, 4 do
         local optionText = (question.options or {})[optIdx] or ("Opción " .. LETTERS[optIdx])
         local pos = answers[optIdx]
         local color = ANSWER_COLORS[optIdx]
+        -- v3: pads start as SmoothPlastic (no neon) so the eye doesn't read
+        -- "this is already the correct one". The hot Neon look is reserved
+        -- for the moment of correct/wrong via PadFeedback.flash*.
         local pad = makePart(
             folder,
             string.format("Obby_Stage%d_Opt%d", stageIdx, optIdx),
             pos,
             cfg.answerSize,
             color,
-            Enum.Material.Neon,
+            Enum.Material.SmoothPlastic,
             delayBase + 0.1 + optIdx * 0.06
         )
-        makeBillboard(pad, LETTERS[optIdx] .. ") " .. trim(optionText, 42), 4.1, 8.5, 2.2, 17)
+        pad.Reflectance = 0.05
+
+        -- A thin neon edge underneath the slab gives it presence without
+        -- making the whole top surface a glowing rectangle.
+        local edge = makePart(
+            folder,
+            string.format("Obby_Stage%d_Opt%d_Edge", stageIdx, optIdx),
+            pos - Vector3.new(0, cfg.answerSize.Y / 2 + 0.15, 0),
+            Vector3.new(cfg.answerSize.X + 0.4, 0.3, cfg.answerSize.Z + 0.4),
+            color,
+            Enum.Material.Neon,
+            delayBase + 0.12 + optIdx * 0.06
+        )
+        edge.CanCollide = false
+        edge.Transparency = 0.25
+        makeBillboard(pad, LETTERS[optIdx] .. ") " .. trim(optionText, isTower and 32 or 42), 4.1, isTower and 7.4 or 8.5, isTower and 2.0 or 2.2, isTower and 15 or 17)
 
         local function handleAttempt(player)
             if not director:canAttempt(player, stageIdx) then
@@ -318,11 +432,27 @@ local function buildAnswerStage(folder, data, stageIdx, question, director, serv
             local correctIdx = (question.correct_index or 0) + 1
             local isCorrect = optIdx == correctIdx
             serverAnswer:Fire(player, stageIdx, optIdx)
+            if ctx and ctx.recordGameplayEvent then
+                ctx.recordGameplayEvent(player, "stage_attempt", template, {
+                    stage = stageIdx,
+                    selected_index = optIdx,
+                    correct_index = correctIdx,
+                    is_correct = isCorrect,
+                })
+            end
 
             if isCorrect then
                 director:completeStage(player, stageIdx)
-                pad.Color = Color3.fromRGB(55, 230, 110)
-                FeedbackService.burst(pad, FeedbackService.color("correct"), 64, 0.9)
+                if ctx and ctx.recordGameplayEvent then
+                    ctx.recordGameplayEvent(player, "stage_correct", template, {
+                        stage = stageIdx,
+                        selected_index = optIdx,
+                    })
+                end
+
+                -- Dramatic two-stage flash: white pop → green sustain + bounce.
+                PadFeedback.flashCorrect(pad)
+                FeedbackService.burst(pad, FeedbackService.color("correct"), 80, 1.0)
                 FeedbackService.sfx(ctx, player, "correct", pad)
                 FeedbackService.player(
                     player,
@@ -342,49 +472,58 @@ local function buildAnswerStage(folder, data, stageIdx, question, director, serv
                 local bridgeKey = "bridge_" .. stageIdx
                 if not bridges[bridgeKey] then
                     bridges[bridgeKey] = true
-                    local nextPos
-                    if stageIdx < #data.quiz then
-                        nextPos = stagePosition(template, stageIdx + 1)
+                    local isFinalStage = stageIdx >= #data.quiz
+                    local nextStageIdx = isFinalStage and (#data.quiz + 1) or (stageIdx + 1)
+                    local nextPos = stagePosition(template, nextStageIdx)
+                    local fromPos = pos + Vector3.new(0, 0.6, -cfg.answerSize.Z / 2)
+                    local toPos = nextPos + Vector3.new(0, 0.6, cfg.checkpointSize.Z / 2)
+                    -- Bridge stays as a visual "you opened the path" cue.
+                    if isTower then
+                        BridgeBuilder.staircase(folder, "UnlockedPath_" .. stageIdx,
+                            fromPos, toPos, Color3.fromRGB(45, 210, 105), 7)
                     else
-                        nextPos = stagePosition(template, #data.quiz + 1)
+                        BridgeBuilder.plank(folder, "UnlockedPath_" .. stageIdx,
+                            fromPos, toPos, Color3.fromRGB(45, 210, 105), 9)
                     end
-                    makeSteps(
-                        folder,
-                        "UnlockedPath_" .. stageIdx,
-                        pos + Vector3.new(0, 1.2, -cfg.answerSize.Z / 2),
-                        nextPos + Vector3.new(0, 0.7, cfg.checkpointSize.Z / 2),
-                        Color3.fromRGB(45, 210, 105),
-                        isTower and 7 or 9
-                    )
                 end
+
+                -- Auto-teleport removed. Student must now manually walk across the
+                -- bridge to continue, reinforcing the platforming challenge.
             else
-                FeedbackService.burst(pad, FeedbackService.color("wrong"), 38, 0.45)
+                if ctx and ctx.recordGameplayEvent then
+                    ctx.recordGameplayEvent(player, "stage_wrong", template, {
+                        stage = stageIdx,
+                        selected_index = optIdx,
+                        correct_index = correctIdx,
+                    })
+                end
+
+                local originalColor = color
+                PadFeedback.flashWrong(pad, function() end)
+                FeedbackService.burst(pad, FeedbackService.color("wrong"), 50, 0.6)
                 FeedbackService.sfx(ctx, player, "wrong", pad)
-                FeedbackService.player(player, "wrong", "Incorrecto", "Caes y vuelves al checkpoint para intentarlo de nuevo.")
+                FeedbackService.player(player, "wrong", "Incorrecto",
+                    "Caes y vuelves al checkpoint para intentarlo de nuevo.")
                 FeedbackService.floating(folder, pos + Vector3.new(0, 7, 0), "Incorrecto", "wrong")
                 if ctx and ctx.Objective then
                     ctx.Objective.setProgress(string.format("Etapa %d/%d · intenta otra vez", stageIdx, #data.quiz))
                 end
 
-                local original = pad.Color
-                pad.Color = Color3.fromRGB(255, 35, 35)
-                task.delay(0.25, function()
-                    if not pad or not pad.Parent then return end
-                    pad.CanCollide = false
-                    pad.Transparency = 0.85
-                end)
-
                 local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
                 if root then
+                    -- Ghost the pad and apply downward force to ensure they fall.
+                    pad.CanCollide = false
+                    pad.Transparency = 0.5
                     root.AssemblyLinearVelocity = Vector3.new(0, -75, -18)
                 end
-                director:respawn(player, director:getCheckpoint(player), 1.25)
+                director:respawn(player, director:getCheckpoint(player), 1.35)
 
+                -- Restore the pad after the player has fallen.
                 task.delay(2.3, function()
                     if pad and pad.Parent then
                         pad.CanCollide = true
                         pad.Transparency = 0
-                        pad.Color = original
+                        PadFeedback.idle(pad, originalColor)
                     end
                 end)
             end
@@ -423,6 +562,11 @@ local function buildFinish(folder, data, director, ctx, template)
             director:respawn(player, director:getCheckpoint(player), 0.1)
             return
         end
+        if ctx and ctx.recordGameplayEvent then
+            ctx.recordGameplayEvent(player, "complete", template, {
+                stages = #data.quiz,
+            })
+        end
         FeedbackService.player(player, "complete", "Recorrido completado", "Abre el quiz para revisar lo aprendido.")
         FeedbackService.sfx(ctx, player, "complete", finish)
         if ctx and ctx.ParticleEngine then
@@ -442,6 +586,11 @@ local function buildFinish(folder, data, director, ctx, template)
         function(hit)
             local player = InteractionService.playerFromHit(hit)
             if player then
+                if ctx and ctx.recordGameplayEvent then
+                    ctx.recordGameplayEvent(player, "fall", template, {
+                        checkpoint_stage = director:getStage(player),
+                    })
+                end
                 director:respawn(player, director:getCheckpoint(player), 0.05)
             end
         end
@@ -508,7 +657,9 @@ function ObbyRenderer.render(data, folder, ctx)
         Enum.Material.SmoothPlastic,
         0
     )
-    makeBillboard(start, trim(data.scene_title or title, 42) .. "\n" .. title, 7, 15, 3, 18)
+    -- Smaller start sign so it doesn't dominate the camera at spawn.
+    -- Was 15×3 studs with text size 18 → 10×2.2 with text size 16.
+    makeBillboard(start, trim(data.scene_title or title, 36) .. "\n" .. title, 5.5, 10, 2.2, 16)
 
     if template == "obby_tower" then
         addScaffold(folder, Vector3.new(0, cfg.y, cfg.startZ), (#quiz + 1) * cfg.stageRise + 18)

@@ -5,6 +5,9 @@ __pycache__/
 venv/
 .env
 
+docs/
+
+
 # MacOS
 .DS_Store
 

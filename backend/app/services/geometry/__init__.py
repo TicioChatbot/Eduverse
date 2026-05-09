@@ -196,7 +196,12 @@ def _apply_ecosystem(objects: list) -> list:
             obj["position"] = _offset({"x": math.cos(angle) * r_val, "y": heights[ring_idx], "z": math.sin(angle) * r_val})
             s = 3 - ring_idx * 0.5
             obj["size"]     = {"x": s, "y": s, "z": s}
-            obj["behavior"] = {"type": "float", "params": {"amplitude": 0.8 - ring_idx * 0.2, "speed": 0.5}}
+            if ring_idx == 0:
+                obj["behavior"] = {"type": "pulse", "params": {"intensity": 0.06, "speed": 0.8}}
+            elif idx % 3 == 0:
+                obj["behavior"] = {"type": "static", "params": {}}
+            else:
+                obj["behavior"] = {"type": "float", "params": {"amplitude": 0.8 - ring_idx * 0.2, "speed": 0.5}}
             obj["shape"]    = "sphere"
     return objects
 
@@ -271,9 +276,11 @@ def _apply_grid(objects: list) -> list:
         obj["position"] = _offset({"x": x, "y": 6, "z": z})
         obj["size"]     = {"x": 3, "y": 3, "z": 3}
         if obj.get("role") == "primary":
-            obj["behavior"] = {"type": "float", "params": {"amplitude": 1.2, "speed": 0.5}}
-        else:
+            obj["behavior"] = {"type": "pulse", "params": {"intensity": 0.08, "speed": 1.0}}
+        elif idx % 2 == 0:
             obj["behavior"] = {"type": "rotate", "params": {"speed": 0.6}}
+        else:
+            obj["behavior"] = {"type": "float", "params": {"amplitude": 1.2, "speed": 0.5}}
         obj["shape"] = "cube"
     return objects
 

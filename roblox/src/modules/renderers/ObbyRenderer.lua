@@ -38,12 +38,13 @@ local ANSWER_COLORS = {
 local PATH = {
     y = 26,
     startZ = -54,
-    stageStride = 58,
-    answerOffset = 22,
-    answerSpread = 16,
-    checkpointSize = Vector3.new(18, 2, 18),
-    answerSize = Vector3.new(12, 1.4, 12),
-    startSize = Vector3.new(22, 2, 22),
+    stageStride = 48,   -- More compact path
+    answerOffset = 14,  -- Closer for easier jumps
+    answerSpread = 10,  -- Tighter spread for possible diagonal jumps
+    checkpointSize = Vector3.new(24, 2, 18),
+    answerSize = Vector3.new(18, 1.4, 12),
+    startSize = Vector3.new(28, 2, 22),
+    approachWidth = 20,
 }
 
 -- TOWER tuned in v3 for actual playability:
@@ -330,7 +331,8 @@ local function buildAnswerStage(folder, data, stageIdx, question, director, serv
             "ChoiceBridge_" .. stageIdx,
             checkpointPos + Vector3.new(0, -0.15, -cfg.checkpointSize.Z / 2),
             centerAnswer + Vector3.new(0, -0.15, cfg.answerSize.Z / 2),
-            Color3.fromRGB(45, 85, 150)
+            Color3.fromRGB(45, 85, 150),
+            cfg.approachWidth
         )
     end
 
@@ -574,11 +576,15 @@ local function buildFinish(folder, data, director, ctx, template)
         end
     end, 1.5)
 
+    local startPos = stagePosition(template, 1)
+    local totalLen = math.abs(finishPos.Z - startPos.Z) + 120
+    local centerZ = (startPos.Z + finishPos.Z) / 2
+    
     PhysicsPolicy.makeKillPlane(
         folder,
         "ObbyKillPlane",
-        Vector3.new(0, cfg.y - 9, finishPos.Z + 20),
-        Vector3.new(260, 3, math.max(260, #data.quiz * 90)),
+        Vector3.new(0, cfg.y - 12, centerZ),
+        Vector3.new(400, 3, totalLen),
         function(hit)
             local player = InteractionService.playerFromHit(hit)
             if player then

@@ -82,7 +82,10 @@ def evaluate_workshop(workshop: Workshop, source_topic: str) -> QualityReport:
             errors.append(f"Label genérico no permitido: '{obj.label or obj.name}'.")
 
     if _behavior_types(workshop) == {"float"} and len(workshop.objects) > 3:
-        errors.append("Todos los objetos flotan; la escena necesita variedad de comportamiento.")
+        if workshop.archetype in {"solar_system", "ecosystem"}:
+            warnings.append("Casi todos los objetos flotan; esto es aceptable para este tema pero considera variar comportamientos.")
+        else:
+            errors.append("Todos los objetos flotan; la escena necesita variedad de comportamiento.")
 
     object_names = {obj.name.lower() for obj in workshop.objects}
     object_labels = {(obj.label or "").lower() for obj in workshop.objects}

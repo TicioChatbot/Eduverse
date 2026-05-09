@@ -57,6 +57,9 @@
           },
           "SignBoard": {
             "$path": "src/modules/gameplay/SignBoard.lua"
+          },
+          "ObbyGeometry": {
+            "$path": "src/modules/gameplay/ObbyGeometry.lua"
           }
         },
         "dressing": {

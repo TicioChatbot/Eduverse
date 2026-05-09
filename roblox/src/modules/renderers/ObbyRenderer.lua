@@ -19,6 +19,7 @@ local InteractionService = require(Gameplay:WaitForChild("InteractionService"))
 local PhysicsPolicy = require(Gameplay:WaitForChild("PhysicsPolicy"))
 local PadFeedback = require(Gameplay:WaitForChild("PadFeedback"))
 local BridgeBuilder = require(Gameplay:WaitForChild("BridgeBuilder"))
+local ObbyGeometry = require(Gameplay:WaitForChild("ObbyGeometry"))
 
 local ObbyRenderer = {}
 
@@ -58,10 +59,10 @@ local TOWER = {
     stageStride = 32,
     answerOffset = 18,
     answerSpread = 20,
-    checkpointSize = Vector3.new(28, 2, 22),
-    answerSize = Vector3.new(12, 1.4, 12),
+    checkpointSize = Vector3.new(24, 2, 20),
+    answerSize = Vector3.new(14, 1.4, 12),
     startSize = Vector3.new(30, 2, 28),
-    approachWidth = 12,
+    approachWidth = 14,
     -- Guardrail height (purely visual + collision wall on each side of the deck)
     guardrailHeight = 7,
     guardrailThickness = 0.9,
@@ -213,24 +214,10 @@ local function addScaffold(folder, center, height)
     -- I-beams; here we only add 4 SLIM vertical pillars as a "tower silhouette"
     -- so the obby still reads as a tower instead of floating slabs.
     local pillarColor = Color3.fromRGB(65, 85, 120)
-    local radius = 31
-    local zBack = -31
-    local zFront = 11
-    for _, x in ipairs({ -radius, radius }) do
-        for _, zOffset in ipairs({ zBack, zFront }) do
-            local col = makePart(
-                folder,
-                "TowerScaffoldColumn",
-                Vector3.new(x, center.Y + height / 2, center.Z + zOffset),
-                Vector3.new(0.9, height, 0.9),
-                pillarColor,
-                Enum.Material.Metal,
-                0
-            )
-            col.CanCollide = false
-            col.Transparency = 0.25
-        end
-    end
+    local radius = 22
+    local zBack = -22
+    local zFront = 8
+    ObbyGeometry.scaffold(folder, center, height, pillarColor)
 end
 
 local function addTowerStageScaffold(folder, stageIdx, checkpointPos, answerCenter, delayBase)
@@ -479,11 +466,21 @@ local function buildAnswerStage(folder, data, stageIdx, question, director, serv
                     local toPos = nextPos + Vector3.new(0, 0.6, cfg.checkpointSize.Z / 2)
                     -- Bridge stays as a visual "you opened the path" cue.
                     if isTower then
-                        BridgeBuilder.staircase(folder, "UnlockedPath_" .. stageIdx,
-                            fromPos, toPos, Color3.fromRGB(45, 210, 105), 7)
+                        -- For the tower, use a spiral staircase or scaffolding climb
+                        if stageIdx % 2 == 0 then
+                            ObbyGeometry.spiralStaircase(folder, fromPos:Lerp(toPos, 0.5), 8, cfg.stageRise, 10, Color3.fromRGB(45, 210, 105))
+                        else
+                            BridgeBuilder.staircase(folder, "UnlockedPath_" .. stageIdx,
+                                fromPos, toPos, Color3.fromRGB(45, 210, 105), 8)
+                        end
                     else
-                        BridgeBuilder.plank(folder, "UnlockedPath_" .. stageIdx,
-                            fromPos, toPos, Color3.fromRGB(45, 210, 105), 9)
+                        -- For horizontal path, sometimes use moving platforms
+                        if stageIdx > 2 and stageIdx % 3 == 0 then
+                            ObbyGeometry.movingBridge(folder, fromPos, toPos, 3, Color3.fromRGB(45, 210, 105))
+                        else
+                            BridgeBuilder.plank(folder, "UnlockedPath_" .. stageIdx,
+                                fromPos, toPos, Color3.fromRGB(45, 210, 105), 10)
+                        end
                     end
                 end
 

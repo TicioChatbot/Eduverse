@@ -243,44 +243,66 @@ function ArenaRenderer.render(data, folder, ctx)
         beacons[i]    = beacon
         baseColors[i] = COLORS[i]
 
-        floor.Touched:Connect(function(hit)
-            if locked then return end
-            local player = Players:GetPlayerFromCharacter(hit.Parent)
-            if not player then return end
-            local uid = tostring(player.UserId)
-            local prev = playerZone[uid]
-            if prev == i then return end
-
-            playerZone[uid] = i
-
-            -- Visual: pulse the new zone, dim the previous beacon
-            pulseZone(floor, baseColors[i])
-            setBeacon(beacons[i], true)
-            if prev and beacons[prev] then setBeacon(beacons[prev], false) end
-
-            -- SFX: small per-player select sound
-            ctx.SfxEngine.playForPlayer(player, "select", ctx.Config, { volume = 0.4 })
-
-            -- HUD chip with letter + option text
-            local optText = nil
-            if activeQuestion and activeQuestion.options then
-                optText = activeQuestion.options[i]
+    -- ── Spatial Polling Loop (Replaces unreliable Touched) ──
+    task.spawn(function()
+        while folder and folder.Parent do
+            if locked then task.wait(0.5); continue end
+            
+            for _, player in Players:GetPlayers() do
+                local char = player.Character
+                local root = char and char:FindFirstChild("HumanoidRootPart")
+                if not root then continue end
+                
+                local pPos = root.Position
+                local uid = tostring(player.UserId)
+                
+                -- Check which zone the player is in
+                local foundZone = nil
+                for i = 1, 4 do
+                    local zPos = zones[i].Position
+                    local dx = math.abs(pPos.X - zPos.X)
+                    local dz = math.abs(pPos.Z - zPos.Z)
+                    if dx <= ZONE_SIZE / 2 and dz <= ZONE_SIZE / 2 then
+                        foundZone = i
+                        break
+                    end
+                end
+                
+                if foundZone and playerZone[uid] ~= foundZone then
+                    local prev = playerZone[uid]
+                    playerZone[uid] = foundZone
+                    
+                    -- Visual & Feedback
+                    pulseZone(zones[foundZone], baseColors[foundZone])
+                    setBeacon(beacons[foundZone], true)
+                    if prev and beacons[prev] then setBeacon(beacons[prev], false) end
+                    
+                    ctx.SfxEngine.playForPlayer(player, "select", ctx.Config, { volume = 0.4 })
+                    
+                    local optText = nil
+                    if activeQuestion and activeQuestion.options then
+                        optText = activeQuestion.options[foundZone]
+                    end
+                    selectionEvent:FireClient(player, {
+                        letter       = LETTERS[foundZone],
+                        option_index = foundZone,
+                        option_text  = optText,
+                        locked       = false,
+                    })
+                end
             end
-            selectionEvent:FireClient(player, {
-                letter       = LETTERS[i],
-                option_index = i,
-                option_text  = optText,
-                locked       = false,
-            })
-        end)
+            task.wait(0.15) -- 6Hz polling is plenty for this
+        end
+    end)
 
-        -- Place a content totem above each zone (up to 4 objects)
+    -- Build totem objects (Visual only)
+    for i = 1, 4 do
+        local floor = zones[i]
         local obj = objects[i]
         if obj then
             local color = ctx.colorFrom(obj.color or "#AAAAAA")
             obj.position = { x = floor.Position.X, y = 7, z = floor.Position.Z }
             obj.behavior = { type = "float", params = { amplitude = 1.2, speed = 0.6 } }
-            -- Force a generous minimum size so totems read from across the arena
             obj.size = { x = 5, y = 5, z = 5 }
 
             local inst, anchorPart = ctx.buildObject(obj, folder)
@@ -291,7 +313,6 @@ function ArenaRenderer.render(data, folder, ctx)
             end
             ctx.startBehavior(inst, obj.behavior, 0)
 
-            -- Letter accent above the totem
             local sz  = obj.size or { y = 5 }
             local bbT = Instance.new("BillboardGui", anchorPart or inst)
             bbT.Size           = UDim2.new(4, 0, 1.5, 0)
@@ -326,7 +347,20 @@ function ArenaRenderer.render(data, folder, ctx)
             return
         end
 
-        task.wait(2)
+        -- NEW: Preparation Phase (60s)
+        broadcasterFrame.BackgroundColor3 = Color3.fromRGB(20, 40, 80)
+        broadcasterStroke.Color = Color3.fromRGB(0, 255, 255)
+        
+        for i = 60, 1, -1 do
+            questionDisplay.Text = string.format(
+                "🧠 %s\n\nFASE DE EXPLORACIÓN: %ds\nRecorre la arena y lee los tableros antes de empezar.",
+                data.scene_title or "Quiz", i
+            )
+            ctx.Objective.setProgress(string.format("Exploración previa: %ds restantes", i))
+            task.wait(1)
+        end
+
+        task.wait(1)
 
         for qIndex, question in ipairs(quiz) do
             -- Reset state per round

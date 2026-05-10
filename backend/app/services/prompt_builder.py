@@ -178,7 +178,7 @@ Si el usuario incluye un bloque `MATERIAL DE APOYO DEL PROFESOR` (texto entre `<
   "scene_title": "Título atractivo y emotivo (máx 6 palabras)",
   "scene_description": "1 frase que inspire al estudiante",
   "learning_goal": "Qué debe comprender el estudiante al terminar",
-  "teacher_brief": "Resumen para el profesor en 1-2 frases",
+  "teacher_brief": "Explicación PROFUNDA del tema para el Guía NPC (3-4 párrafos pedagógicos y cercanos)",
   "visual_metaphor": "Cómo se representa visualmente el tema",
   "estimated_duration": "3-5 min",
   "archetype": "solar_system" | "atom" | "cell" | "building" | "ecosystem" | "physics" | "math" | "historical" | "abstract",
@@ -186,7 +186,8 @@ Si el usuario incluye un bloque `MATERIAL DE APOYO DEL PROFESOR` (texto entre `<
   "interaction_template": "gallery_walk" | "arena_zones" | "obby_path" | "obby_tower" | "probability_lab",
   "mechanics": {{
     "difficulty": "easy" | "moderate" | "hard",
-    "stage_count": 4,
+    "stage_count": 3 | 4 | 5 | 6,
+    "prep_time_seconds": 60,
     "actions_required": ["accion concreta 1", "accion concreta 2"]
   }},
   "objects": [ ...ver abajo... ],
@@ -225,9 +226,9 @@ Si eliges "probability_lab", incluye objetos con estos nombres exactos cuando ex
 acciones del laboratorio: lanzar dado, lanzar moneda, meter pompones y sacar muestra.
 
 `mechanics` debe ser breve y parametrico, no narrativo. Ejemplos:
-- obby_tower → {{"difficulty":"moderate","stage_count":4,"wrong_answer":"fall_to_checkpoint"}}
-- probability_lab → {{"unlock_quiz_after_actions":3,"interactables":["dice","coin","bag","pompons"]}}
-- arena_zones → {{"round_count":4,"lock_in_seconds":3}}
+- obby_tower → {{"difficulty":"moderate","stage_count":6,"prep_time_seconds":45}}
+- probability_lab → {{"unlock_quiz_after_actions":3,"prep_time_seconds":90}}
+- arena_zones → {{"round_count":4,"lock_in_seconds":3,"prep_time_seconds":60}}
 
 ═══════════ OBJETOS ═══════════
 

@@ -171,6 +171,18 @@ local function processAnswer(player, questionIndex, selectedIndex)
     score.total   = score.total + 1
     if isCorrect then
         score.correct = score.correct + 1
+        
+        -- NEW: Award EduCredits
+        local credits = player:FindFirstChild("EduCredits")
+        if credits then
+            credits.Value = credits.Value + 10 -- 10 credits per correct answer
+        end
+    else
+        -- Small participation reward
+        local credits = player:FindFirstChild("EduCredits")
+        if credits then
+            credits.Value = credits.Value + 2
+        end
     end
 
     -- Return result to the client immediately (before HTTP call)

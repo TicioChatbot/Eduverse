@@ -118,6 +118,9 @@
         },
         "QuizUI": {
           "$path": "src/QuizUI.client.lua"
+        },
+        "EduVerseNPCUI": {
+          "$path": "src/EduVerseNPCUI.client.lua"
         }
       }
     }

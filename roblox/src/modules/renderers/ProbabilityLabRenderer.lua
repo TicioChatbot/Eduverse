@@ -278,7 +278,35 @@ function ProbabilityLabRenderer.render(data, folder, ctx)
             local prob = (localState.bagContents[resultName] / total) * 100
             labState:incrementClassData("bag_total")
             
-            FeedbackService.burst(bagAnchor, colorInfo.color, 45, 0.8)
+            -- Smooth 3D Marble Extraction Animation
+            task.spawn(function()
+                local marble = Instance.new("Part", folder)
+                marble.Name = "ExtractedMarble"
+                marble.Shape = Enum.PartType.Ball
+                marble.Size = Vector3.new(2, 2, 2)
+                marble.Color = colorInfo.color
+                marble.Material = Enum.Material.Neon
+                marble.Anchored = true
+                marble.CanCollide = false
+                marble.Position = bagAnchor.Position
+                
+                local char = player.Character
+                local target = (char and char:FindFirstChild("HumanoidRootPart") and char.HumanoidRootPart.Position) or (bagAnchor.Position + Vector3.new(0, 10, 0))
+                
+                -- Stage 1: Rise from bag
+                local riseInfo = TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+                local riseTw = TweenService:Create(marble, riseInfo, { Position = bagAnchor.Position + Vector3.new(0, 6, 0) })
+                riseTw:Play(); riseTw.Completed:Wait()
+                
+                -- Stage 2: Move toward player
+                local moveInfo = TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                local moveTw = TweenService:Create(marble, moveInfo, { Position = target, Transparency = 1 })
+                moveTw:Play(); moveTw.Completed:Wait()
+                
+                marble:Destroy()
+            end)
+            
+            FeedbackService.burst(bagAnchor, colorInfo.color, 25, 0.4)
             markAction(player, "bag", "Muestra tomada", string.format("Salió %s. Probabilidad: %.1f%%", resultName, prob))
         end)
     end

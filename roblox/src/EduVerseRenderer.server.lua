@@ -66,9 +66,48 @@ local function getOrCreate(name, class)
 end
 
 local remoteWorkshopLoaded = getOrCreate("EduVerse_WorkshopLoaded", "RemoteEvent")
+local remoteOpenGuide      = getOrCreate("EduVerse_OpenGuide", "RemoteEvent")
 getOrCreate("EduVerse_GameplayFeedback", "RemoteEvent")
+
+-- ── Player Stats (EduCredits) ────────────────────────────────────────────────
+local function initPlayerStats(player)
+    local val = player:FindFirstChild("EduCredits")
+    if not val then
+        val = Instance.new("IntValue")
+        val.Name = "EduCredits"
+        val.Value = 0
+        val.Parent = player
+    end
+end
+
+Players.PlayerAdded:Connect(initPlayerStats)
+for _, p in ipairs(Players:GetPlayers()) do initPlayerStats(p) end
+
 local statusValue          = getOrCreate(Config.STATUS_KEY, "StringValue")
 statusValue.Value = "Conectando con backend..."
+
+-- ── Buff System ──────────────────────────────────────────────────────────────
+local remoteBuyBuff = getOrCreate("EduVerse_BuyBuff", "RemoteEvent")
+
+remoteBuyBuff.OnServerEvent:Connect(function(player, buffType)
+    local credits = player:FindFirstChild("EduCredits")
+    if not credits then return end
+    
+    if buffType == "resorte" then
+        if credits.Value >= 50 then
+            credits.Value -= 50
+            local char = player.Character
+            local hum = char and char:FindFirstChild("Humanoid")
+            if hum then
+                hum.JumpPower = 50 * 1.35 -- 35% boost
+                hum.UseJumpPower = true
+                SfxEngine.playForPlayer(player, "correct", Config)
+            end
+        else
+            SfxEngine.playForPlayer(player, "wrong", Config)
+        end
+    end
+end)
 
 -- ── State (rebuilt each render) ──────────────────────────────────────────────
 local activeSessionId = nil
@@ -454,7 +493,7 @@ local function buildCtx()
 end
 
 -- ── Guide NPC ────────────────────────────────────────────────────────────────
-local function spawnGuide(folder, sceneTitle)
+local function spawnGuide(folder, sceneTitle, teacherBrief)
     local model = AssetLibrary.get("Person")
     if not model then return end
     model.Name = "EduGuide"
@@ -472,12 +511,20 @@ local function spawnGuide(folder, sceneTitle)
     local anchor = getPrimaryPart(model) or model:FindFirstChildWhichIsA("BasePart")
     if anchor then
         LabelEngine.attach(
-            { label = "Guía: " .. (sceneTitle or "EduVerse"),
-              description = "Acércate a los objetos brillantes para descubrir su rol en la escena." },
+            { label = "EduGuide",
+              description = "Presiona E para hablar y aprender más sobre " .. (sceneTitle or "el tema") },
             anchor,
             Color3.fromRGB(120, 255, 160)
         )
         addProximityGlow(model, Color3.fromRGB(80, 255, 80))
+        
+        -- NEW: Deep Interaction
+        InteractionService.addPrompt(anchor, "Hablar con Guía", "Aprender más", function(player)
+            remoteOpenGuide:FireClient(player, {
+                title = sceneTitle,
+                brief = teacherBrief
+            })
+        end)
     end
 end
 
@@ -588,7 +635,7 @@ local function renderWorkshop(data)
     createStartGuide(folder, gameMode)
     renderer.render(data, folder, ctx)
 
-    spawnGuide(folder, title)
+    spawnGuide(folder, title, data.teacher_brief)
     SoundscapeEngine.play(gameMode, Config.SOUNDS)
     LightingEngine.apply(data.archetype or "default")
     SfxEngine.play("scene_load", Config)

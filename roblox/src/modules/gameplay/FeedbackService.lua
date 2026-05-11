@@ -123,4 +123,13 @@ function FeedbackService.floating(folder, position, text, kind)
     end)
 end
 
+function FeedbackService.flash(part, color, duration)
+    if not part then return end
+    local original = part.Color
+    part.Color = color
+    task.delay(duration or 1.2, function()
+        if part and part.Parent then part.Color = original end
+    end)
+end
+
 return FeedbackService

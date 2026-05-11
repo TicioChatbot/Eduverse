@@ -121,12 +121,14 @@ function CombinatoricsStation.build(folder, ctx, options)
 
     local state = { camiseta = 1, gorra = 1, hasChanged = false }
 
-    -- Live counter board
+    -- Live counter board — stands upright, faces toward player spawn (toward +Z)
     local board = makePart(sub, "ComboBoard",
         origin + Vector3.new(0, 11, -3.4),
         Vector3.new(11, 4.2, 0.4),
         Color3.fromRGB(20, 32, 70),
         Enum.Material.SmoothPlastic)
+    board.CFrame = CFrame.new(origin + Vector3.new(0, 11, -3.4))
+        * CFrame.Angles(0, math.pi, 0)  -- rotate 180° so Front face faces +Z (toward players)
     local boardSign = SignBoard.create(board, {
         isFixed = true,
         title = "Combinaciones",

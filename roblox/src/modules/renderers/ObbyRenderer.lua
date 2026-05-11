@@ -632,8 +632,6 @@ local function decorate(folder, data, ctx, template)
 end
 
 function ObbyRenderer.render(data, folder, ctx)
-    LightingModule.apply(data.archetype)
-    
     local quiz = data.quiz or {}
     if #quiz == 0 then
         warn("[ObbyRenderer] No quiz data; falling back to Gallery.")

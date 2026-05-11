@@ -555,12 +555,14 @@ local function startProximityWatcher()
                     if partOrModel.Name == "EduGuide" then
                         if near and not partOrModel:GetAttribute("Welcomed") then
                             partOrModel:SetAttribute("Welcomed", true)
+                            -- Simple head bob to signal 'hello' — no Scale tween (Models don't support it)
                             task.spawn(function()
-                                if partOrModel:IsA("Model") then
-                                    local baseScale = partOrModel:GetScale()
-                                    TweenService:Create(partOrModel, TweenInfo.new(0.4, Enum.EasingStyle.Back), { ["Scale"] = baseScale * 1.2 }):Play()
-                                    task.wait(0.4)
-                                    TweenService:Create(partOrModel, TweenInfo.new(0.3), { ["Scale"] = baseScale }):Play()
+                                local head = partOrModel:FindFirstChild("Head")
+                                if head then
+                                    local orig = head.CFrame
+                                    TweenService:Create(head, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = orig + Vector3.new(0, 0.6, 0) }):Play()
+                                    task.wait(0.25)
+                                    TweenService:Create(head, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = orig }):Play()
                                 end
                             end)
                         elseif not near then

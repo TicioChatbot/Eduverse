@@ -21,6 +21,7 @@
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService        = game:GetService("RunService")
 local SoundService      = game:GetService("SoundService")
 
 local SfxEngine = {}
@@ -68,22 +69,31 @@ function SfxEngine.play(eventName, config, options)
     task.delay(8, function() if sound and sound.Parent then sound:Destroy() end end)
 end
 
--- Play a one-shot SFX only for the given player (client-local).
--- Must be invoked from a server script; SoundService:PlayLocalSound
--- replicates only to the receiver because we parent the sound under
--- the player's PlayerGui first (Roblox best practice).
+-- Play a one-shot SFX only for the given player.
+-- Works from both server and client scripts.
 function SfxEngine.playForPlayer(player, eventName, config, options)
     if not player then return end
     local soundId = _resolveSoundId(config, eventName)
     if not soundId then return end
 
-    local pg = player:FindFirstChildOfClass("PlayerGui")
-    if not pg then return end
-
-    local sound = _newSound(soundId, options)
-    sound.Parent = pg
-    SoundService:PlayLocalSound(sound)
-    task.delay(6, function() if sound and sound.Parent then sound:Destroy() end end)
+    if RunService:IsServer() then
+        -- Server: parent sound near player's character root so it replicates
+        local char = player.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        local target = root or workspace
+        local sound = _newSound(soundId, options)
+        sound.Parent = target
+        sound:Play()
+        task.delay(6, function() if sound and sound.Parent then sound:Destroy() end end)
+    else
+        -- Client: use PlayLocalSound for personal audio
+        local pg = player:FindFirstChildOfClass("PlayerGui")
+        if not pg then return end
+        local sound = _newSound(soundId, options)
+        sound.Parent = pg
+        SoundService:PlayLocalSound(sound)
+        task.delay(6, function() if sound and sound.Parent then sound:Destroy() end end)
+    end
 end
 
 return SfxEngine

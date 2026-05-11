@@ -394,3 +394,25 @@ def get_gameplay_event_summary(session_id: str) -> Dict[str, Any]:
         "by_type": by_type,
         "students": sorted(by_student.values(), key=lambda item: item["events"], reverse=True),
     }
+
+
+def get_recent_activity(limit: int = 15) -> List[Dict[str, Any]]:
+    """
+    Combines both answers and gameplay events into a single chronological feed.
+    Used for the 'Live Feed' component in the dashboard.
+    """
+    conn = get_connection()
+    # Union both tables for a unified activity log
+    query = """
+    SELECT 'answer' as kind, student_name, is_correct as success, timestamp, session_id,
+           'Respondio Q' || (question_index + 1) as activity
+    FROM answers
+    UNION ALL
+    SELECT 'event' as kind, student_name, 1 as success, timestamp, session_id,
+           event_type as activity
+    FROM gameplay_events
+    ORDER BY timestamp DESC
+    LIMIT ?
+    """
+    rows = conn.execute(query, (limit,)).fetchall()
+    return [_row_to_dict(r) for r in rows]

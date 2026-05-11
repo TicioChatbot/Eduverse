@@ -55,198 +55,153 @@ def _quality_note(data: dict) -> str:
 _CUSTOM_CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Inter:wght@400;500;700&display=swap');
 
-/* Base Body Application */
+:root {
+    --primary: #8b5cf6;
+    --primary-glow: rgba(139, 92, 246, 0.2);
+    --bg-dark: #0f172a;
+    --bg-card: rgba(30, 41, 59, 0.4);
+    --text-main: #f8fafc;
+    --text-sub: #94a3b8;
+}
+
 body, .gradio-container {
-    background: radial-gradient(circle at top right, #1f1b3d 0%, #0c0a1a 100%) !important;
+    background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #020617 100%) !important;
     background-attachment: fixed !important;
-    color: #f1f5f9 !important;
+    color: var(--text-main) !important;
     font-family: 'Inter', sans-serif !important;
 }
 
-h1, h2, h3, h4, .eduverse-header h1 {
-    font-family: 'Outfit', sans-serif !important;
-}
-
-/* Glassmorphism Header */
+/* Header */
 .eduverse-header {
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 20px;
-    padding: 30px 40px;
-    margin-bottom: 24px;
+    margin: 40px 0;
     text-align: center;
-    box-shadow: 0 10px 40px -10px rgba(0,0,0,0.5);
 }
 .eduverse-header h1 {
-    background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 50%, #34d399 100%);
+    font-family: 'Outfit', sans-serif !important;
+    font-size: 3.5rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -2px;
+    background: linear-gradient(135deg, #ddd6fe, #8b5cf6, #3b82f6);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    font-size: 2.8rem !important;
-    font-weight: 800 !important;
-    margin: 0 !important;
-    letter-spacing: -1px;
+    margin-bottom: 4px !important;
 }
 .eduverse-header p {
-    color: #94a3b8 !important;
-    margin: 8px 0 0 !important;
-    font-size: 1.1rem;
-    font-weight: 400;
+    color: var(--text-sub) !important;
+    font-size: 1.2rem;
+    font-weight: 500;
 }
 
 /* Stat Cards */
 .stat-card {
-    background: rgba(30, 30, 50, 0.4);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(139, 92, 246, 0.2);
-    border-radius: 16px;
-    padding: 24px;
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 24px;
+    padding: 30px 20px;
     text-align: center;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .stat-card:hover {
-    transform: translateY(-5px);
-    border-color: rgba(139, 92, 246, 0.5);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 0 20px rgba(139, 92, 246, 0.15);
+    transform: translateY(-8px);
+    border-color: var(--primary);
+    box-shadow: 0 20px 40px -20px rgba(139, 92, 246, 0.4);
 }
 .stat-number {
     font-family: 'Outfit', sans-serif;
-    font-size: 3rem;
+    font-size: 3.2rem;
     font-weight: 800;
-    background: linear-gradient(135deg, #a78bfa, #818cf8);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: #fff;
     display: block;
-    line-height: 1.2;
+    line-height: 1;
+    margin-bottom: 8px;
 }
 .stat-label {
-    font-size: 0.8rem;
-    color: #94a3b8;
+    font-size: 0.85rem;
+    color: var(--text-sub);
     text-transform: uppercase;
-    letter-spacing: 1.5px;
-    font-weight: 600;
-    margin-top: 8px;
-    display: block;
+    letter-spacing: 2px;
+    font-weight: 700;
 }
 
-/* Buttons */
-.btn-primary {
-    background: linear-gradient(135deg, #7c3aed, #3b82f6) !important;
-    border: none !important;
-    border-radius: 12px !important;
-    color: white !important;
-    font-weight: 700 !important;
-    font-family: 'Outfit', sans-serif !important;
-    letter-spacing: 0.5px !important;
-    padding: 12px 28px !important;
-    transition: all 0.3s ease !important;
-    box-shadow: 0 10px 25px -5px rgba(124, 58, 237, 0.4) !important;
+/* Live Feed List */
+.activity-feed {
+    background: var(--bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 24px;
+    padding: 24px;
+    height: 100%;
 }
-.btn-primary:hover {
-    transform: translateY(-3px) scale(1.02) !important;
-    box-shadow: 0 15px 35px -5px rgba(124, 58, 237, 0.6) !important;
+.activity-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    transition: background 0.2s;
 }
-.btn-secondary {
-    background: rgba(124, 58, 237, 0.1) !important;
-    border: 1px solid rgba(124, 58, 237, 0.3) !important;
-    border-radius: 10px !important;
-    color: #a78bfa !important;
-    font-weight: 600 !important;
-    transition: all 0.3s ease !important;
+.activity-item:hover {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 12px;
 }
-.btn-secondary:hover {
-    background: rgba(124, 58, 237, 0.2) !important;
-    border-color: rgba(124, 58, 237, 0.5) !important;
+.activity-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
 }
-
-/* Inputs and Forms */
-.gr-textbox textarea, .gr-textbox input, .gr-box {
-    background: rgba(15, 23, 42, 0.6) !important;
-    border: 1px solid rgba(148, 163, 184, 0.15) !important;
-    border-radius: 12px !important;
-    color: #f8fafc !important;
-    font-size: 1rem !important;
-    transition: all 0.2s ease !important;
+.activity-content {
+    flex: 1;
 }
-.gr-textbox textarea:focus, .gr-textbox input:focus {
-    border-color: #8b5cf6 !important;
-    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2) !important;
+.activity-user {
+    font-weight: 700;
+    color: #fff;
+    font-size: 0.95rem;
 }
-.gr-textbox label {
-    color: #cbd5e1 !important;
-    font-weight: 600 !important;
-    font-size: 0.85rem !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-    margin-bottom: 6px !important;
+.activity-desc {
+    color: var(--text-sub);
+    font-size: 0.85rem;
+}
+.activity-time {
+    font-size: 0.75rem;
+    color: #475569;
 }
 
-/* Tabs */
+/* Tabs Redesign */
 .tabs {
-    border-radius: 16px !important;
-    overflow: hidden !important;
-    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    background: transparent !important;
+    border: none !important;
 }
 .tab-nav {
-    background: rgba(15, 23, 42, 0.8) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
-    padding: 0 10px !important;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 30px !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    padding: 8px !important;
+    border-radius: 20px !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
 }
 .tab-nav button {
-    color: #64748b !important;
+    border-radius: 14px !important;
+    padding: 12px 30px !important;
     font-family: 'Outfit', sans-serif !important;
     font-weight: 600 !important;
-    font-size: 1.05rem !important;
-    padding: 16px 24px !important;
+    font-size: 1rem !important;
     border: none !important;
-    border-bottom: 3px solid transparent !important;
-    transition: all 0.3s ease !important;
-    border-radius: 0 !important;
-}
-.tab-nav button:hover {
-    color: #94a3b8 !important;
+    color: var(--text-sub) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 .tab-nav button.selected {
-    color: #a78bfa !important;
-    border-bottom: 3px solid #8b5cf6 !important;
-    background: linear-gradient(to top, rgba(139, 92, 246, 0.1) 0%, transparent 100%) !important;
-}
-
-/* DataFrames */
-.gr-dataframe {
-    background: rgba(15, 23, 42, 0.6) !important;
-    border-radius: 12px !important;
-    border: 1px solid rgba(255, 255, 255, 0.05) !important;
-    overflow: hidden !important;
-}
-.gr-dataframe table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-}
-.gr-dataframe th {
-    background: rgba(30, 41, 59, 0.8) !important;
-    color: #a78bfa !important;
-    font-family: 'Outfit', sans-serif !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    font-size: 0.8rem !important;
-    letter-spacing: 1px !important;
-    padding: 16px !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
-}
-.gr-dataframe td {
-    color: #e2e8f0 !important;
-    padding: 14px 16px !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03) !important;
-    font-size: 0.95rem !important;
-}
-.gr-dataframe tr:last-child td {
-    border-bottom: none !important;
-}
-.gr-dataframe tr:hover td {
-    background: rgba(255, 255, 255, 0.02) !important;
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2) !important;
 }
 
 /* Status Badges */
@@ -259,7 +214,6 @@ h1, h2, h3, h4, .eduverse-header h1 {
     color: #34d399;
     font-weight: 500;
     font-size: 1.05rem;
-    box-shadow: 0 4px 15px -3px rgba(16, 185, 129, 0.05);
 }
 .status-error {
     background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.1));
@@ -273,18 +227,25 @@ h1, h2, h3, h4, .eduverse-header h1 {
 }
 """
 
+
 def _ts_to_local(iso_str: Optional[str]) -> str:
     if not iso_str: return "—"
     try:
         dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
-        return dt.strftime("%d %b %Y  %H:%M")
+        # Relative time for live feed
+        diff = datetime.now(timezone.utc) - dt
+        if diff.total_seconds() < 60: return "ahora"
+        if diff.total_seconds() < 3600: return f"hace {int(diff.total_seconds()/60)}m"
+        return dt.strftime("%H:%M")
     except Exception:
         return iso_str
+
 
 def _color_pct(pct: float) -> str:
     if pct >= 80: return f"🟢 {pct:.1f}%"
     elif pct >= 50: return f"🟡 {pct:.1f}%"
     return f"🔴 {pct:.1f}%"
+
 
 def get_health_status():
     try:
@@ -292,10 +253,11 @@ def get_health_status():
         data = resp.json()
         if data.get("status") == "ok":
             active = data.get("active_topic") or "Ninguna"
-            return f'<div class="status-ok">✅ Servidor ACTIVO · Sesión actual: <strong>{active}</strong></div>'
-        return '<div class="status-error">⚠️ Servidor respondió con error.</div>'
-    except Exception as exc:
-        return f'<div class="status-error">❌ Sin conexión al backend: {exc}</div>'
+            return f'<div style="color:#10b981; font-weight:600; font-size:0.9rem">● Servidor Activo · {active}</div>'
+        return '<div style="color:#ef4444">○ Servidor desconectado</div>'
+    except Exception:
+        return '<div style="color:#ef4444">○ Error de conexión</div>'
+
 
 def _active_session_blocker(pilot_mode: bool, replace_active: bool) -> Optional[str]:
     if not pilot_mode or replace_active:
@@ -312,6 +274,7 @@ def _active_session_blocker(pilot_mode: bool, replace_active: bool) -> Optional[
     except Exception:
         return None
     return None
+
 
 def get_readiness_status():
     try:
@@ -348,34 +311,43 @@ def get_readiness_status():
     except Exception as exc:
         return f'<div class="status-error">❌ Sin readiness: {escape(str(exc))}</div>'
 
+
 def build_gradio_app() -> gr.Blocks:
     with gr.Blocks(
-        title="EduVerse Control Center",
+        title="EduVerse | Dashboard",
         css=_CUSTOM_CSS,
-        theme=gr.themes.Base(
-            primary_hue="purple",
-            secondary_hue="blue",
-            neutral_hue="slate",
-        ),
+        theme=gr.themes.Base(),
     ) as demo:
         gr.HTML("""
             <div class="eduverse-header">
-                <h1>EduVerse Control Center</h1>
-                <p>Gestión de Talleres Educativos 3D · Powered by Gemma 4</p>
+                <h1>EduVerse</h1>
+                <p>Advanced Learning Intelligence</p>
             </div>
         """)
 
         with gr.Tabs():
-            # ── 1. GLOBAL SUMMARY ────────────────────────────────────────────────
-            with gr.Tab("📊 Resumen Global") as tab_summary:
-                with gr.Column():
-                    gr.Markdown("## Métricas Globales del Servidor")
-                    status_box = gr.HTML()
-                    with gr.Row():
-                        sessions_card = gr.HTML()
-                        answers_card = gr.HTML()
-                        students_card = gr.HTML()
-                        accuracy_card = gr.HTML()
+            # ── 1. GLOBAL SUMMARY (REDESIGNED) ───────────────────────────────────
+            with gr.Tab("📊 Dashboard") as tab_summary:
+                with gr.Row():
+                    # Left: Main Stats and Health
+                    with gr.Column(scale=2):
+                        status_box = gr.HTML()
+                        with gr.Row():
+                            sessions_card = gr.HTML()
+                            students_card = gr.HTML()
+                        with gr.Row():
+                            answers_card = gr.HTML()
+                            accuracy_card = gr.HTML()
+                        
+                        gr.Markdown("### Control Rápido")
+                        with gr.Row():
+                            btn_new = gr.Button("🚀 Crear Sesión", variant="primary")
+                            btn_pilot = gr.Button("🧪 Modo Piloto", variant="secondary")
+
+                    # Right: Live Activity Feed
+                    with gr.Column(scale=1):
+                        gr.Markdown("### Actividad en Vivo")
+                        live_feed = gr.HTML(elem_classes=["activity-feed"])
 
                 def reload_summary():
                     srv_html = get_health_status()
@@ -384,20 +356,46 @@ def build_gradio_app() -> gr.Blocks:
                         sess_n, ans_n, stud_n, acc = stats["total_sessions"], stats["total_answers"], stats["unique_students"], stats["global_accuracy"]
                     except:
                         sess_n = ans_n = stud_n = acc = 0
-                        
+                    
                     def card(icon, number, label):
-                        return f'<div class="stat-card"><span style="font-size:2.5rem">{icon}</span><span class="stat-number">{number}</span><span class="stat-label">{label}</span></div>'
+                        return f'<div class="stat-card"><span class="stat-number">{number}</span><span class="stat-label">{label}</span></div>'
+
+                    # Build activity feed HTML
+                    try:
+                        recent = repository.get_recent_activity(12)
+                        feed_html = ""
+                        for item in recent:
+                            kind = item["kind"]
+                            success = item["success"]
+                            icon = "✅" if (kind == "answer" and success) else ("❌" if (kind == "answer") else "🔹")
+                            bg_color = "rgba(16, 185, 129, 0.1)" if (kind == "answer" and success) else ("rgba(239, 68, 68, 0.1)" if (kind == "answer") else "rgba(59, 130, 246, 0.1)")
+                            
+                            feed_html += f"""
+                            <div class="activity-item">
+                                <div class="activity-icon" style="background:{bg_color}">{icon}</div>
+                                <div class="activity-content">
+                                    <div class="activity-user">{escape(item["student_name"])}</div>
+                                    <div class="activity-desc">{escape(item["activity"])}</div>
+                                </div>
+                                <div class="activity-time">{_ts_to_local(item["timestamp"])}</div>
+                            </div>
+                            """
+                        if not recent:
+                            feed_html = '<div style="padding:40px; text-align:center; color:#475569">No hay actividad reciente.</div>'
+                    except Exception as e:
+                        feed_html = f"Error: {e}"
 
                     return (
                         srv_html,
                         card("📚", sess_n, "Sesiones"),
-                        card("✏️", ans_n, "Respuestas"),
                         card("👤", stud_n, "Estudiantes"),
-                        card("🎯", f"{acc}%", "Precisión Global"),
+                        card("✏️", ans_n, "Respuestas"),
+                        card("🎯", f"{acc}%", "Acierto Global"),
+                        feed_html
                     )
 
-                tab_summary.select(fn=reload_summary, outputs=[status_box, sessions_card, answers_card, students_card, accuracy_card])
-                demo.load(fn=reload_summary, outputs=[status_box, sessions_card, answers_card, students_card, accuracy_card])
+                tab_summary.select(fn=reload_summary, outputs=[status_box, sessions_card, students_card, answers_card, accuracy_card, live_feed])
+                demo.load(fn=reload_summary, outputs=[status_box, sessions_card, students_card, answers_card, accuracy_card, live_feed])
 
             # ── 2. NEW SESSION ───────────────────────────────────────────────────
             with gr.Tab("🚀 Nueva Sesión"):
@@ -484,191 +482,120 @@ def build_gradio_app() -> gr.Blocks:
                                 demo_water_btn = gr.Button("Ciclo del agua", size="sm")
                                 demo_newton_btn = gr.Button("Leyes de Newton", size="sm")
                                 demo_history_btn = gr.Button("Revolución Francesa", size="sm")
-                        with gr.Column(scale=1):
-                            preview_box = gr.JSON(label="JSON del Workshop", visible=True)
-                    quiz_preview = gr.Markdown(visible=False)
-                    result_banner = gr.HTML()
-                    last_session_state = gr.State(value="")  # holds the most recent session_id
+                    # Right: Preview & Review
+                    with gr.Column(scale=1):
+                        gr.Markdown("### Vista Previa del Taller")
+                        preview_html = gr.HTML(label="Workshop Summary")
+                        activate_btn = gr.Button(
+                            "🚀 Activar y enviar a Roblox",
+                            variant="primary",
+                            visible=False,
+                        )
 
-                def _quiz_to_md(workshop: dict) -> str:
-                    quiz = workshop.get("quiz") or []
-                    if not quiz:
-                        return ""
-                    title = workshop.get("scene_title") or workshop.get("topic") or "Taller"
-                    mode  = workshop.get("game_mode") or "?"
-                    template = workshop.get("interaction_template") or "auto"
-                    rs    = workshop.get("round_seconds")
-                    rs_txt = f" · timer {rs}s" if rs else ""
-                    lines = [
-                        f"## 🧐 Revisa el quiz — *{escape(title)}* ({escape(mode)} · {escape(template)}{rs_txt})",
-                        f"_{escape(workshop.get('learning_goal') or '')}_",
-                        "",
-                    ]
-                    for i, q in enumerate(quiz, start=1):
-                        opts = q.get("options") or []
-                        correct = (q.get("correct_index") or 0)
-                        lines.append(f"**{i}. {escape(q.get('question',''))}**  ·  _{escape(q.get('difficulty','medium'))}_")
-                        for j, opt in enumerate(opts):
-                            mark = "✅" if j == correct else "▫️"
-                            lines.append(f"- {mark} {escape(str(opt))}")
-                        feedback = (q.get("feedback") or "").strip()
-                        if feedback:
-                            lines.append(f"  > 💬 {escape(feedback)}")
-                        lines.append("")
-                    return "\n".join(lines)
+                def _workshop_to_html(data: dict) -> str:
+                    workshop = data.get("workshop") or data
+                    if not workshop: return ""
+                    
+                    title = workshop.get("scene_title", "Taller sin título")
+                    desc = workshop.get("scene_description", "")
+                    goal = workshop.get("learning_goal", "")
+                    mode = workshop.get("game_mode", "gallery")
+                    temp = workshop.get("interaction_template", "auto")
+                    objs = len(workshop.get("objects", []))
+                    quiz = len(workshop.get("quiz", []))
+                    
+                    mode_colors = {"gallery": "#3b82f6", "obby": "#8b5cf6", "arena": "#f59e0b"}
+                    m_color = mode_colors.get(mode, "#10b981")
+                    
+                    return f"""
+                    <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:20px; padding:24px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                            <span style="background:{m_color}; color:#fff; padding:4px 12px; border-radius:100px; font-size:0.75rem; font-weight:800; text-transform:uppercase;">{mode}</span>
+                            <span style="color:var(--text-sub); font-size:0.8rem;">{temp}</span>
+                        </div>
+                        <h2 style="font-family:'Outfit'; font-size:1.8rem; margin:0 0 8px 0; color:#fff;">{escape(title)}</h2>
+                        <p style="color:var(--text-sub); font-size:0.95rem; margin-bottom:20px;">{escape(desc)}</p>
+                        
+                        <div style="background:rgba(139, 92, 246, 0.1); border-left:4px solid var(--primary); padding:12px 16px; border-radius:8px; margin-bottom:20px;">
+                            <strong style="color:var(--primary); font-size:0.85rem; text-transform:uppercase;">Objetivo de Aprendizaje</strong><br>
+                            <span style="color:#ddd; font-size:0.9rem;">{escape(goal)}</span>
+                        </div>
+                        
+                        <div style="display:flex; gap:16px;">
+                            <div style="flex:1; background:rgba(255,255,255,0.02); padding:12px; border-radius:12px; text-align:center;">
+                                <span style="display:block; font-size:1.5rem; font-weight:800; color:#fff;">{objs}</span>
+                                <span style="font-size:0.7rem; color:var(--text-sub); text-transform:uppercase; letter-spacing:1px;">Objetos</span>
+                            </div>
+                            <div style="flex:1; background:rgba(255,255,255,0.02); padding:12px; border-radius:12px; text-align:center;">
+                                <span style="display:block; font-size:1.5rem; font-weight:800; color:#fff;">{quiz}</span>
+                                <span style="font-size:0.7rem; color:var(--text-sub); text-transform:uppercase; letter-spacing:1px;">Preguntas</span>
+                            </div>
+                        </div>
+                    </div>
+                    """
 
                 def do_generate(topic, details, inline_material, uploaded_file,
                                 game_mode, interaction_template, round_seconds,
                                 review_first, pilot_mode, replace_active):
                     topic = (topic or "").strip()
                     if not topic:
-                        return ({}, gr.update(visible=False, value=""),
-                                '<div class="status-error">❌ El tema no puede estar vacío.</div>',
-                                "", gr.update(visible=False))
+                        return ('<div class="status-error">❌ El tema no puede estar vacío.</div>',
+                                "", gr.update(visible=False), "")
+                    
                     blocker = _active_session_blocker(pilot_mode, replace_active)
                     if blocker:
-                        return ({}, gr.update(visible=False, value=""),
-                                f'<div class="status-error">❌ {escape(blocker)}</div>',
-                                "", gr.update(visible=False))
+                        return (f'<div class="status-error">❌ {escape(blocker)}</div>',
+                                "", gr.update(visible=False), "")
 
-                    files = None
                     data_form = {
                         "topic": topic,
                         "auto_activate": "false" if review_first else "true",
                     }
-                    if (details or "").strip():
-                        data_form["teacher_notes"] = details.strip()
-                    if (inline_material or "").strip():
-                        data_form["inline_material"] = inline_material.strip()
-                    if game_mode and game_mode != "auto":
-                        data_form["game_mode"] = game_mode
-                    if interaction_template and interaction_template != "auto":
-                        data_form["interaction_template"] = interaction_template
-                    if round_seconds:
-                        data_form["round_seconds"] = str(int(round_seconds))
+                    if (details or "").strip(): data_form["teacher_notes"] = details.strip()
+                    if (inline_material or "").strip(): data_form["inline_material"] = inline_material.strip()
+                    if game_mode != "auto": data_form["game_mode"] = game_mode
+                    if interaction_template != "auto": data_form["interaction_template"] = interaction_template
+                    if round_seconds: data_form["round_seconds"] = str(int(round_seconds))
 
-                    if uploaded_file is not None:
-                        try:
-                            with open(uploaded_file.name, "rb") as fh:
-                                file_bytes = fh.read()
-                            filename = os.path.basename(uploaded_file.name)
-                            files = {"file": (filename, file_bytes)}
-                        except Exception as e:
-                            return ({}, gr.update(visible=False, value=""),
-                                    f'<div class="status-error">❌ No se pudo leer el archivo: {escape(str(e))}</div>',
-                                    "", gr.update(visible=False))
+                    files = None
+                    if uploaded_file:
+                        with open(uploaded_file.name, "rb") as fh:
+                            files = {"file": (os.path.basename(uploaded_file.name), fh.read())}
 
                     try:
-                        resp = httpx.post(
-                            f"{_API}/workshop/generate/with-material",
-                            params=_admin_params(),
-                            data=data_form,
-                            files=files,
-                            timeout=180,
-                        )
+                        resp = httpx.post(f"{_API}/workshop/generate/with-material", params=_admin_params(), data=data_form, files=files, timeout=180)
                         if resp.status_code != 200:
-                            return ({}, gr.update(visible=False, value=""),
-                                    f'<div class="status-error">❌ Error: {escape(_api_error(resp))}</div>',
-                                    "", gr.update(visible=False))
+                            return (f'<div class="status-error">❌ Error: {escape(_api_error(resp))}</div>', "", gr.update(visible=False), "")
+                        
                         data = resp.json()
                         workshop = data.get("workshop", {})
                         sid = data.get("session_id", "")
                         sent = data.get("status") == "generated"
-                        verb = "creada y enviada" if sent else "lista para revisar"
-                        banner = (
-                            f'<div class="status-ok">✅ Sesión <strong>{escape(str(sid))}</strong> '
-                            f'{verb} · modo <strong>{escape(str(data.get("game_mode","?")))}</strong>: '
-                            f'plantilla <strong>{escape(str(workshop.get("interaction_template","auto")))}</strong> · '
-                            f'<em>{escape(str(data.get("scene_title","?")))}</em>'
-                            f'{_quality_note(data)}</div>'
-                        )
-                        md = _quiz_to_md(workshop)
-                        return (
-                            workshop,
-                            gr.update(visible=True, value=md),
-                            banner,
-                            sid,
-                            gr.update(visible=not sent),  # show activate btn only when not yet sent
-                        )
+                        
+                        banner = f'<div class="status-ok">✅ Sesión <strong>{sid}</strong> lista.</div>'
+                        html = _workshop_to_html(data)
+                        
+                        return banner, html, gr.update(visible=not sent), sid
                     except Exception as e:
-                        return ({}, gr.update(visible=False, value=""),
-                                f'<div class="status-error">❌ Connection Error: {escape(str(e))}</div>',
-                                "", gr.update(visible=False))
-
-                def do_activate(session_id):
-                    sid = (session_id or "").strip()
-                    if not sid:
-                        return ('<div class="status-error">❌ No hay sesión para activar.</div>',
-                                gr.update(visible=False))
-                    try:
-                        resp = httpx.post(
-                            f"{_API}/workshop/sessions/{sid}/activate",
-                            params=_admin_params(), timeout=20,
-                        )
-                        if resp.status_code != 200:
-                            return (f'<div class="status-error">❌ {escape(_api_error(resp))}</div>',
-                                    gr.update(visible=True))
-                        return (f'<div class="status-ok">🚀 Sesión <strong>{escape(sid)}</strong> '
-                                f'enviada a Roblox.</div>',
-                                gr.update(visible=False))
-                    except Exception as e:
-                        return (f'<div class="status-error">❌ {escape(str(e))}</div>',
-                                gr.update(visible=True))
-
-                def activate_demo(slug, pilot_mode=True, replace_active=True):
-                    blocker = _active_session_blocker(pilot_mode, replace_active)
-                    if blocker:
-                        return ({}, gr.update(visible=False, value=""),
-                                f'<div class="status-error">❌ {escape(blocker)}</div>',
-                                "", gr.update(visible=False))
-                    try:
-                        resp = httpx.post(f"{_API}/workshop/demo/{slug}/activate", params=_admin_params(), timeout=20)
-                        if resp.status_code != 200:
-                            return ({}, gr.update(visible=False, value=""),
-                                    f'<div class="status-error">❌ Error demo: {escape(_api_error(resp))}</div>',
-                                    "", gr.update(visible=False))
-                        data = resp.json()
-                        workshop = data.get("workshop", {})
-                        banner = (
-                            f'<div class="status-ok">✅ Demo <strong>{escape(str(data.get("session_id","?")))}</strong> '
-                            f'activa · modo <strong>{escape(str(data.get("game_mode","?")))}</strong>: '
-                            f'<em>{escape(str(data.get("scene_title","?")))}</em>'
-                            f'{_quality_note(data)}</div>'
-                        )
-                        return (workshop,
-                                gr.update(visible=True, value=_quiz_to_md(workshop)),
-                                banner,
-                                data.get("session_id", ""),
-                                gr.update(visible=False))
-                    except Exception as e:
-                        return ({}, gr.update(visible=False, value=""),
-                                f'<div class="status-error">❌ Error demo: {escape(str(e))}</div>',
-                                "", gr.update(visible=False))
+                        return (f'<div class="status-error">❌ Error: {e}</div>', "", gr.update(visible=False), "")
 
                 generate_btn.click(
                     fn=do_generate,
                     inputs=[topic_input, details_input, material_input, material_file,
                             mode_input, template_input, round_input,
                             review_first, pilot_mode, replace_active],
-                    outputs=[preview_box, quiz_preview, result_banner, last_session_state, activate_btn],
+                    outputs=[result_banner, preview_html, activate_btn, last_session_state],
                 )
-                activate_btn.click(
-                    fn=do_activate,
-                    inputs=[last_session_state],
-                    outputs=[result_banner, activate_btn],
-                )
-                demo_prob_btn.click(fn=lambda pilot, replace: activate_demo("probabilidad-eventos", pilot, replace),
-                    inputs=[pilot_mode, replace_active],
-                    outputs=[preview_box, quiz_preview, result_banner, last_session_state, activate_btn])
-                demo_water_btn.click(fn=lambda pilot, replace: activate_demo("ciclo-del-agua", pilot, replace),
-                    inputs=[pilot_mode, replace_active],
-                    outputs=[preview_box, quiz_preview, result_banner, last_session_state, activate_btn])
-                demo_newton_btn.click(fn=lambda pilot, replace: activate_demo("leyes-de-newton", pilot, replace),
-                    inputs=[pilot_mode, replace_active],
-                    outputs=[preview_box, quiz_preview, result_banner, last_session_state, activate_btn])
-                demo_history_btn.click(fn=lambda pilot, replace: activate_demo("revolucion-francesa", pilot, replace),
-                    inputs=[pilot_mode, replace_active],
-                    outputs=[preview_box, quiz_preview, result_banner, last_session_state, activate_btn])
+
+                def do_activate(sid):
+                    if not sid: return '<div class="status-error">❌ No hay sesión.</div>', gr.update(visible=True)
+                    try:
+                        httpx.post(f"{_API}/workshop/sessions/{sid}/activate", params=_admin_params(), timeout=20)
+                        return f'<div class="status-ok">🚀 Sesión {sid} enviada.</div>', gr.update(visible=False)
+                    except Exception as e:
+                        return f'<div class="status-error">❌ {e}</div>', gr.update(visible=True)
+
+                activate_btn.click(fn=do_activate, inputs=[last_session_state], outputs=[result_banner, activate_btn])
 
             # ── CLASS PILOT ────────────────────────────────────────────────────
             with gr.Tab("✅ Clase Piloto") as tab_pilot:

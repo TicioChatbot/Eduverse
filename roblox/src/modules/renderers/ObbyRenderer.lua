@@ -20,6 +20,7 @@ local PhysicsPolicy = require(Gameplay:WaitForChild("PhysicsPolicy"))
 local PadFeedback = require(Gameplay:WaitForChild("PadFeedback"))
 local BridgeBuilder = require(Gameplay:WaitForChild("BridgeBuilder"))
 local ObbyGeometry = require(Gameplay:WaitForChild("ObbyGeometry"))
+local LightingModule = require(Gameplay:WaitForChild("LightingModule"))
 
 local ObbyRenderer = {}
 
@@ -629,6 +630,8 @@ local function decorate(folder, data, ctx, template)
 end
 
 function ObbyRenderer.render(data, folder, ctx)
+    LightingModule.apply(data.archetype)
+    
     local quiz = data.quiz or {}
     if #quiz == 0 then
         warn("[ObbyRenderer] No quiz data; falling back to Gallery.")

@@ -17,15 +17,25 @@
 local GalleryRenderer = {}
 
 function GalleryRenderer.render(data, folder, ctx)
+    local LightingModule = require(ctx.Gameplay:WaitForChild("LightingModule"))
+    LightingModule.apply(data.archetype)
+
     local objects = data.objects or {}
     local pending = {}
+    local lastAnchor = nil
 
     -- Phase 1: build all objects and register them in the shared registry
-    for _, obj in ipairs(objects) do
+    for i, obj in ipairs(objects) do
         local inst, anchorPart, color = ctx.buildObject(obj, folder)
         if anchorPart then
             ctx.attachLabel(obj, anchorPart, color)
             ctx.addProximityGlow(inst, color)
+
+            -- GUIDED PATH: Connect objects in sequence
+            if lastAnchor then
+                ctx.BeamEngine.createGuideBeam(lastAnchor, anchorPart, color)
+            end
+            lastAnchor = anchorPart
 
             -- Particle effects: sparkle for neon materials, trail for orbiters
             local bType = obj.behavior and obj.behavior.type or "static"
@@ -54,12 +64,12 @@ function GalleryRenderer.render(data, folder, ctx)
     -- Phase 3: draw orbit beams now that all instances exist
     ctx.BeamEngine.processObjects(data.objects or {}, ctx.objectRegistry, ctx.colorFrom)
 
-    -- HUD guidance — student knows what to do without reading floating text
+    -- HUD guidance
     ctx.Objective.set(string.format(
-        "Recorre la escena y descubre los %d elementos. Acércate para leer cada concepto.",
+        "Recorre la escena y descubre los %d elementos. Sigue las luces de guía.",
         #objects
     ))
-    ctx.Objective.setProgress("Modo Galería · sin tiempo límite")
+    ctx.Objective.setProgress("Recorrido Guiado · Explora a tu ritmo")
 
     print("[GalleryRenderer] ✅ Scene built — " .. #objects .. " objects")
 end

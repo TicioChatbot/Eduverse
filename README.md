@@ -6,8 +6,9 @@
 
 - **AI-Generated Blueprints (Gemma 4):** Translates educational prompts into deterministic JSON blueprints defining objects, spatial relationships, behaviors, and interactive quizzes.
 - **Teacher Dashboard (Gradio):** A web interface for educators to orchestrate sessions, review quiz analytics, and track student performance across time.
-- **Deterministic 3D Rendering (Roblox):** The Roblox engine polls the active backend session, rendering the AI specifications using predefined, high-quality AAA assets (ParticleEmitters, Beam structures, custom mesh architectures).
-- **Persistent Analytics:** All interactions, session data, and student responses are securely persisted using a lightweight SQLite database layered within the fast API backend.
+- **Interactive Guide NPC:** A dedicated "EduGuide" that provides deep AI-generated briefs on topics and hosts a student shop.
+- **EduCredits & Gamification:** A student economy where correct answers earn 💎 credits to buy power-ups (e.g., Jump Buffs for Obbies).
+- **Deterministic 3D Rendering (Roblox):** AAA assets and real-time physics interpretation of AI specs.
 
 ---
 
@@ -97,6 +98,9 @@ The Roblox environment acts as a strict client. By design, the AI does *not* wri
 
 Local Studio/Rojo testing notes live in
 [`docs/LOCAL_ROBLOX_ROJO.md`](docs/LOCAL_ROBLOX_ROJO.md).
+
+For a detailed technical walkthrough of how Gemma 4 generates these worlds, see:
+👉 **[`docs/PIPELINE.md`](docs/PIPELINE.md)**
 
 Deployment notes live in [`DEPLOYMENT.md`](DEPLOYMENT.md), with the shorter
 private demo checklist in

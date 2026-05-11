@@ -470,11 +470,6 @@ def build_gradio_app() -> gr.Blocks:
                                     "🧠 Generar para revisar",
                                     elem_classes=["btn-primary"], size="lg",
                                 )
-                                activate_btn = gr.Button(
-                                    "✅ Activar y enviar a Roblox",
-                                    elem_classes=["btn-secondary"], size="lg",
-                                    visible=False,
-                                )
 
                             gr.Markdown("### Demo segura (sin AI)")
                             with gr.Row():
@@ -482,6 +477,7 @@ def build_gradio_app() -> gr.Blocks:
                                 demo_water_btn = gr.Button("Ciclo del agua", size="sm")
                                 demo_newton_btn = gr.Button("Leyes de Newton", size="sm")
                                 demo_history_btn = gr.Button("Revolución Francesa", size="sm")
+
                     # Right: Preview & Review
                     with gr.Column(scale=1):
                         gr.Markdown("### Vista Previa del Taller")
@@ -491,6 +487,8 @@ def build_gradio_app() -> gr.Blocks:
                             variant="primary",
                             visible=False,
                         )
+                        result_banner = gr.HTML()
+                        last_session_state = gr.State(value="")
 
                 def _workshop_to_html(data: dict) -> str:
                     workshop = data.get("workshop") or data
@@ -597,6 +595,34 @@ def build_gradio_app() -> gr.Blocks:
 
                 activate_btn.click(fn=do_activate, inputs=[last_session_state], outputs=[result_banner, activate_btn])
 
+                def activate_demo(slug, pilot_mode=True, replace_active=True):
+                    blocker = _active_session_blocker(pilot_mode, replace_active)
+                    if blocker:
+                        return f'<div class="status-error">❌ {escape(blocker)}</div>', "", gr.update(visible=False), ""
+                    try:
+                        resp = httpx.post(f"{_API}/workshop/demo/{slug}/activate", params=_admin_params(), timeout=20)
+                        if resp.status_code != 200:
+                            return f'<div class="status-error">❌ Error demo: {escape(_api_error(resp))}</div>', "", gr.update(visible=False), ""
+                        data = resp.json()
+                        banner = f'<div class="status-ok">✅ Demo activa: <strong>{escape(str(data.get("session_id","?")))}</strong></div>'
+                        html = _workshop_to_html(data)
+                        return banner, html, gr.update(visible=False), data.get("session_id", "")
+                    except Exception as e:
+                        return f'<div class="status-error">❌ Error demo: {e}</div>', "", gr.update(visible=False), ""
+
+                demo_prob_btn.click(fn=lambda pilot, replace: activate_demo("probabilidad-eventos", pilot, replace),
+                    inputs=[pilot_mode, replace_active],
+                    outputs=[result_banner, preview_html, activate_btn, last_session_state])
+                demo_water_btn.click(fn=lambda pilot, replace: activate_demo("ciclo-del-agua", pilot, replace),
+                    inputs=[pilot_mode, replace_active],
+                    outputs=[result_banner, preview_html, activate_btn, last_session_state])
+                demo_newton_btn.click(fn=lambda pilot, replace: activate_demo("leyes-de-newton", pilot, replace),
+                    inputs=[pilot_mode, replace_active],
+                    outputs=[result_banner, preview_html, activate_btn, last_session_state])
+                demo_history_btn.click(fn=lambda pilot, replace: activate_demo("revolucion-francesa", pilot, replace),
+                    inputs=[pilot_mode, replace_active],
+                    outputs=[result_banner, preview_html, activate_btn, last_session_state])
+
             # ── CLASS PILOT ────────────────────────────────────────────────────
             with gr.Tab("✅ Clase Piloto") as tab_pilot:
                 with gr.Column():
@@ -612,8 +638,7 @@ def build_gradio_app() -> gr.Blocks:
                         pilot_newton_btn = gr.Button("Activar Newton Tower", elem_classes=["btn-primary"])
                         pilot_prob_btn = gr.Button("Activar Probability Lab", elem_classes=["btn-primary"])
                         pilot_arena_btn = gr.Button("Activar Arena Historia", elem_classes=["btn-secondary"])
-                    pilot_preview = gr.JSON(label="Workshop activo")
-                    pilot_quiz_preview = gr.Markdown(visible=False)
+                    pilot_preview_html = gr.HTML(label="Workshop activo")
                     pilot_banner = gr.HTML()
                     pilot_session_state = gr.State(value="")
                     pilot_activate_btn = gr.Button(visible=False)
@@ -621,11 +646,11 @@ def build_gradio_app() -> gr.Blocks:
                 readiness_btn.click(fn=get_readiness_status, outputs=[readiness_box])
                 tab_pilot.select(fn=get_readiness_status, outputs=[readiness_box])
                 pilot_newton_btn.click(fn=lambda: activate_demo("leyes-de-newton", True, True),
-                    outputs=[pilot_preview, pilot_quiz_preview, pilot_banner, pilot_session_state, pilot_activate_btn])
+                    outputs=[pilot_banner, pilot_preview_html, pilot_activate_btn, pilot_session_state])
                 pilot_prob_btn.click(fn=lambda: activate_demo("probabilidad-eventos", True, True),
-                    outputs=[pilot_preview, pilot_quiz_preview, pilot_banner, pilot_session_state, pilot_activate_btn])
+                    outputs=[pilot_banner, pilot_preview_html, pilot_activate_btn, pilot_session_state])
                 pilot_arena_btn.click(fn=lambda: activate_demo("revolucion-francesa", True, True),
-                    outputs=[pilot_preview, pilot_quiz_preview, pilot_banner, pilot_session_state, pilot_activate_btn])
+                    outputs=[pilot_banner, pilot_preview_html, pilot_activate_btn, pilot_session_state])
 
             # ── 3. SESSION HISTORY ───────────────────────────────────────────────
             with gr.Tab("📚 Historial") as tab_history:

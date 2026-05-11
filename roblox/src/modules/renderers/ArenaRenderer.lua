@@ -86,6 +86,13 @@ local function buildFloorZone(folder, i)
         off.Z + ZONE_SIZE / 2 * math.sign(off.Z)
     )
 
+    -- v4: Grid Decals for depth and tech look
+    local decal = Instance.new("Decal", floor)
+    decal.Face = Enum.NormalId.Top
+    decal.Texture = "rbxassetid://13410712571" -- Tech Grid
+    decal.Transparency = 0.7
+    decal.Color3 = Color3.new(1, 1, 1)
+
     -- Big letter floating above
     local bb  = Instance.new("BillboardGui", floor)
     bb.Size           = UDim2.new(8, 0, 4, 0)
@@ -242,6 +249,7 @@ function ArenaRenderer.render(data, folder, ctx)
         zones[i]      = floor
         beacons[i]    = beacon
         baseColors[i] = COLORS[i]
+    end  -- ← close the zone-building loop
 
     -- ── Spatial Polling Loop (Replaces unreliable Touched) ──
     task.spawn(function()
@@ -411,6 +419,16 @@ function ArenaRenderer.render(data, folder, ctx)
                     qIndex, #quiz,
                     locked and "BLOQUEADO" or (secondsLeft .. "s restantes")
                 ))
+
+                -- v4: High urgency effects in final seconds
+                if secondsLeft <= 5 and not locked then
+                    ctx.SfxEngine.play("notif", ctx.Config, { volume = 0.3, pitch = 1 + (5 - secondsLeft) * 0.1 })
+                    TweenService:Create(broadcasterFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true), {
+                        Size = UDim2.new(1.05, 0, 1.1, 0),
+                        Position = UDim2.new(-0.025, 0, -0.05, 0)
+                    }):Play()
+                end
+
                 task.wait(1)
             end
 
@@ -424,6 +442,11 @@ function ArenaRenderer.render(data, folder, ctx)
                     serverAnswer:Fire(player, qIndex, selected)
                     if selected == correctIdx then
                         ctx.SfxEngine.playForPlayer(player, "correct", ctx.Config)
+                        -- v4: Winner celebration on the player
+                        local char = player.Character
+                        if char and char:FindFirstChild("HumanoidRootPart") then
+                            ctx.ParticleEngine.addSparkle(char.HumanoidRootPart, Color3.fromRGB(50, 255, 120))
+                        end
                     else
                         ctx.SfxEngine.playForPlayer(player, "wrong", ctx.Config)
                     end

@@ -20,7 +20,6 @@ local PhysicsPolicy = require(Gameplay:WaitForChild("PhysicsPolicy"))
 local PadFeedback = require(Gameplay:WaitForChild("PadFeedback"))
 local BridgeBuilder = require(Gameplay:WaitForChild("BridgeBuilder"))
 local ObbyGeometry = require(Gameplay:WaitForChild("ObbyGeometry"))
-local LightingModule = require(Gameplay:WaitForChild("LightingModule"))
 
 local ObbyRenderer = {}
 
@@ -539,6 +538,8 @@ end
 local function buildFinish(folder, data, director, ctx, template)
     local cfg = templateConfig(template)
     local finishPos = stagePosition(template, #data.quiz + 1)
+    
+    -- v4: The Meta Gate (A grand finish)
     local finish = makePart(
         folder,
         "ObbyFinish",
@@ -548,7 +549,13 @@ local function buildFinish(folder, data, director, ctx, template)
         Enum.Material.Neon,
         (#data.quiz + 1) * 0.18
     )
-    makeBillboard(finish, "Meta", 4.2, 8, 2, 22)
+    
+    -- Add an Archway
+    for _, sign in ipairs({-1, 1}) do
+        local pillar = makePart(folder, "FinishPillar", finishPos + Vector3.new(sign * 11, 12, 0), Vector3.new(2, 24, 2), Color3.new(1,1,1), Enum.Material.SmoothPlastic, 0)
+    end
+    local beam = makePart(folder, "FinishBeam", finishPos + Vector3.new(0, 24, 0), Vector3.new(26, 2, 4), Color3.new(1,1,1), Enum.Material.SmoothPlastic, 0)
+    makeBillboard(beam, "🏁 ¡META LLEGADA! 🏁", 2, 12, 3, 24)
 
     InteractionService.bindTouch(finish, function(player)
         if director:getStage(player) <= #data.quiz then

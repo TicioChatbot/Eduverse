@@ -53,8 +53,6 @@ def _quality_note(data: dict) -> str:
 
 # ── Custom Advanced CSS / Theme ─────────────────────────────────────────────
 _CUSTOM_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Inter:wght@400;500;700&display=swap');
-
 :root {
     --primary: #8b5cf6;
     --primary-glow: rgba(139, 92, 246, 0.2);
@@ -316,7 +314,12 @@ def build_gradio_app() -> gr.Blocks:
     with gr.Blocks(
         title="EduVerse | Dashboard",
         css=_CUSTOM_CSS,
-        theme=gr.themes.Base(),
+        theme=gr.themes.Default(),
+        head='''
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+        '''
     ) as demo:
         gr.HTML("""
             <div class="eduverse-header">
@@ -652,18 +655,20 @@ def build_gradio_app() -> gr.Blocks:
                         confetti_btn = gr.Button("✨ Confeti", size="sm")
                         freeze_btn = gr.Button("❄️ Congelar", size="sm")
                     live_status = gr.HTML()
-
                     pilot_session_state = gr.State(value="")
-                    pilot_activate_btn = gr.Button(visible=False)
 
                 readiness_btn.click(fn=get_readiness_status, outputs=[readiness_box])
                 tab_pilot.select(fn=get_readiness_status, outputs=[readiness_box])
-                pilot_newton_btn.click(fn=lambda: activate_demo("leyes-de-newton", True, True),
-                    outputs=[pilot_banner, pilot_preview_html, pilot_activate_btn, pilot_session_state])
-                pilot_prob_btn.click(fn=lambda: activate_demo("probabilidad-eventos", True, True),
-                    outputs=[pilot_banner, pilot_preview_html, pilot_activate_btn, pilot_session_state])
-                pilot_arena_btn.click(fn=lambda: activate_demo("revolucion-francesa", True, True),
-                    outputs=[pilot_banner, pilot_preview_html, pilot_activate_btn, pilot_session_state])
+                def pilot_activate_demo(slug):
+                    banner, html, _, _ = activate_demo(slug, True, True)
+                    return banner, html
+
+                pilot_newton_btn.click(fn=lambda: pilot_activate_demo("leyes-de-newton"),
+                    outputs=[pilot_banner, pilot_preview_html])
+                pilot_prob_btn.click(fn=lambda: pilot_activate_demo("probabilidad-eventos"),
+                    outputs=[pilot_banner, pilot_preview_html])
+                pilot_arena_btn.click(fn=lambda: pilot_activate_demo("revolucion-francesa"),
+                    outputs=[pilot_banner, pilot_preview_html])
 
                 def send_signal(sig_type, msg):
                     if sig_type in ("broadcast", "hint") and not msg.strip():
@@ -750,6 +755,7 @@ def build_gradio_app() -> gr.Blocks:
                     with gr.Row():
                         res_students = gr.Dataframe(headers=["Estudiante", "Correctas", "Total", "Precisión"], datatype=["str", "number", "number", "str"], interactive=False)
                         res_questions = gr.Dataframe(headers=["Pregunta #", "Intentos", "Correctas", "% Acierto"], datatype=["number"]*3 + ["str"], interactive=False)
+                    
                     res_events = gr.Dataframe(headers=["Evento", "Conteo"], datatype=["str", "number"], interactive=False)
 
                 def load_res(sid):
@@ -759,19 +765,11 @@ def build_gradio_app() -> gr.Blocks:
                         summary = repository.get_session_summary(clean_sid)
                         q_stats = repository.get_question_stats(clean_sid)
                         event_summary = repository.get_gameplay_event_summary(clean_sid)
-                        e_rows = [
-                            [event_type, count]
-                            for event_type, count in sorted((event_summary.get("by_type") or {}).items())
-                        ]
+                        e_rows = [[et, c] for et, c in sorted((event_summary.get("by_type") or {}).items())]
                         if summary.get("total_answers", 0) == 0 and not e_rows:
-                            return '<div class="status-error">📭 No hay respuestas ni eventos registrados aún.</div>', [], [], []
+                            return '<div class="status-error">📭 No hay respuestas aún.</div>', [], [], []
                         
-                        html = (
-                            f'<div class="status-ok">📊 Sesión <strong>{sid}</strong>: '
-                            f'{summary["unique_students"]} estudiante(s) · '
-                            f'{summary["total_answers"]} respuestas · '
-                            f'{event_summary.get("total_events", 0)} eventos de gameplay</div>'
-                        )
+                        html = f'<div class="status-ok">📊 Sesión <strong>{sid}</strong>: {summary["unique_students"]} alumnos</div>'
                         s_rows = [[s["student_name"], s["correct"], s["total"], _color_pct(s["pct"])] for s in summary.get("students", [])]
                         q_rows = [[q["question_index"]+1, q["attempts"], q["correct"], _color_pct(q["accuracy"])] for q in q_stats]
                         return html, s_rows, q_rows, e_rows

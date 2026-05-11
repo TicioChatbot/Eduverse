@@ -544,30 +544,31 @@ local function startProximityWatcher()
                             local pos = partOrModel:IsA("Model")
                                 and partOrModel:GetPivot().Position
                                 or partOrModel.Position
-                -- NEW: NPC Welcome Behavior
-                if partOrModel.Name == "EduGuide" then
-                    if near and not partOrModel:GetAttribute("Welcomed") then
-                        partOrModel:SetAttribute("Welcomed", true)
-                        -- Visual "Hello" pulse
-                        task.spawn(function()
-                            if partOrModel:IsA("Model") then
-                                local baseScale = partOrModel:GetScale()
-                                TweenService:Create(partOrModel, TweenInfo.new(0.4, Enum.EasingStyle.Back), { ["Scale"] = baseScale * 1.2 }):Play()
-                                task.wait(0.4)
-                                TweenService:Create(partOrModel, TweenInfo.new(0.3), { ["Scale"] = baseScale }):Play()
+                            if (root.Position - pos).Magnitude < 14 then
+                                near = true
+                                break
                             end
-                        end)
-                        -- Small floating bubble
-                        local anchor = getPrimaryPart(partOrModel)
-                        if anchor then
-                            LabelEngine.floating(folder, anchor.Position + Vector3.new(0, 8, 0), "¡Hola! Bienvenido al taller.", "info")
                         end
-                    elseif not near then
-                        partOrModel:SetAttribute("Welcomed", nil)
                     end
-                end
 
-                hl.Enabled = near
+                    -- NPC Welcome Behavior
+                    if partOrModel.Name == "EduGuide" then
+                        if near and not partOrModel:GetAttribute("Welcomed") then
+                            partOrModel:SetAttribute("Welcomed", true)
+                            task.spawn(function()
+                                if partOrModel:IsA("Model") then
+                                    local baseScale = partOrModel:GetScale()
+                                    TweenService:Create(partOrModel, TweenInfo.new(0.4, Enum.EasingStyle.Back), { ["Scale"] = baseScale * 1.2 }):Play()
+                                    task.wait(0.4)
+                                    TweenService:Create(partOrModel, TweenInfo.new(0.3), { ["Scale"] = baseScale }):Play()
+                                end
+                            end)
+                        elseif not near then
+                            partOrModel:SetAttribute("Welcomed", nil)
+                        end
+                    end
+
+                    hl.Enabled = near
                 end
             end
         end

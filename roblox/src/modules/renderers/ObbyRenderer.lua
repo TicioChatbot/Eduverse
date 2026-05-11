@@ -39,32 +39,27 @@ local ANSWER_COLORS = {
 local PATH = {
     y = 26,
     startZ = -54,
-    stageStride = 48,   -- More compact path
-    answerOffset = 14,  -- Closer for easier jumps
-    answerSpread = 10,  -- Tighter spread for possible diagonal jumps
-    checkpointSize = Vector3.new(24, 2, 18),
-    answerSize = Vector3.new(18, 1.4, 12),
-    startSize = Vector3.new(28, 2, 22),
-    approachWidth = 20,
+    stageStride = 52,   -- More room between stages
+    answerOffset = 18,  -- Further for better jump arc
+    answerSpread = 28,  -- Wider spread to prevent overlap
+    checkpointSize = Vector3.new(28, 2, 20),
+    answerSize = Vector3.new(16, 1.4, 14), -- Square-ish pads
+    startSize = Vector3.new(30, 2, 24),
+    approachWidth = 24,
 }
 
--- TOWER tuned in v3 for actual playability:
---   • answerSpread (20) > answerSize.X (12) → 8-stud gap between pads (was 0)
---   • stageStride (32) > answerOffset (18)  → next checkpoint is FORWARD,
---     not behind the answer line, so cameras and makeSteps point the right way
---   • stageRise (12) reduced from 16 so the auto-stairs stay walkable
---     (each step ≈ 1.6 studs, 7+ steps minimum)
+-- TOWER tuned for professional platforming:
 local TOWER = {
     y = 20,
     startZ = -64,
-    stageRise = 14,     -- Slightly higher for better verticality
-    stageStride = 38,   -- More forward room
-    answerOffset = 16,  -- Closer to the checkpoint for easier jumps
-    answerSpread = 12,  -- Tighter spread: diagonal jumps are now possible (max ~16 studs)
-    checkpointSize = Vector3.new(32, 2, 20),
-    answerSize = Vector3.new(18, 1.4, 12), -- Much wider pads
-    startSize = Vector3.new(30, 2, 28),
-    approachWidth = 24, -- Wide enough to run towards any answer
+    stageRise = 14,
+    stageStride = 42,
+    answerOffset = 20,
+    answerSpread = 28,  -- Clear 12-stud gap between pads (28 - 16)
+    checkpointSize = Vector3.new(34, 2, 22),
+    answerSize = Vector3.new(16, 1.4, 16), -- Solid square pads
+    startSize = Vector3.new(32, 2, 30),
+    approachWidth = 28,
     guardrailHeight = 7,
     guardrailThickness = 0.9,
 }

@@ -191,6 +191,26 @@ async def roblox_ping(payload: RobloxPingPayload):
 
 
 # ─────────────────────────────────────────────────────────
+#  LIVE SIGNALS
+# ─────────────────────────────────────────────────────────
+class SignalPayload(BaseModel):
+    type: str = Field(..., description="broadcast|fx|hint")
+    data: Dict[str, Any] = Field(default_factory=dict)
+
+
+@router.post("/signal", summary="Push a live signal to Roblox")
+async def push_signal(payload: SignalPayload, _: None = Depends(require_admin_key)):
+    session_manager.push_signal(payload.type, payload.data)
+    return {"status": "pushed", "type": payload.type}
+
+
+@router.get("/signals", summary="Roblox polling — consume pending signals")
+async def consume_signals():
+    signals = session_manager.pop_signals()
+    return {"count": len(signals), "signals": signals}
+
+
+# ─────────────────────────────────────────────────────────
 #  GENERATE
 # ─────────────────────────────────────────────────────────
 @router.post("/generate", summary="Generate new workshop with AI")

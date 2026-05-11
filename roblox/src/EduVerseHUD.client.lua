@@ -415,6 +415,61 @@ local function showNotification(msg)
     }):Play()
 end
 
+-- ── Broadcast Receiver (Premium Banner) ─────────────────────────
+local broadcastBanner = Instance.new("Frame", sg)
+broadcastBanner.Name = "BroadcastBanner"
+broadcastBanner.Size = UDim2.new(0, 500, 0, 60)
+broadcastBanner.AnchorPoint = Vector2.new(0.5, 0)
+broadcastBanner.Position = UDim2.new(0.5, 0, 0, -80)
+broadcastBanner.BackgroundColor3 = Color3.fromRGB(30, 40, 100)
+broadcastBanner.BackgroundTransparency = 0.25
+broadcastBanner.BorderSizePixel = 0
+Instance.new("UICorner", broadcastBanner).CornerRadius = UDim.new(0, 12)
+
+local broadcastStroke = Instance.new("UIStroke", broadcastBanner)
+broadcastStroke.Color = Color3.fromRGB(100, 150, 255)
+broadcastStroke.Thickness = 2
+broadcastStroke.Transparency = 0.3
+
+local broadcastText = Instance.new("TextLabel", broadcastBanner)
+broadcastText.Size = UDim2.new(1, -40, 1, 0)
+broadcastText.Position = UDim2.new(0, 20, 0, 0)
+broadcastText.Text = ""
+broadcastText.TextColor3 = Color3.new(1, 1, 1)
+broadcastText.BackgroundTransparency = 1
+broadcastText.Font = Enum.Font.GothamBlack
+broadcastText.TextSize = 18
+broadcastText.TextWrapped = true
+
+local function showBroadcast(msg)
+    broadcastText.Text = msg
+    SfxEngine.play("notif", Config)
+    
+    TweenService:Create(broadcastBanner, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, 0, 0, 40)
+    }):Play()
+    
+    task.delay(6, function()
+        TweenService:Create(broadcastBanner, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Position = UDim2.new(0.5, 0, 0, -80)
+        }):Play()
+    end)
+end
+
+-- ── Glassmorphism Upgrade ─────────────────────────────────────
+local function applyGlass(f, accent)
+    f.BackgroundColor3 = Color3.fromRGB(15, 20, 45)
+    f.BackgroundTransparency = 0.25
+    local s = f:FindFirstChildOfClass("UIStroke") or Instance.new("UIStroke", f)
+    s.Color = accent or CLR.accent
+    s.Thickness = 1.5
+    s.Transparency = 0.4
+end
+
+applyGlass(panel)
+applyGlass(notif, Color3.new(1, 1, 1))
+applyGlass(feedback)
+
 -- ══════════════════════════════════════════════════════════
 --  ESCUCHAR EVENTOS
 -- ══════════════════════════════════════════════════════════
@@ -483,4 +538,11 @@ task.spawn(function()
     end
 end)
 
-print("[HUD] ✅ EduVerse HUD v2.0 ready.")
+task.spawn(function()
+    local bcRemote = ReplicatedStorage:WaitForChild("EduVerse_Broadcast", 60)
+    if bcRemote then
+        bcRemote.OnClientEvent:Connect(showBroadcast)
+    end
+end)
+
+print("[HUD] ✅ EduVerse HUD v3.0 ready — Glassmorphism Edition.")

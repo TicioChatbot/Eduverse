@@ -51,7 +51,8 @@ class SessionManager:
         self._sessions: Dict[str, WorkshopSession] = {}
         self._active_id: Optional[str] = None
         self._last_roblox_poll: Optional[dict] = None
-        self._lock = threading.RLock()  # reentrant: safe for nested calls
+        self._signals: List[dict] = []
+        self._lock = threading.RLock()
 
     # ── Create ───────────────────────────────────────────────────────────
 
@@ -150,6 +151,22 @@ class SessionManager:
                 "payload": payload or {},
             }
             return dict(self._last_roblox_poll)
+
+    def push_signal(self, signal_type: str, data: Dict[str, Any]) -> None:
+        with self._lock:
+            self._signals.append({
+                "type": signal_type,
+                "data": data,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            })
+            if len(self._signals) > 50:
+                self._signals.pop(0)
+
+    def pop_signals(self) -> List[dict]:
+        with self._lock:
+            ret = list(self._signals)
+            self._signals.clear()
+            return ret
 
     def get_roblox_status(self) -> dict:
         with self._lock:

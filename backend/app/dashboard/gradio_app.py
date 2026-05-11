@@ -640,6 +640,19 @@ def build_gradio_app() -> gr.Blocks:
                         pilot_arena_btn = gr.Button("Activar Arena Historia", elem_classes=["btn-secondary"])
                     pilot_preview_html = gr.HTML(label="Workshop activo")
                     pilot_banner = gr.HTML()
+                    
+                    gr.Markdown("### 📡 Comandos en Vivo (Real-time)")
+                    with gr.Row():
+                        with gr.Column(scale=3):
+                            live_msg = gr.Textbox(label="Mensaje para los alumnos", placeholder="Escribe un anuncio o pista...", lines=1)
+                        with gr.Column(scale=1):
+                            broadcast_btn = gr.Button("📢 Anuncio", variant="primary")
+                    with gr.Row():
+                        hint_btn = gr.Button("💡 Mandar Pista", size="sm")
+                        confetti_btn = gr.Button("✨ Confeti", size="sm")
+                        freeze_btn = gr.Button("❄️ Congelar", size="sm")
+                    live_status = gr.HTML()
+
                     pilot_session_state = gr.State(value="")
                     pilot_activate_btn = gr.Button(visible=False)
 
@@ -651,6 +664,23 @@ def build_gradio_app() -> gr.Blocks:
                     outputs=[pilot_banner, pilot_preview_html, pilot_activate_btn, pilot_session_state])
                 pilot_arena_btn.click(fn=lambda: activate_demo("revolucion-francesa", True, True),
                     outputs=[pilot_banner, pilot_preview_html, pilot_activate_btn, pilot_session_state])
+
+                def send_signal(sig_type, msg):
+                    if sig_type in ("broadcast", "hint") and not msg.strip():
+                        return '<div class="status-error">❌ Escribe un mensaje primero.</div>'
+                    try:
+                        httpx.post(f"{_API}/workshop/signal", params=_admin_params(), json={
+                            "type": sig_type,
+                            "data": {"message": msg.strip()}
+                        }, timeout=5)
+                        return f'<div class="status-ok">📡 Señal <strong>{sig_type}</strong> enviada.</div>'
+                    except Exception as e:
+                        return f'<div class="status-error">❌ {e}</div>'
+
+                broadcast_btn.click(fn=lambda m: send_signal("broadcast", m), inputs=[live_msg], outputs=[live_status])
+                hint_btn.click(fn=lambda m: send_signal("hint", m), inputs=[live_msg], outputs=[live_status])
+                confetti_btn.click(fn=lambda: send_signal("fx", "confetti"), outputs=[live_status])
+                freeze_btn.click(fn=lambda: send_signal("fx", "freeze"), outputs=[live_status])
 
             # ── 3. SESSION HISTORY ───────────────────────────────────────────────
             with gr.Tab("📚 Historial") as tab_history:

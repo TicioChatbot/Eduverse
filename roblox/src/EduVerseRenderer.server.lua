@@ -689,9 +689,60 @@ local function renderWorkshop(data)
         title, gameMode, data.archetype or "?", #(data.objects or {})))
 end
 
+local function pollSignals()
+    local ok, res = pcall(function()
+        return HttpService:GetAsync(Config.BACKEND_URL .. "/workshop/signals")
+    end)
+    if ok then
+        local ok2, data = pcall(HttpService.JSONDecode, HttpService, res)
+        if ok2 and data and data.signals then
+            for _, sig in ipairs(data.signals) do
+                local stype = sig.type
+                local sdata = sig.data
+                print("[Signals] Received: " .. stype)
+                
+                if stype == "broadcast" then
+                    getOrCreate("EduVerse_Broadcast", "RemoteEvent"):FireAllClients(sdata.message or "")
+                elseif stype == "hint" then
+                    -- Show hint through the Guide NPC
+                    local guide = workspace:FindFirstChild("EduGuide")
+                    if guide then
+                        local head = guide:FindFirstChild("Head")
+                        if head then
+                            local msg = sdata.message or "¡Presten atención!"
+                            -- Pulse effect on Guide to draw attention
+                            TweenService:Create(head, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 3, true), {Size = head.Size * 1.3}):Play()
+                            getOrCreate("EduVerse_Broadcast", "RemoteEvent"):FireAllClients("💡 " .. msg)
+                        end
+                    end
+                elseif stype == "fx" then
+                    if sdata.message == "confetti" then
+                        for _, p in ipairs(Players:GetPlayers()) do
+                            local char = p.Character
+                            if char and char:FindFirstChild("HumanoidRootPart") then
+                                ParticleEngine.addConfetti(char.HumanoidRootPart, Color3.new(1,1,1))
+                            end
+                        end
+                    elseif sdata.message == "freeze" then
+                        -- Optional: freeze physics or just show big message
+                        getOrCreate("EduVerse_Broadcast", "RemoteEvent"):FireAllClients("❄️ ¡TIEMPO FUERA! Escuchen al profesor.")
+                    end
+                end
+            end
+        end
+    end
+end
+
 -- ── Main poll loop ───────────────────────────────────────────────────────────
 startProximityWatcher()
 print("🚀 EduVerse Director Engine v8.0 — Modular")
+
+task.spawn(function()
+    while true do
+        pollSignals()
+        task.wait(1.5) -- Faster polling for signals (low payload)
+    end
+end)
 
 while true do
     local ok, res = pcall(function()

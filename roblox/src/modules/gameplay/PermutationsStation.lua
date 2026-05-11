@@ -121,12 +121,14 @@ function PermutationsStation.build(folder, ctx, options)
 
     local state = { permIdx = 1, hasRotated = false }
 
-    -- Board with the live total + current order
+    -- Board with the live total + current order — stands upright, faces players (+Z)
     local board = makePart(sub, "PermBoard",
         origin + Vector3.new(0, 11, -3.5),
         Vector3.new(12, 4.4, 0.4),
         Color3.fromRGB(20, 32, 70),
         Enum.Material.SmoothPlastic)
+    board.CFrame = CFrame.new(origin + Vector3.new(0, 11, -3.5))
+        * CFrame.Angles(0, math.pi, 0) -- Rotate 180° to face +Z
     local boardSign = SignBoard.create(board, {
         isFixed = true,
         title = "Permutaciones",

@@ -43,6 +43,7 @@ local Objective           = require(Modules:WaitForChild("Objective"))
 local SceneDirector       = require(Modules:WaitForChild("SceneDirector"))
 local gameplay            = Modules:WaitForChild("gameplay")
 local PhysicsPolicy       = require(gameplay:WaitForChild("PhysicsPolicy"))
+local InteractionService   = require(gameplay:WaitForChild("InteractionService"))
 local vfx                 = Modules:WaitForChild("vfx")
 local ParticleEngine      = require(vfx:WaitForChild("ParticleEngine"))
 local BeamEngine          = require(vfx:WaitForChild("BeamEngine"))
@@ -111,6 +112,7 @@ end)
 
 -- ── State (rebuilt each render) ──────────────────────────────────────────────
 local activeSessionId = nil
+local lastUpdated     = nil
 local objectRegistry  = {}   -- [name] → Instance
 local highlights      = {}   -- [instance] → Highlight
 
@@ -754,8 +756,10 @@ while true do
     if ok then
         local ok2, data = pcall(HttpService.JSONDecode, HttpService, res)
         if ok2 and data then
-            if data.ready and data.session_id ~= activeSessionId then
+            local isNew = (data.session_id ~= activeSessionId) or (data.last_updated and data.last_updated ~= lastUpdated)
+            if data.ready and isNew then
                 activeSessionId = data.session_id
+                lastUpdated = data.last_updated
                 renderWorkshop(data)
                 sendRobloxPing(data.game_mode, data.interaction_template)
             elseif data.ready == false then

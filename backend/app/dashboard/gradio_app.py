@@ -481,17 +481,20 @@ def build_gradio_app() -> gr.Blocks:
                                 demo_newton_btn = gr.Button("Leyes de Newton", size="sm")
                                 demo_history_btn = gr.Button("Revolución Francesa", size="sm")
 
-                    # Right: Preview & Review
-                    with gr.Column(scale=1):
-                        gr.Markdown("### Vista Previa del Taller")
-                        preview_html = gr.HTML(label="Workshop Summary")
-                        activate_btn = gr.Button(
-                            "🚀 Activar y enviar a Roblox",
-                            variant="primary",
-                            visible=False,
-                        )
-                        result_banner = gr.HTML()
-                        last_session_state = gr.State(value="")
+                        with gr.Column(scale=1):
+                            gr.Markdown("### Vista Previa del Taller")
+                            preview_html = gr.HTML(label="Resumen")
+                            
+                            with gr.Accordion("🔍 Metadatos Crudos (JSON)", open=False):
+                                preview_json = gr.JSON(label="JSON")
+                            
+                            activate_btn = gr.Button(
+                                "🚀 Activar y enviar a Roblox",
+                                variant="primary",
+                                visible=False,
+                            )
+                            result_banner = gr.HTML()
+                            last_session_state = gr.State(value="")
 
                 def _workshop_to_html(data: dict) -> str:
                     workshop = data.get("workshop") or data
@@ -541,12 +544,12 @@ def build_gradio_app() -> gr.Blocks:
                     topic = (topic or "").strip()
                     if not topic:
                         return ('<div class="status-error">❌ El tema no puede estar vacío.</div>',
-                                "", gr.update(visible=False), "")
+                                "", {}, gr.update(visible=False), "")
                     
                     blocker = _active_session_blocker(pilot_mode, replace_active)
                     if blocker:
                         return (f'<div class="status-error">❌ {escape(blocker)}</div>',
-                                "", gr.update(visible=False), "")
+                                "", {}, gr.update(visible=False), "")
 
                     data_form = {
                         "topic": topic,
@@ -566,7 +569,7 @@ def build_gradio_app() -> gr.Blocks:
                     try:
                         resp = httpx.post(f"{_API}/workshop/generate/with-material", params=_admin_params(), data=data_form, files=files, timeout=180)
                         if resp.status_code != 200:
-                            return (f'<div class="status-error">❌ Error: {escape(_api_error(resp))}</div>', "", gr.update(visible=False), "")
+                            return (f'<div class="status-error">❌ Error: {escape(_api_error(resp))}</div>', "", {}, gr.update(visible=False), "")
                         
                         data = resp.json()
                         workshop = data.get("workshop", {})
@@ -576,16 +579,16 @@ def build_gradio_app() -> gr.Blocks:
                         banner = f'<div class="status-ok">✅ Sesión <strong>{sid}</strong> lista.</div>'
                         html = _workshop_to_html(data)
                         
-                        return banner, html, gr.update(visible=not sent), sid
+                        return banner, html, data.get("workshop") or data, gr.update(visible=not sent), sid
                     except Exception as e:
-                        return (f'<div class="status-error">❌ Error: {e}</div>', "", gr.update(visible=False), "")
+                        return (f'<div class="status-error">❌ Error: {e}</div>', "", {}, gr.update(visible=False), "")
 
                 generate_btn.click(
                     fn=do_generate,
                     inputs=[topic_input, details_input, material_input, material_file,
                             mode_input, template_input, round_input,
                             review_first, pilot_mode, replace_active],
-                    outputs=[result_banner, preview_html, activate_btn, last_session_state],
+                    outputs=[result_banner, preview_html, preview_json, activate_btn, last_session_state],
                 )
 
                 def do_activate(sid):
@@ -601,30 +604,30 @@ def build_gradio_app() -> gr.Blocks:
                 def activate_demo(slug, pilot_mode=True, replace_active=True):
                     blocker = _active_session_blocker(pilot_mode, replace_active)
                     if blocker:
-                        return f'<div class="status-error">❌ {escape(blocker)}</div>', "", gr.update(visible=False), ""
+                        return f'<div class="status-error">❌ {escape(blocker)}</div>', "", {}, gr.update(visible=False), ""
                     try:
                         resp = httpx.post(f"{_API}/workshop/demo/{slug}/activate", params=_admin_params(), timeout=20)
                         if resp.status_code != 200:
-                            return f'<div class="status-error">❌ Error demo: {escape(_api_error(resp))}</div>', "", gr.update(visible=False), ""
+                            return f'<div class="status-error">❌ Error demo: {escape(_api_error(resp))}</div>', "", {}, gr.update(visible=False), ""
                         data = resp.json()
                         banner = f'<div class="status-ok">✅ Demo activa: <strong>{escape(str(data.get("session_id","?")))}</strong></div>'
                         html = _workshop_to_html(data)
-                        return banner, html, gr.update(visible=False), data.get("session_id", "")
+                        return banner, html, data.get("workshop") or data, gr.update(visible=False), data.get("session_id", "")
                     except Exception as e:
-                        return f'<div class="status-error">❌ Error demo: {e}</div>', "", gr.update(visible=False), ""
+                        return f'<div class="status-error">❌ Error demo: {e}</div>', "", {}, gr.update(visible=False), ""
 
                 demo_prob_btn.click(fn=lambda pilot, replace: activate_demo("probabilidad-eventos", pilot, replace),
                     inputs=[pilot_mode, replace_active],
-                    outputs=[result_banner, preview_html, activate_btn, last_session_state])
+                    outputs=[result_banner, preview_html, preview_json, activate_btn, last_session_state])
                 demo_water_btn.click(fn=lambda pilot, replace: activate_demo("ciclo-del-agua", pilot, replace),
                     inputs=[pilot_mode, replace_active],
-                    outputs=[result_banner, preview_html, activate_btn, last_session_state])
+                    outputs=[result_banner, preview_html, preview_json, activate_btn, last_session_state])
                 demo_newton_btn.click(fn=lambda pilot, replace: activate_demo("leyes-de-newton", pilot, replace),
                     inputs=[pilot_mode, replace_active],
-                    outputs=[result_banner, preview_html, activate_btn, last_session_state])
+                    outputs=[result_banner, preview_html, preview_json, activate_btn, last_session_state])
                 demo_history_btn.click(fn=lambda pilot, replace: activate_demo("revolucion-francesa", pilot, replace),
                     inputs=[pilot_mode, replace_active],
-                    outputs=[result_banner, preview_html, activate_btn, last_session_state])
+                    outputs=[result_banner, preview_html, preview_json, activate_btn, last_session_state])
 
             # ── CLASS PILOT ────────────────────────────────────────────────────
             with gr.Tab("✅ Clase Piloto") as tab_pilot:

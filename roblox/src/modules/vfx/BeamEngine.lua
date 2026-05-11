@@ -18,7 +18,7 @@ local function getPrimaryPart(obj)
 end
 
 -- Draw a single luminous beam between two scene instances.
-local function connect(orbitingObj, centerObj, color)
+function BeamEngine.createGuideBeam(orbitingObj, centerObj, color)
     local pp0 = getPrimaryPart(orbitingObj)
     local pp1 = getPrimaryPart(centerObj)
     if not pp0 or not pp1 then return end
@@ -56,7 +56,7 @@ function BeamEngine.processObjects(objectDataList, objectRegistry, colorFrom)
             local center   = objectRegistry[beh.params.center]
             if orbiting and center then
                 local color = colorFrom(objData.color or "#AAAAAA")
-                connect(orbiting, center, color)
+                BeamEngine.createGuideBeam(orbiting, center, color)
             end
         end
     end

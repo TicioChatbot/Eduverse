@@ -467,8 +467,9 @@ local function applyGlass(f, accent)
 end
 
 applyGlass(panel)
-applyGlass(notif, Color3.new(1, 1, 1))
-applyGlass(feedback)
+-- Notification and Feedback get direct styling to avoid the "two layers" glass look
+notif.BackgroundTransparency = 0.25
+feedback.BackgroundTransparency = 0.25
 
 -- ══════════════════════════════════════════════════════════
 --  ESCUCHAR EVENTOS

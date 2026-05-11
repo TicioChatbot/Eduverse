@@ -17,8 +17,7 @@
 local GalleryRenderer = {}
 
 function GalleryRenderer.render(data, folder, ctx)
-    local LightingModule = require(ctx.Gameplay:WaitForChild("LightingModule"))
-    LightingModule.apply(data.archetype)
+    ctx.LightingEngine.apply(data.archetype)
 
     local objects = data.objects or {}
     local pending = {}

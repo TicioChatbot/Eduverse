@@ -38,11 +38,11 @@ local ANSWER_COLORS = {
 local PATH = {
     y = 26,
     startZ = -54,
-    stageStride = 52,   -- More room between stages
-    answerOffset = 18,  -- Further for better jump arc
-    answerSpread = 28,  -- Wider spread to prevent overlap
+    stageStride = 44,   -- Tighter gaps
+    answerOffset = 15,  -- Better jump arc
+    answerSpread = 24,  -- Prevent wide jump impossibility
     checkpointSize = Vector3.new(28, 2, 20),
-    answerSize = Vector3.new(16, 1.4, 14), -- Square-ish pads
+    answerSize = Vector3.new(16, 1.4, 14), 
     startSize = Vector3.new(30, 2, 24),
     approachWidth = 24,
 }
@@ -52,11 +52,11 @@ local TOWER = {
     y = 20,
     startZ = -64,
     stageRise = 14,
-    stageStride = 42,
-    answerOffset = 20,
-    answerSpread = 28,  -- Clear 12-stud gap between pads (28 - 16)
+    stageStride = 36,   -- Tighter vertical gaps
+    answerOffset = 16,
+    answerSpread = 22,  
     checkpointSize = Vector3.new(34, 2, 22),
-    answerSize = Vector3.new(16, 1.4, 16), -- Solid square pads
+    answerSize = Vector3.new(16, 1.4, 16),
     startSize = Vector3.new(32, 2, 30),
     approachWidth = 28,
     guardrailHeight = 7,
@@ -98,9 +98,8 @@ local function makeBillboard(parent, text, studsOffset, width, height, textSize)
     local bb = Instance.new("BillboardGui")
     bb.Size = UDim2.new(width, 0, height, 0)
     bb.StudsOffset = Vector3.new(0, studsOffset, 0)
-    -- Tighter MaxDistance so billboards don't dominate the screen when the
-    -- camera ends up close to a sign right after spawn/teleport. Was 4*width.
-    bb.MaxDistance = math.clamp(width * 3, 32, 70)
+    -- Increased visibility distance so they don't pop in too late
+    bb.MaxDistance = math.clamp(width * 6, 80, 150)
     bb.LightInfluence = 0
     bb.AlwaysOnTop = false
     bb.Parent = parent
@@ -462,13 +461,9 @@ local function buildAnswerStage(folder, data, stageIdx, question, director, serv
                     local toPos = nextPos + Vector3.new(0, 0.6, cfg.checkpointSize.Z / 2)
                     -- Bridge stays as a visual "you opened the path" cue.
                     if isTower then
-                        -- For the tower, use a spiral staircase or scaffolding climb
-                        if stageIdx % 2 == 0 then
-                            ObbyGeometry.spiralStaircase(folder, fromPos:Lerp(toPos, 0.5), 8, cfg.stageRise, 10, Color3.fromRGB(45, 210, 105))
-                        else
-                            BridgeBuilder.staircase(folder, "UnlockedPath_" .. stageIdx,
-                                fromPos, toPos, Color3.fromRGB(45, 210, 105), 8)
-                        end
+                        -- v6: Replaced chaotic spiral stairs with reliable staircase bridges
+                        BridgeBuilder.staircase(folder, "UnlockedPath_" .. stageIdx,
+                            fromPos, toPos, Color3.fromRGB(45, 210, 105), 10)
                     else
                         -- For horizontal path, sometimes use moving platforms
                         if stageIdx > 2 and stageIdx % 3 == 0 then
@@ -506,15 +501,18 @@ local function buildAnswerStage(folder, data, stageIdx, question, director, serv
                 if root then
                     -- Ghost the pad and apply downward force to ensure they fall.
                     pad.CanCollide = false
+                    pad.CanTouch = false -- Prevent double-triggering
                     pad.Transparency = 0.5
-                    root.AssemblyLinearVelocity = Vector3.new(0, -75, -18)
+                    -- Immediate downward pull
+                    root.AssemblyLinearVelocity = Vector3.new(0, -100, -15)
                 end
                 director:respawn(player, director:getCheckpoint(player), 1.35)
 
                 -- Restore the pad after the player has fallen.
-                task.delay(2.3, function()
+                task.delay(2.5, function()
                     if pad and pad.Parent then
                         pad.CanCollide = true
+                        pad.CanTouch = true
                         pad.Transparency = 0
                         PadFeedback.idle(pad, originalColor)
                     end
@@ -632,6 +630,11 @@ local function decorate(folder, data, ctx, template)
 end
 
 function ObbyRenderer.render(data, folder, ctx)
+    -- v5: Set night mode for atmospheric learning
+    game.Lighting.ClockTime = 0
+    game.Lighting.Brightness = 2
+    game.Lighting.OutdoorAmbient = Color3.fromRGB(40, 45, 60)
+    
     local quiz = data.quiz or {}
     if #quiz == 0 then
         warn("[ObbyRenderer] No quiz data; falling back to Gallery.")

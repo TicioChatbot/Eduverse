@@ -238,23 +238,69 @@ def _apply_physics(objects: list) -> list:
 
 
 # ── Math ──────────────────────────────────────────────────────────────────────
+_MATH_3D_HINTS = {
+    "triangle":   "wedge",
+    "square":     "cube",
+    "circle":     "sphere",
+    "polygon":    "cylinder",
+    "cube":       "cube",
+    "sphere":     "sphere",
+    "cylinder":   "cylinder",
+    "pyramid":    "wedge",
+    "cone":       "wedge",
+    "vector":     "cylinder",
+    "anglearc":   "cylinder",
+    "coordinate": "cube",
+    "numberline": "cylinder",
+    "ruler":      "cube",
+    "protractor": "cylinder",
+    "compass":    "cylinder",
+    "equation":   "cube",
+    "pisymbol":   "cylinder",
+}
+
+
 def _apply_math(objects: list) -> list:
     r = _by_role(objects)
     center = (r["center"] or objects[:1])[0]
     center["position"] = _offset({"x": 0, "y": 8, "z": 0})
-    center["size"]     = {"x": 5, "y": 5, "z": 5}
-    center["behavior"] = {"type": "rotate", "params": {"speed": 0.8}}
-    center["shape"]    = "cube"
+    center["size"]     = {"x": 6, "y": 6, "z": 6}
+    center["behavior"] = {"type": "rotate", "params": {"speed": 0.6}}
+    nl = center["name"].lower()
+    center["shape"] = next((v for k, v in _MATH_3D_HINTS.items() if k in nl), "cube")
 
-    phi = 1.61803398875
-    for idx, obj in enumerate([o for o in objects if o is not center]):
-        angle  = idx * phi * 2 * math.pi
-        r_val  = 8 + idx * 2.5
-        height = 5 + math.sin(idx) * 3
-        obj["position"] = _offset({"x": math.cos(angle) * r_val, "y": height, "z": math.sin(angle) * r_val})
-        obj["size"]     = {"x": 2.5, "y": 2.5, "z": 2.5}
-        obj["behavior"] = {"type": "float", "params": {"amplitude": 1.0 + idx * 0.1, "speed": 0.4}}
-        obj["shape"]    = ["cube", "sphere", "cylinder", "wedge"][idx % 4]
+    primaries = [o for o in r["primary"] if o is not center]
+    secondaries = r["secondary"]
+    details = r["detail"]
+
+    # Primaries on a clean horizontal ring — readable, not chaotic
+    ring_r = 14
+    for idx, obj in enumerate(primaries):
+        angle = idx * (2 * math.pi / max(len(primaries), 1))
+        obj["position"] = _offset({"x": math.cos(angle) * ring_r, "y": 6, "z": math.sin(angle) * ring_r})
+        obj["size"]     = {"x": 3, "y": 3, "z": 3}
+        obj["behavior"] = {"type": "rotate", "params": {"speed": 0.4}}
+        nl = obj["name"].lower()
+        obj["shape"] = next((v for k, v in _MATH_3D_HINTS.items() if k in nl), "cube")
+
+    # Secondaries in an outer ring, slightly elevated
+    outer_r = 22
+    for idx, obj in enumerate(secondaries):
+        angle = idx * (2 * math.pi / max(len(secondaries), 1)) + math.pi / 6
+        obj["position"] = _offset({"x": math.cos(angle) * outer_r, "y": 9, "z": math.sin(angle) * outer_r})
+        obj["size"]     = {"x": 2.2, "y": 2.2, "z": 2.2}
+        obj["behavior"] = {"type": "float", "params": {"amplitude": 0.6, "speed": 0.4}}
+        nl = obj["name"].lower()
+        obj["shape"] = next((v for k, v in _MATH_3D_HINTS.items() if k in nl), "sphere")
+
+    # Details scattered at perimeter
+    for idx, obj in enumerate(details):
+        angle = idx * 1.7
+        obj["position"] = _offset({"x": math.cos(angle) * 30, "y": 4, "z": math.sin(angle) * 30})
+        obj["size"]     = {"x": 1.5, "y": 1.5, "z": 1.5}
+        obj["behavior"] = {"type": "float", "params": {"amplitude": 0.8, "speed": 0.3}}
+        nl = obj["name"].lower()
+        obj["shape"] = next((v for k, v in _MATH_3D_HINTS.items() if k in nl), "cube")
     return objects
 
 
@@ -305,11 +351,23 @@ _ARCHETYPE_TO_GAME_MODE: dict[str, str] = {
     "cell":         "gallery",
     "ecosystem":    "gallery",
     "building":     "gallery",
-    "math":         "obby",      # kinetic movement reinforces abstract sequences
+    "math":         "gallery",   # default visual; switched to obby for sequential topics
     "physics":      "obby",      # physical challenge mirrors physics concepts
     "historical":   "arena",     # trivia-friendly social format
     "abstract":     "arena",     # concepts map best to trivia zones
 }
+
+# Math sub-topic hints — switch math to obby_path only when the topic is sequential / procedural
+_MATH_SEQUENTIAL_TERMS = (
+    "ecuacion", "ecuación", "algebra", "álgebra", "factoriz", "operacion",
+    "operación", "paso", "procedim", "resol", "demostrac",
+)
+_MATH_GEOMETRY_TERMS = (
+    "geometr", "triangul", "triángul", "angulo", "ángulo", "poligon", "polígon",
+    "circulo", "círculo", "cuadrilater", "cuadriláter", "pitagor", "pitágor",
+    "solido", "sólido", "volumen", "area", "área", "perimetr", "perímetr",
+    "trigonometr",
+)
 
 _SHAPE_MAP = {"esfera": "sphere", "cubo": "cube", "cilindro": "cylinder", "cuña": "wedge"}
 _ALLOWED_TEMPLATES = {
@@ -354,6 +412,12 @@ def _infer_template(topic: str, archetype: str, game_mode: str) -> str:
     topic_l = (topic or "").lower()
     if any(term in topic_l for term in _PROBABILITY_TERMS):
         return "probability_lab"
+    if archetype == "math":
+        if any(term in topic_l for term in _MATH_GEOMETRY_TERMS):
+            return "gallery_walk"
+        if any(term in topic_l for term in _MATH_SEQUENTIAL_TERMS):
+            return "obby_path"
+        return "gallery_walk"
     if game_mode == "obby":
         return "obby_tower" if archetype == "physics" else "obby_path"
     if game_mode == "arena":

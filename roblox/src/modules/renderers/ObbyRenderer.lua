@@ -21,6 +21,24 @@ local PadFeedback = require(Gameplay:WaitForChild("PadFeedback"))
 local BridgeBuilder = require(Gameplay:WaitForChild("BridgeBuilder"))
 local ObbyGeometry = require(Gameplay:WaitForChild("ObbyGeometry"))
 
+-- ParkourModules is optional — if missing, the renderer falls back to plain
+-- bridges. This prevents `infinite yield` errors during install before the
+-- ModuleScript has been synced into ReplicatedStorage.
+local ParkourModules
+do
+    local pm = Gameplay:FindFirstChild("ParkourModules")
+    if pm then
+        local ok, mod = pcall(require, pm)
+        if ok then
+            ParkourModules = mod
+        else
+            warn("[ObbyRenderer] ParkourModules failed to load: " .. tostring(mod))
+        end
+    else
+        warn("[ObbyRenderer] ParkourModules ModuleScript not found in EduVerse_Modules.gameplay — parkour beats disabled.")
+    end
+end
+
 local ObbyRenderer = {}
 
 local LETTERS = { "A", "B", "C", "D" }
@@ -38,27 +56,30 @@ local ANSWER_COLORS = {
 local PATH = {
     y = 26,
     startZ = -54,
-    stageStride = 44,   -- Tighter gaps
-    answerOffset = 15,  -- Better jump arc
-    answerSpread = 24,  -- Prevent wide jump impossibility
+    stageStride = 44,
+    answerOffset = 15,
+    answerSpread = 11,
     checkpointSize = Vector3.new(28, 2, 20),
-    answerSize = Vector3.new(16, 1.4, 14), 
+    answerSize = Vector3.new(12, 1.4, 12),
     startSize = Vector3.new(30, 2, 24),
-    approachWidth = 24,
+    approachWidth = 6,
 }
 
--- TOWER tuned for professional platforming:
+-- TOWER v10: narrow approach (width 6) so it sits centered without overlapping
+-- the B/C pads laterally. Pad centers at x = -21, -7, +7, +21; with approach
+-- spanning x = -3..+3 there is a clear 4-stud gap from approach edge to the
+-- nearest pad edge → fail = fall.
 local TOWER = {
     y = 20,
     startZ = -64,
-    stageRise = 14,
-    stageStride = 36,   -- Tighter vertical gaps
-    answerOffset = 16,
-    answerSpread = 22,  
-    checkpointSize = Vector3.new(34, 2, 22),
-    answerSize = Vector3.new(16, 1.4, 16),
+    stageRise = 15,
+    stageStride = 42,
+    answerOffset = 18,
+    answerSpread = 10,
+    checkpointSize = Vector3.new(28, 2, 20),
+    answerSize = Vector3.new(11, 1.4, 11),
     startSize = Vector3.new(32, 2, 30),
-    approachWidth = 28,
+    approachWidth = 6,
     guardrailHeight = 7,
     guardrailThickness = 0.9,
 }
@@ -217,41 +238,45 @@ end
 local function addTowerStageScaffold(folder, stageIdx, checkpointPos, answerCenter, delayBase)
     local cfg = TOWER
     local deckColor = Color3.fromRGB(24, 42, 88)
-    local railColor = Color3.fromRGB(110, 190, 255)
 
-    local approach = makeGuideBeam(
+    -- v9 — CRITICAL FIX: the previous wide deck spanning all 4 answers prevented
+    -- the player from falling when picking a wrong pad (they just stood on the
+    -- deck underneath). Now there is NO continuous floor under the answers.
+    -- We only lay a SHORT approach platform from the checkpoint that ends BEFORE
+    -- the answer pads start, plus 4 small non-collidable "launch hints" that
+    -- visually point at each pad without bridging the gap. The student MUST
+    -- jump from the approach to one specific pad — a wrong choice drops them.
+    local approachLen = cfg.answerOffset - (cfg.answerSize.Z / 2) - 4  -- leave a real gap
+    if approachLen < 6 then approachLen = 6 end
+    local approachCenterZ = checkpointPos.Z - (cfg.checkpointSize.Z / 2) - (approachLen / 2)
+    local approach = makePart(
         folder,
-        "TowerApproachDeck_" .. stageIdx,
-        checkpointPos + Vector3.new(0, -0.12, -cfg.checkpointSize.Z / 2),
-        answerCenter + Vector3.new(0, -0.12, cfg.answerSize.Z / 2),
+        "TowerApproach_" .. stageIdx,
+        Vector3.new(0, checkpointPos.Y - 0.6, approachCenterZ),
+        Vector3.new(cfg.approachWidth, 1, approachLen),
         deckColor,
-        cfg.approachWidth,
-        1.1
+        Enum.Material.SmoothPlastic,
+        delayBase + 0.04
     )
-    if approach then
-        approach.Material = Enum.Material.SmoothPlastic
-        approach.Transparency = 0.06
-    end
+    approach.Transparency = 0.08
 
-    for _, x in ipairs({ -cfg.approachWidth / 2 - 1.2, cfg.approachWidth / 2 + 1.2 }) do
-        local fromPos = checkpointPos + Vector3.new(x, 2.8, -cfg.checkpointSize.Z / 2)
-        local toPos = answerCenter + Vector3.new(x, 2.8, cfg.answerSize.Z / 2)
-        local rail = makeGuideBeam(
+    -- Decorative visual rails (non-collidable) hinting where to jump for each pad.
+    local hintColor = Color3.fromRGB(80, 130, 200)
+    for optIdx = 1, 4 do
+        local s = cfg.answerSpread
+        local offsets = { -s * 2.1, -s * 0.7, s * 0.7, s * 2.1 }
+        local hint = makePart(
             folder,
-            "TowerApproachRail_" .. stageIdx,
-            fromPos,
-            toPos,
-            railColor,
-            0.7,
-            0.7
+            string.format("TowerJumpHint_%d_%d", stageIdx, optIdx),
+            Vector3.new(offsets[optIdx], checkpointPos.Y - 0.55, approachCenterZ - approachLen / 2 + 0.5),
+            Vector3.new(3, 0.15, 1),
+            hintColor,
+            Enum.Material.Neon,
+            delayBase + 0.05
         )
-        if rail then rail.CanCollide = false end
+        hint.CanCollide = false
+        hint.Transparency = 0.35
     end
-
-    -- v3 cleanup: removed the 54-stud "spine" and the two metal posts that
-    -- crossed every stage — they appeared as floating bars that the player
-    -- couldn't collide with, breaking the visual contract. The approach deck
-    -- is enough to read the stage as a connected platform.
 end
 
 local function stagePosition(template, stageIdx)
@@ -268,11 +293,16 @@ end
 local function answerPositions(template, checkpointPos)
     local cfg = templateConfig(template)
     local ansZ = checkpointPos.Z - cfg.answerOffset
+    -- v8: Clean horizontal row. The previous "U" layout caused the side wing
+    -- bridges to overlap with pads B and C, creating impossible-looking
+    -- intersections. A simple line keeps the 4 zones readable from the
+    -- checkpoint and matches how the bridges/sensors expect them to lay.
+    local s = cfg.answerSpread
     return {
-        Vector3.new(-cfg.answerSpread * 1.5, checkpointPos.Y, ansZ),
-        Vector3.new(-cfg.answerSpread * 0.5, checkpointPos.Y, ansZ),
-        Vector3.new( cfg.answerSpread * 0.5, checkpointPos.Y, ansZ),
-        Vector3.new( cfg.answerSpread * 1.5, checkpointPos.Y, ansZ),
+        Vector3.new(-s * 2.1, checkpointPos.Y, ansZ),  -- A
+        Vector3.new(-s * 0.7, checkpointPos.Y, ansZ),  -- B
+        Vector3.new( s * 0.7, checkpointPos.Y, ansZ),  -- C
+        Vector3.new( s * 2.1, checkpointPos.Y, ansZ),  -- D
     }
 end
 
@@ -320,49 +350,27 @@ local function buildAnswerStage(folder, data, stageIdx, question, director, serv
     if isTower then
         addTowerStageScaffold(folder, stageIdx, checkpointPos, centerAnswer, delayBase)
     else
-        makeGuideBeam(
+        -- v9: also use a SHORT approach for the horizontal Path, ending
+        -- before the answer line so wrong choices drop the player.
+        local approachLen = cfg.answerOffset - (cfg.answerSize.Z / 2) - 4
+        if approachLen < 5 then approachLen = 5 end
+        local approachZ = checkpointPos.Z - (cfg.checkpointSize.Z / 2) - (approachLen / 2)
+        local approach = makePart(
             folder,
-            "ChoiceBridge_" .. stageIdx,
-            checkpointPos + Vector3.new(0, -0.15, -cfg.checkpointSize.Z / 2),
-            centerAnswer + Vector3.new(0, -0.15, cfg.answerSize.Z / 2),
+            "PathApproach_" .. stageIdx,
+            Vector3.new(0, checkpointPos.Y - 0.6, approachZ),
+            Vector3.new(cfg.approachWidth, 1, approachLen),
             Color3.fromRGB(45, 85, 150),
-            cfg.approachWidth
+            Enum.Material.SmoothPlastic,
+            delayBase + 0.04
         )
+        approach.Transparency = 0.05
     end
 
-    if isTower then
-        -- Visual front rail (decorative, no collision)
-        local guard = makePart(
-            folder,
-            "TowerGuardRail_" .. stageIdx,
-            checkpointPos + Vector3.new(0, 2.5, -11),
-            Vector3.new(48, 0.8, 0.8),
-            Color3.fromRGB(100, 180, 255),
-            Enum.Material.Neon,
-            delayBase + 0.05
-        )
-        guard.CanCollide = false
-
-        -- Side walls so a wide jump doesn't drop the player off the tower.
-        -- They span from the checkpoint back-edge to just past the answer line.
-        local sideWallLength = cfg.checkpointSize.Z + cfg.answerOffset + cfg.answerSize.Z + 4
-        local sideWallCenterZ = checkpointPos.Z - cfg.answerOffset / 2
-        local sideX = cfg.answerSpread * 1.5 + cfg.answerSize.X / 2 + 1.5
-        for _, signX in ipairs({ -1, 1 }) do
-            local wall = makePart(
-                folder,
-                "TowerSideWall_" .. stageIdx .. (signX < 0 and "_L" or "_R"),
-                Vector3.new(signX * sideX, checkpointPos.Y + cfg.guardrailHeight / 2,
-                            sideWallCenterZ),
-                Vector3.new(cfg.guardrailThickness, cfg.guardrailHeight, sideWallLength),
-                Color3.fromRGB(60, 90, 140),
-                Enum.Material.Glass,
-                delayBase + 0.06
-            )
-            wall.CanCollide = true
-            wall.Transparency = 0.55
-        end
-    end
+    -- v10: Removed the glass side walls. They were intended as guardrails
+    -- but read as "crystalline walls" blocking the view, and were
+    -- contradictory with the design intent (wrong choice = you fall).
+    -- The kill plane below the tower handles failure cleanly; no walls needed.
 
     for optIdx = 1, 4 do
         local optionText = (question.options or {})[optIdx] or ("Opción " .. LETTERS[optIdx])
@@ -382,19 +390,12 @@ local function buildAnswerStage(folder, data, stageIdx, question, director, serv
         )
         pad.Reflectance = 0.05
 
-        -- A thin neon edge underneath the slab gives it presence without
-        -- making the whole top surface a glowing rectangle.
-        local edge = makePart(
-            folder,
-            string.format("Obby_Stage%d_Opt%d_Edge", stageIdx, optIdx),
-            pos - Vector3.new(0, cfg.answerSize.Y / 2 + 0.15, 0),
-            Vector3.new(cfg.answerSize.X + 0.4, 0.3, cfg.answerSize.Z + 0.4),
-            color,
-            Enum.Material.Neon,
-            delayBase + 0.12 + optIdx * 0.06
-        )
-        edge.CanCollide = false
-        edge.Transparency = 0.25
+        -- v8: Removed the floating neon "halo edge" underneath each pad.
+        -- The 0.25-transparency neon slab below the pad looked like a
+        -- ghost duplicate of the pad and confused players about where
+        -- to land. The pad's own color + label is enough to identify it;
+        -- the PadFeedback flash on correct/wrong now carries the visual
+        -- intensity instead of a persistent decorative glow.
         makeBillboard(pad, LETTERS[optIdx] .. ") " .. trim(optionText, isTower and 32 or 42), 4.1, isTower and 7.4 or 8.5, isTower and 2.0 or 2.2, isTower and 15 or 17)
 
         local function handleAttempt(player)
@@ -451,7 +452,7 @@ local function buildAnswerStage(folder, data, stageIdx, question, director, serv
                     )
                 end
 
-                local bridgeKey = "bridge_" .. stageIdx
+                local bridgeKey = "bridge_" .. stageIdx .. "_" .. tostring(player.UserId)
                 if not bridges[bridgeKey] then
                     bridges[bridgeKey] = true
                     local isFinalStage = stageIdx >= #data.quiz
@@ -459,18 +460,46 @@ local function buildAnswerStage(folder, data, stageIdx, question, director, serv
                     local nextPos = stagePosition(template, nextStageIdx)
                     local fromPos = pos + Vector3.new(0, 0.6, -cfg.answerSize.Z / 2)
                     local toPos = nextPos + Vector3.new(0, 0.6, cfg.checkpointSize.Z / 2)
-                    -- Bridge stays as a visual "you opened the path" cue.
+                    local greenPath = Color3.fromRGB(45, 210, 105)
+
+                    -- v9: per-player bridges. Each player who answers correctly
+                    -- gets their OWN bridge tagged with their UserId, so that
+                    -- a LocalScript on each client can hide bridges that don't
+                    -- belong to the local player. This means students don't
+                    -- spoil each other's path: I see only my path, others see
+                    -- only theirs.
+                    local bridgeContainer = Instance.new("Folder")
+                    bridgeContainer.Name = "PlayerPath_" .. stageIdx .. "_" .. player.UserId
+                    bridgeContainer:SetAttribute("OwnerUserId", player.UserId)
+                    bridgeContainer.Parent = folder
+
                     if isTower then
-                        -- v6: Replaced chaotic spiral stairs with reliable staircase bridges
-                        BridgeBuilder.staircase(folder, "UnlockedPath_" .. stageIdx,
-                            fromPos, toPos, Color3.fromRGB(45, 210, 105), 10)
+                        BridgeBuilder.staircase(bridgeContainer, "UnlockedPath_" .. stageIdx,
+                            fromPos, toPos, greenPath, 10)
                     else
-                        -- For horizontal path, sometimes use moving platforms
-                        if stageIdx > 2 and stageIdx % 3 == 0 then
-                            ObbyGeometry.movingBridge(folder, fromPos, toPos, 3, Color3.fromRGB(45, 210, 105))
+                        BridgeBuilder.plank(bridgeContainer, "UnlockedPath_" .. stageIdx,
+                            fromPos, toPos, greenPath, 10)
+                    end
+
+                    -- Parkour beat: skip on the final-stage bridge (the meta
+                    -- gate is the reward) and on stage 1 (let students learn
+                    -- the rhythm first). Hint can come from data.parkour_hints
+                    -- if the AI ever decides to drive it.
+                    local hints = (data.parkour_hints or {})
+                    local hint = hints[stageIdx]
+                    if ParkourModules and not isFinalStage and stageIdx > 1 then
+                        local lateralOffset = isTower and Vector3.new(0, 2, 0) or Vector3.new(0, 0, 0)
+                        local moduleSeed = (stageIdx * 7919) + (#data.quiz * 131) + player.UserId
+                        if hint and type(hint) == "string" then
+                            ParkourModules.build(hint, bridgeContainer,
+                                fromPos + lateralOffset, toPos + lateralOffset,
+                                { color = greenPath })
                         else
-                            BridgeBuilder.plank(folder, "UnlockedPath_" .. stageIdx,
-                                fromPos, toPos, Color3.fromRGB(45, 210, 105), 10)
+                            local _, pickedName = ParkourModules.random(bridgeContainer,
+                                fromPos + lateralOffset, toPos + lateralOffset,
+                                moduleSeed, { color = greenPath })
+                            print(string.format("[ObbyRenderer] Stage %d parkour beat for %s: %s",
+                                stageIdx, player.Name, pickedName or "?"))
                         end
                     end
                 end

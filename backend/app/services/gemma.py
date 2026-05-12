@@ -58,6 +58,7 @@ class GemmaService:
         game_mode_override: Optional[str] = None,
         interaction_template_override: Optional[str] = None,
         round_seconds: Optional[int] = None,
+        num_questions: Optional[int] = None,
     ) -> Workshop:
         """Generate a complete EduVerse workshop.
 
@@ -74,16 +75,17 @@ class GemmaService:
             topic=topic,
             teacher_notes=teacher_notes,
             teacher_material=teacher_material,
+            num_questions=num_questions,
         )
 
         data = await self._request_json(model=model, prompt=prompt, topic=topic)
         workshop = self._build_workshop(
             data, topic, game_mode_override, round_seconds, interaction_template_override
         )
-        report = evaluate_workshop(workshop, topic)
+        report = evaluate_workshop(workshop, topic, expected_questions=num_questions or 4)
 
         if not report.ok and settings.GEMMA_REPAIR_ON_QUALITY_FAIL:
-            repair_prompt = self._build_repair_prompt(topic, report.to_dict(), data)
+            repair_prompt = self._build_repair_prompt(topic, report.to_dict(), data, num_questions)
             logger.warning(
                 "[Gemma4] Quality gate failed for '%s'; requesting one repair pass: %s",
                 topic,
@@ -93,7 +95,7 @@ class GemmaService:
             workshop = self._build_workshop(
                 data, topic, game_mode_override, round_seconds, interaction_template_override
             )
-            report = evaluate_workshop(workshop, topic)
+            report = evaluate_workshop(workshop, topic, expected_questions=num_questions or 4)
 
         if not report.ok:
             raise RuntimeError(
@@ -193,16 +195,18 @@ class GemmaService:
 
         return Workshop(**resolved)
 
-    def _build_repair_prompt(self, topic: str, report: dict, prior_data: dict) -> str:
+    def _build_repair_prompt(self, topic: str, report: dict, prior_data: dict,
+                             num_questions: Optional[int] = None) -> str:
         prior_json = json.dumps(prior_data, ensure_ascii=False)[:6000]
         report_json = json.dumps(report, ensure_ascii=False)
+        q_count = num_questions or 4
         return (
             f"Repara el taller educativo 3D sobre: {topic}\n\n"
             "La respuesta anterior NO puede activarse porque falló estas reglas:\n"
             f"{report_json}\n\n"
             "Devuelve una versión completa corregida, en JSON puro, cumpliendo estrictamente:\n"
             "- 7 a 11 objetos concretos.\n"
-            "- EXACTAMENTE 4 preguntas.\n"
+            f"- EXACTAMENTE {q_count} preguntas.\n"
             "- Al menos 2 assets reales cuando apliquen al tema.\n"
             "- Al menos una pregunta visual que mencione un objeto o acción visible.\n"
             "- Nada de labels genéricos como Objeto, Concepto o Elemento.\n"

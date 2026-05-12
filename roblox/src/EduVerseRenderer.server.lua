@@ -598,31 +598,24 @@ local function clearReplicatedState()
 end
 
 local function createStartGuide(folder, gameMode)
+    -- v11: A muted start pad to anchor the spawn area without screaming for
+    -- attention. The previous neon-cyan pad (50,130,255 + Material.Neon) plus
+    -- a 10+ stud cyan beam pointing at the scene felt like UI residue, not a
+    -- piece of the scene. Now: a subtle dark slate disc at floor level, no
+    -- beam. The Scene itself + labels are enough wayfinding.
     local startPos = Config.PLAYER_START_POS or Vector3.new(8, 5, -76)
-    local sceneTarget = gameMode == "arena" and Vector3.new(0, startPos.Y, -90) or Vector3.new(0, startPos.Y, -82)
 
     local pad = Instance.new("Part", folder)
     pad.Name = "EduVerseStartPad"
     pad.Anchored = true
     pad.CanCollide = true
-    pad.Size = Vector3.new(12, 0.5, 12)
-    pad.Position = startPos - Vector3.new(0, 3.2, 0)
-    pad.Material = Enum.Material.Neon
-    pad.Color = Color3.fromRGB(50, 130, 255)
-    pad.Transparency = 0.2
-
-    local distance = (sceneTarget - startPos).Magnitude
-    if distance > 4 then
-        local beam = Instance.new("Part", folder)
-        beam.Name = "EduVerseSceneDirection"
-        beam.Anchored = true
-        beam.CanCollide = false
-        beam.Size = Vector3.new(0.6, 0.25, distance)
-        beam.Material = Enum.Material.Neon
-        beam.Color = Color3.fromRGB(80, 180, 255)
-        beam.Transparency = 0.25
-        beam.CFrame = CFrame.lookAt((startPos + sceneTarget) / 2, sceneTarget)
-    end
+    pad.Shape = Enum.PartType.Cylinder
+    pad.Size = Vector3.new(0.4, 10, 10)
+    pad.CFrame = CFrame.new(startPos - Vector3.new(0, 3.2, 0)) * CFrame.Angles(0, 0, math.rad(90))
+    pad.Material = Enum.Material.Slate
+    pad.Color = Color3.fromRGB(60, 70, 90)
+    pad.Reflectance = 0.05
+    pad.Transparency = 0
 end
 
 local function teleportPlayersToStart()
@@ -668,6 +661,15 @@ local function renderWorkshop(data)
     getOrCreate(Config.SESSION_KEY,   "StringValue").Value = data.session_id or ""
     getOrCreate(Config.GAME_MODE_KEY, "StringValue").Value = gameMode
     getOrCreate(Config.INTERACTION_TEMPLATE_KEY, "StringValue").Value = interactionTemplate
+
+    -- Collaboration mode: drives PlayerVisibility behaviour on the client.
+    -- Set as a Workspace attribute so every client (including late joiners)
+    -- can read it. PlayerVisibility listens to GetAttributeChangedSignal too.
+    local collabMode = tostring(data.collaboration_mode or "competitive"):lower()
+    if collabMode ~= "shared" and collabMode ~= "isolated" and collabMode ~= "competitive" then
+        collabMode = "competitive"
+    end
+    workspace:SetAttribute("EduVerseCollabMode", collabMode)
     if ctx.deferQuiz then
         getOrCreate(Config.QUIZ_KEY, "StringValue").Value = ""
     else

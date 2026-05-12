@@ -48,29 +48,31 @@ function LabDressing.apply(folder, ctx)
     dressing.Name = "LabDressing"
     dressing.Parent = folder
 
-    -- Tile floor 90×60 covering the scene
+    -- v11: warmer, less-blue floor. The previous (220,226,240) tint plus
+    -- (140,160,200) blue grid lines made everything read as "sterile
+    -- corporate hospital". Now: a slightly warm off-white floor with very
+    -- faint grey gridlines that don't pull the eye.
     local floor = makePart(dressing, "LabFloor",
         SCENE_CENTER + Vector3.new(0, -1.4, 0),
         Vector3.new(90, 0.5, 60),
-        Color3.fromRGB(220, 226, 240),
+        Color3.fromRGB(232, 230, 226),
         Enum.Material.SmoothPlastic)
     floor.CanCollide = true
-    floor.Reflectance = 0.08
+    floor.Reflectance = 0.04
 
-    -- Subtle grid overlay (tiles) using a Decal-free trick: thin lines
     for i = -3, 3 do
-        local line = makePart(dressing, "LabFloorLineX_" .. i,
+        makePart(dressing, "LabFloorLineX_" .. i,
             SCENE_CENTER + Vector3.new(i * 12, -1.18, 0),
-            Vector3.new(0.18, 0.05, 60),
-            Color3.fromRGB(140, 160, 200),
-            Enum.Material.SmoothPlastic, 0.55)
+            Vector3.new(0.12, 0.05, 60),
+            Color3.fromRGB(180, 178, 174),
+            Enum.Material.SmoothPlastic, 0.85)
     end
     for i = -2, 2 do
-        local line = makePart(dressing, "LabFloorLineZ_" .. i,
+        makePart(dressing, "LabFloorLineZ_" .. i,
             SCENE_CENTER + Vector3.new(0, -1.18, i * 14),
-            Vector3.new(90, 0.05, 0.18),
-            Color3.fromRGB(140, 160, 200),
-            Enum.Material.SmoothPlastic, 0.55)
+            Vector3.new(90, 0.05, 0.12),
+            Color3.fromRGB(180, 178, 174),
+            Enum.Material.SmoothPlastic, 0.85)
     end
 
     -- Back wall + side walls (low so camera doesn't get boxed in)

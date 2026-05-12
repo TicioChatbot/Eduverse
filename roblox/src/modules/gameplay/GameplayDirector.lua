@@ -34,7 +34,12 @@ function GameplayDirector:setCheckpoint(player, cframe, stage)
     local uid = self:ensurePlayer(player)
     self.checkpoints[uid] = cframe
     if stage then
-        self.stages[uid] = math.max(self.stages[uid] or 1, stage)
+        local newStage = math.max(self.stages[uid] or 1, stage)
+        self.stages[uid] = newStage
+        -- Broadcast for per-player visibility logic on clients.
+        pcall(function()
+            player:SetAttribute("EduVerseStage", newStage)
+        end)
     end
 end
 
@@ -60,7 +65,11 @@ end
 function GameplayDirector:completeStage(player, stage)
     local uid = self:ensurePlayer(player)
     self.completed[uid .. ":" .. tostring(stage)] = true
-    self.stages[uid] = math.max(self.stages[uid] or 1, stage + 1)
+    local newStage = math.max(self.stages[uid] or 1, stage + 1)
+    self.stages[uid] = newStage
+    pcall(function()
+        player:SetAttribute("EduVerseStage", newStage)
+    end)
 end
 
 function GameplayDirector:respawn(player, cframe, delaySeconds)

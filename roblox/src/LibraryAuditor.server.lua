@@ -36,6 +36,26 @@ local function normalize(s)
     return (s or ""):lower():gsub("[%s'%-%_%(%)%.%,]", "")
 end
 
+-- Walks the Library and lists only "asset roots" — i.e. Models, MeshParts, or
+-- Parts that sit DIRECTLY under Library or under a Folder (one level into
+-- subfolders is allowed for organization). Anything inside a Model is treated
+-- as part of that Model, NOT as an independent asset.
+--
+-- This fixes the previous behavior where GetDescendants() also surfaced rig
+-- pieces ("Left Arm", "Head", textures, etc.) inflating the EXTRA list to
+-- meaningless numbers.
+local function collectAssets(parent, names, normSet)
+    for _, child in pairs(parent:GetChildren()) do
+        if child:IsA("Folder") then
+            -- Recurse into folders for organization, but don't dive into Models.
+            collectAssets(child, names, normSet)
+        elseif child:IsA("Model") or child:IsA("BasePart") or child:IsA("MeshPart") then
+            table.insert(names, child.Name)
+            normSet[normalize(child.Name)] = child.Name
+        end
+    end
+end
+
 local function listLibraryNames()
     local names, normSet = {}, {}
     local lib = ReplicatedStorage:FindFirstChild("EduVerse_Library")
@@ -43,12 +63,7 @@ local function listLibraryNames()
         warn("[LibraryAuditor] EduVerse_Library folder not found in ReplicatedStorage.")
         return names, normSet
     end
-    for _, child in pairs(lib:GetDescendants()) do
-        if not child:IsA("Folder") then
-            table.insert(names, child.Name)
-            normSet[normalize(child.Name)] = child.Name
-        end
-    end
+    collectAssets(lib, names, normSet)
     return names, normSet
 end
 

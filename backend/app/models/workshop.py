@@ -188,12 +188,28 @@ class Workshop(BaseModel):
         None,
         description="Per-question countdown for Arena/Obby. When None, the renderer uses its default (12s)."
     )
+    collaboration_mode: str = Field(
+        "competitive",
+        description=(
+            "How students perceive each other during the workshop. "
+            "'shared' = all students see each other and each other's unlocked paths. "
+            "'competitive' = students see each other but ONLY their own correct path. "
+            "'isolated' = students are ghost-rendered to each other (no spoilers, no distraction)."
+        )
+    )
     mechanics: Dict[str, Any] = Field(
         default_factory=dict,
         description="Optional renderer-specific mechanics metadata for Roblox templates."
     )
     objects: List[WorkshopObject] = Field(default_factory=list)
     quiz: List[QuizQuestion] = Field(default_factory=list)
+
+    @field_validator("collaboration_mode", mode="before")
+    @classmethod
+    def normalize_collab_mode(cls, v: Any) -> str:
+        allowed = {"shared", "competitive", "isolated"}
+        normalized = str(v or "competitive").lower().strip()
+        return normalized if normalized in allowed else "competitive"
 
     @model_validator(mode="after")
     def validate_minimums(self) -> "Workshop":

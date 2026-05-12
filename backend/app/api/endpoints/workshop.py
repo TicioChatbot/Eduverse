@@ -143,7 +143,7 @@ async def readiness(_: None = Depends(require_admin_key)):
             for slug in ("leyes-de-newton", "probabilidad-eventos", "revolucion-francesa")
         ),
         "active_template": active.workshop.interaction_template if active else None,
-        "active_quiz_ready": len(active.workshop.quiz) == 4 if active else False,
+        "active_quiz_ready": len(active.workshop.quiz) >= 3 if active else False,
         "active_objects_count": len(active.workshop.objects) if active else 0,
     }
     return {
@@ -233,19 +233,21 @@ async def generate_workshop(
     round_seconds: Optional[int] = Query(
         None, ge=5, le=60, description="Per-question countdown (Arena/Obby)."
     ),
+    num_questions: Optional[int] = Query(
+        None, ge=3, le=10, description="Number of quiz stages/questions."
+    ),
+    collaboration_mode: Optional[str] = Query(
+        None,
+        description="shared | competitive | isolated. Default = competitive.",
+    ),
     auto_activate: bool = Query(
         True, description="If false, the session goes to history without pushing to Roblox."
     ),
     _: None = Depends(require_admin_key),
 ):
-    """Topic-only generation entrypoint.
-
-    For teacher uploads (PDF/DOCX/TXT) prefer `/generate/with-material`,
-    which accepts a multipart payload and runs the file through the
-    material parser before sending it to Gemma.
-    """
+    """Topic-only generation entrypoint."""
     logger.info(f"[API] Generate request — topic: '{topic}' (mode={game_mode}, "
-                f"round_s={round_seconds}, auto_activate={auto_activate})")
+                f"num_q={num_questions}, round_s={round_seconds})")
     material = parse_inline_material(teacher_material or "")
     try:
         workshop = await gemma_service.generate_workshop(
@@ -256,14 +258,16 @@ async def generate_workshop(
             game_mode_override=game_mode,
             interaction_template_override=interaction_template,
             round_seconds=round_seconds,
+            num_questions=num_questions,
         )
-        quality = evaluate_workshop(workshop, topic).to_dict()
+        if collaboration_mode:
+            workshop.collaboration_mode = collaboration_mode
+        quality = evaluate_workshop(workshop, topic, expected_questions=num_questions or 4).to_dict()
         if material.warning:
             quality.setdefault("warnings", []).append(material.warning)
         session = session_manager.create_session(
             workshop=workshop, topic=topic, auto_activate=auto_activate,
         )
-
         status = "generated" if auto_activate else "drafted"
         return _session_response(status, session, quality)
     except RuntimeError as e:
@@ -288,6 +292,10 @@ async def generate_workshop_with_material(
         description="Force gameplay template: gallery_walk|arena_zones|obby_path|obby_tower|probability_lab."),
     round_seconds: Optional[int] = Form(None,
         description="Per-question countdown for Arena/Obby (5-60 s)."),
+    num_questions: Optional[int] = Form(None,
+        description="Number of quiz stages/questions (3-10)."),
+    collaboration_mode: Optional[str] = Form(None,
+        description="shared | competitive | isolated. Default = competitive."),
     auto_activate: bool = Form(True,
         description="False = save to history without pushing to Roblox (review-first flow)."),
     file: Optional[UploadFile] = File(None),
@@ -332,8 +340,11 @@ async def generate_workshop_with_material(
             game_mode_override=game_mode,
             interaction_template_override=interaction_template,
             round_seconds=round_seconds,
+            num_questions=num_questions,
         )
-        quality = evaluate_workshop(workshop, topic).to_dict()
+        if collaboration_mode:
+            workshop.collaboration_mode = collaboration_mode
+        quality = evaluate_workshop(workshop, topic, expected_questions=num_questions or 4).to_dict()
         for w in parsed_warnings:
             quality.setdefault("warnings", []).append(w)
         session = session_manager.create_session(

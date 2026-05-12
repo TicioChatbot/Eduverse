@@ -60,6 +60,9 @@
           },
           "ObbyGeometry": {
             "$path": "src/modules/gameplay/ObbyGeometry.lua"
+          },
+          "ParkourModules": {
+            "$path": "src/modules/gameplay/ParkourModules.lua"
           }
         },
         "dressing": {
@@ -121,6 +124,9 @@
         },
         "EduVerseNPCUI": {
           "$path": "src/EduVerseNPCUI.client.lua"
+        },
+        "PlayerVisibility": {
+          "$path": "src/PlayerVisibility.client.lua"
         }
       }
     }

@@ -454,6 +454,20 @@ def build_gradio_app() -> gr.Blocks:
                                     label="⏱ Tiempo por pregunta (Arena/Obby)",
                                     minimum=8, maximum=45, step=1, value=12,
                                 )
+                                stages_input = gr.Slider(
+                                    label="🪜 Número de etapas / preguntas",
+                                    minimum=3, maximum=10, step=1, value=5,
+                                )
+                                collab_input = gr.Dropdown(
+                                    label="👥 Modo de colaboración",
+                                    info="Cómo se perciben los estudiantes entre sí.",
+                                    choices=[
+                                        ("Competitivo (ven a otros, no sus respuestas)", "competitive"),
+                                        ("Compartido (todos ven todo)", "shared"),
+                                        ("Aislado (cada estudiante en su mundo)", "isolated"),
+                                    ],
+                                    value="competitive",
+                                )
                             review_first = gr.Checkbox(
                                 label="👀 Revisar antes de enviar a Roblox (recomendado)",
                                 value=True,
@@ -539,8 +553,8 @@ def build_gradio_app() -> gr.Blocks:
                     """
 
                 def do_generate(topic, details, inline_material, uploaded_file,
-                                game_mode, interaction_template, round_seconds,
-                                review_first, pilot_mode, replace_active):
+                                game_mode, interaction_template, round_seconds, stages,
+                                collab_mode, review_first, pilot_mode, replace_active):
                     topic = (topic or "").strip()
                     if not topic:
                         return ('<div class="status-error">❌ El tema no puede estar vacío.</div>',
@@ -560,6 +574,9 @@ def build_gradio_app() -> gr.Blocks:
                     if game_mode != "auto": data_form["game_mode"] = game_mode
                     if interaction_template != "auto": data_form["interaction_template"] = interaction_template
                     if round_seconds: data_form["round_seconds"] = str(int(round_seconds))
+                    if stages: data_form["num_questions"] = str(int(stages))
+                    if collab_mode and collab_mode != "competitive":
+                        data_form["collaboration_mode"] = collab_mode
 
                     files = None
                     if uploaded_file:
@@ -586,8 +603,8 @@ def build_gradio_app() -> gr.Blocks:
                 generate_btn.click(
                     fn=do_generate,
                     inputs=[topic_input, details_input, material_input, material_file,
-                            mode_input, template_input, round_input,
-                            review_first, pilot_mode, replace_active],
+                            mode_input, template_input, round_input, stages_input,
+                            collab_input, review_first, pilot_mode, replace_active],
                     outputs=[result_banner, preview_html, preview_json, activate_btn, last_session_state],
                 )
 

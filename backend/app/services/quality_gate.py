@@ -49,17 +49,39 @@ def _question_mentions_visual(questions: Iterable[str], object_terms: set[str]) 
     return False
 
 
-def evaluate_workshop(workshop: Workshop, source_topic: str) -> QualityReport:
+def evaluate_workshop(workshop: Workshop, source_topic: str,
+                      expected_questions: int = 4,
+                      strict_question_count: bool = False) -> QualityReport:
+    """Validate generated workshop.
+
+    expected_questions:    target count (default 4).
+    strict_question_count: if True, fail when count != expected. If False
+                           (default), accept any count between 3-10. This lets
+                           the teacher's free-text prompt override the default
+                           ("haz 6 preguntas", "haz un quiz de 8 preguntas"…)
+                           without the gate rejecting Gemma's compliant output.
+    """
     errors: list[str] = []
     warnings: list[str] = []
     names = known_asset_names()
     asset_matches = sorted({obj.name for obj in workshop.objects if obj.name in names})
     relevant = relevant_asset_names(source_topic, workshop.archetype)
 
+    expected_q = max(3, min(10, int(expected_questions or 4)))
     if not (7 <= len(workshop.objects) <= 11):
         errors.append("La escena debe tener entre 7 y 11 objetos.")
-    if len(workshop.quiz) != 4:
-        errors.append("El quiz debe tener exactamente 4 preguntas.")
+    actual_q = len(workshop.quiz)
+    if strict_question_count:
+        if actual_q != expected_q:
+            errors.append(f"El quiz debe tener exactamente {expected_q} preguntas.")
+    else:
+        if actual_q < 3 or actual_q > 10:
+            errors.append(f"El quiz tiene {actual_q} preguntas; el rango permitido es 3-10.")
+        elif actual_q != expected_q:
+            warnings.append(
+                f"El quiz tiene {actual_q} preguntas (esperaba {expected_q}); "
+                "se acepta porque puede venir de instrucción del profesor."
+            )
     if workshop.archetype not in _ALLOWED_ARCHETYPES_SET:
         errors.append(
             f"Archetype '{workshop.archetype}' no está soportado. "
@@ -106,10 +128,10 @@ def evaluate_workshop(workshop: Workshop, source_topic: str) -> QualityReport:
         ]
         if len(set(pompon_like)) < 3:
             errors.append("probability_lab requiere al menos 3 pompones/colores visibles.")
-    elif template in {"obby_path", "obby_tower"} and len(workshop.quiz) < 4:
-        errors.append("Los obbys requieren 4 preguntas para 4 etapas.")
-    elif template == "arena_zones" and len(workshop.quiz) < 4:
-        errors.append("arena_zones requiere 4 preguntas para 4 rondas.")
+    elif template in {"obby_path", "obby_tower"} and len(workshop.quiz) < 3:
+        errors.append("Los obbys requieren al menos 3 preguntas para sus etapas.")
+    elif template == "arena_zones" and len(workshop.quiz) < 3:
+        errors.append("arena_zones requiere al menos 3 preguntas para sus rondas.")
 
     if template in {"obby_path", "obby_tower"} and workshop.game_mode != "obby":
         errors.append("Los obbys deben usar game_mode='obby'.")

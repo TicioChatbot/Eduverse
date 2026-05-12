@@ -21,7 +21,6 @@ function GalleryRenderer.render(data, folder, ctx)
 
     local objects = data.objects or {}
     local pending = {}
-    local lastAnchor = nil
 
     -- Phase 1: build all objects and register them in the shared registry
     for i, obj in ipairs(objects) do
@@ -30,11 +29,11 @@ function GalleryRenderer.render(data, folder, ctx)
             ctx.attachLabel(obj, anchorPart, color)
             ctx.addProximityGlow(inst, color)
 
-            -- GUIDED PATH: Connect objects in sequence
-            if lastAnchor then
-                ctx.BeamEngine.createGuideBeam(lastAnchor, anchorPart, color)
-            end
-            lastAnchor = anchorPart
+            -- v11: Removed the "guided path" beam that connected each object
+            -- to the previous one in iteration order. With 8 abstract objects
+            -- it produced 7 cyan lines in apparently random directions and
+            -- distracted from the actual content. We rely on the proximity
+            -- highlights + labels instead.
 
             -- Particle effects: sparkle for neon materials, trail for orbiters
             local bType = obj.behavior and obj.behavior.type or "static"
@@ -60,7 +59,8 @@ function GalleryRenderer.render(data, folder, ctx)
         ctx.startBehavior(item.obj, item.behavior, selfRot)
     end
 
-    -- Phase 3: draw orbit beams now that all instances exist
+    -- Phase 3: orbit beams (only for archetypes that actually use orbit
+    -- behavior like solar_system, atom, cell). Abstract topics get nothing.
     ctx.BeamEngine.processObjects(data.objects or {}, ctx.objectRegistry, ctx.colorFrom)
 
     -- HUD guidance

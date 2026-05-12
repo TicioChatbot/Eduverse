@@ -28,26 +28,25 @@ local LabelEngine = {}
 
 -- ── Tunables (single source of truth) ────────────────────────────────────────
 local CFG = {
-    TITLE_WIDTH_STUDS    = 9,    -- generous width so labels never truncate
-    TITLE_HEIGHT_STUDS   = 2.2,
-    TITLE_MAX_DISTANCE   = 110,  -- always visible from far
+    TITLE_WIDTH_STUDS    = 8,
+    TITLE_HEIGHT_STUDS   = 1.6,
+    TITLE_MAX_DISTANCE   = 90,
     TITLE_FONT           = Enum.Font.GothamBold,
+    TITLE_TEXT_SIZE      = 22,
 
-    DESC_WIDTH_STUDS     = 11,
-    DESC_HEIGHT_STUDS    = 4.5,
-    -- Tightened so descriptions only appear when the player is right next
-    -- to ONE object. Otherwise overlapping objects show all their bubbles
-    -- at once and become unreadable (was 24 → now 12).
-    DESC_MAX_DISTANCE    = 12,
+    DESC_WIDTH_STUDS     = 8,
+    DESC_HEIGHT_STUDS    = 3.2,
+    DESC_MAX_DISTANCE    = 10,
     DESC_FONT            = Enum.Font.Gotham,
+    DESC_TEXT_SIZE       = 15,
 
     BG_TITLE             = Color3.fromRGB(10, 16, 38),
     BG_DESC              = Color3.fromRGB(8, 14, 32),
     BG_TRANSPARENCY      = 0.10,
-    STROKE_THICKNESS     = 1.6,
+    STROKE_THICKNESS     = 1.2,
 
-    OFFSET_GAP           = 1.5,  -- studs between part top and title
-    DESC_GAP             = 0.6,  -- studs between title and description
+    OFFSET_GAP           = 1.5,
+    DESC_GAP             = 0.4,
 }
 
 -- Build a small UI corner+stroke combo for the billboards.
@@ -71,7 +70,7 @@ local function makeBillboard(parent, sizeXStuds, sizeYStuds, studsOffsetY, maxDi
     return bb
 end
 
-local function makeTextLabel(parent, text, font, color)
+local function makeTextLabel(parent, text, font, color, textSize)
     local lbl = Instance.new("TextLabel", parent)
     lbl.Size                   = UDim2.new(1, -10, 1, -6)
     lbl.Position               = UDim2.new(0, 5, 0, 3)
@@ -79,9 +78,13 @@ local function makeTextLabel(parent, text, font, color)
     lbl.Text                   = text
     lbl.TextColor3             = color
     lbl.Font                   = font
-    -- TextScaled true: never truncates "Tercer Estado", "Antiguo Régimen", etc.
-    -- The billboard is wide enough that auto-scale stays readable.
-    lbl.TextScaled             = true
+    -- v11: fixed TextSize instead of TextScaled. The previous TextScaled
+    -- caused descriptions to fill the entire screen when the player got
+    -- close to a small object, because the billboard scales with view space
+    -- but the text was sized to fully fill the billboard. Fixed sizing keeps
+    -- both title and desc visually consistent regardless of object size.
+    lbl.TextSize               = textSize or 18
+    lbl.TextScaled             = false
     lbl.TextWrapped            = true
     lbl.TextXAlignment         = Enum.TextXAlignment.Center
     lbl.TextYAlignment         = Enum.TextYAlignment.Center
@@ -109,7 +112,7 @@ function LabelEngine.attach(objData, anchorPart, color)
     titleFrame.BackgroundTransparency = CFG.BG_TRANSPARENCY
     titleFrame.BorderSizePixel        = 0
     decorate(titleFrame, color)
-    makeTextLabel(titleFrame, title, CFG.TITLE_FONT, color)
+    makeTextLabel(titleFrame, title, CFG.TITLE_FONT, color, CFG.TITLE_TEXT_SIZE)
 
     if desc == "" then
         return { title = titleBB }
@@ -129,7 +132,7 @@ function LabelEngine.attach(objData, anchorPart, color)
     descFrame.BorderSizePixel        = 0
     decorate(descFrame, Color3.new(1, 1, 1))
     local descLbl = makeTextLabel(
-        descFrame, desc, CFG.DESC_FONT, Color3.fromRGB(235, 240, 255)
+        descFrame, desc, CFG.DESC_FONT, Color3.fromRGB(235, 240, 255), CFG.DESC_TEXT_SIZE
     )
     descLbl.TextXAlignment = Enum.TextXAlignment.Left
     descLbl.TextYAlignment = Enum.TextYAlignment.Top

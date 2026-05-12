@@ -32,20 +32,24 @@ ALLOWED_INTERACTION_TEMPLATES: list[str] = [
 
 
 def build_user_prompt(topic: str, teacher_material: Optional[str] = None,
-                      teacher_notes: Optional[str] = None) -> str:
-    """Compose the per-request user prompt.
-
-    Keeps `topic`, `teacher_notes` (free-text instructions) and
-    `teacher_material` (extracted from a file) as distinct fields. Gemma
-    is instructed in the system prompt to anchor the scene to the material
-    when present.
-    """
+                      teacher_notes: Optional[str] = None,
+                      num_questions: Optional[int] = None) -> str:
+    """Compose the per-request user prompt."""
     parts = [f"Genera un taller educativo 3D inmersivo para bachillerato colombiano."]
     parts.append(f"TEMA: {topic.strip()}")
 
     notes = (teacher_notes or "").strip()
     if notes:
-        parts.append(f"INSTRUCCIONES DEL PROFESOR (úsalas para enfocar el nivel y el ángulo):\n{notes}")
+        parts.append(
+            "INSTRUCCIONES DEL PROFESOR (LEE CADA FRASE LITERALMENTE — el profesor manda):\n"
+            f"<<<\n{notes}\n>>>\n\n"
+            "Si el profesor especifica:\n"
+            "  • un número de preguntas distinto al default → úsalo (entre 3 y 10).\n"
+            "  • preguntas o respuestas concretas → úsalas LITERALMENTE como las escribió.\n"
+            "  • un nivel/ángulo/dificultad → ajusta el tono y el quiz a eso.\n"
+            "  • un tipo de juego (gallery/obby/arena/lab) → respétalo.\n"
+            "Las instrucciones del profesor SOBRESCRIBEN cualquier default de este sistema."
+        )
 
     material = (teacher_material or "").strip()
     if material:
@@ -55,12 +59,13 @@ def build_user_prompt(topic: str, teacher_material: Optional[str] = None,
             f"<<<\n{material}\n>>>"
         )
 
+    q_count = num_questions or 4
     parts.append(
-        "REGLAS:\n"
+        "REGLAS BASE (las instrucciones del profesor pueden modificar #preguntas y modo):\n"
         "- Usa el archetype MÁS APROPIADO para este tema.\n"
         "- Usa nombres exactos de la lista de assets cuando apliquen al tema.\n"
         "- Sin paréntesis ni descripciones en `name` (bien: 'SolCentral', mal: 'Sol (Estrella)').\n"
-        "- Mínimo 7, máximo 11 objetos. EXACTAMENTE 4 preguntas de quiz.\n"
+        f"- Mínimo 7, máximo 11 objetos. {q_count} preguntas por defecto (entre 3 y 10 si el profesor lo pide).\n"
         "- Al menos una pregunta debe referirse a algo visible en la escena."
     )
     return "\n\n".join(parts)
@@ -219,6 +224,8 @@ Reglas de elección:
 - Probabilidad, azar, conteo, dados, monedas o espacio muestral → "probability_lab".
 - Física, fuerza, energía, Newton, movimiento → "obby_tower".
 - Historia/sociales con debates o grupos → "arena_zones".
+- Geometría (triángulos, ángulos, polígonos, sólidos, área, volumen) → "gallery_walk".
+- Álgebra/ecuaciones con pasos secuenciales → "obby_path".
 - Sistemas visuales naturales/celulares/astronómicos → "gallery_walk".
 
 Si eliges "probability_lab", incluye objetos con estos nombres exactos cuando existan:
@@ -261,7 +268,9 @@ EJEMPLOS DE USO CORRECTO:
 - Química → name: "AtomModel" (center), "FlaskBlue" (detail)
 - Ecosistema → name: "Tree" (primary), "Leaf" (detail)
 - Física → name: "Magnet" (center), "Battery" (primary)
-- Matemáticas → name: "PiSymbol" (center o detail)
+- Matemáticas / Geometría → "Triangle3D", "Circle3D", "Square3D", "Polygon3D", "AngleArc", "Vector3D", "CoordinatePlane", "Cube3D", "Sphere3D", "Cylinder3D", "Pyramid3D", "Cone3D", "Ruler", "Protractor", "Compass", "PiSymbol", "NumberLine", "EquationBoard"
+- Plataformas temáticas (decoran obbys/escenas) → "StonePlatform" (medieval/historia), "WoodPlatform" (rústico), "MetalGrate" (industrial/física), "IcePlatform" (agua/ecosistema)
+- Decoración ambiental → "WoodCrate", "Banner" (medieval), "Lantern", "TorchFire", "Podium", "Mannequin"
 
 NO uses "Person" ni "Teacher's desk" — esos se añaden automáticamente a la escena.
 
@@ -274,7 +283,7 @@ NO uses "Person" ni "Teacher's desk" — esos se añaden automáticamente a la e
 
 ═══════════ QUIZ ═══════════
 
-EXACTAMENTE 4 preguntas. Cada pregunta debe referirse al contenido de la escena
+Genera el número de preguntas solicitado por el usuario (por defecto 4). Cada pregunta debe referirse al contenido de la escena
 y al menos una debe mencionar explícitamente algo observable en el mundo 3D.
 {{
   "question": "Pregunta específica",

@@ -81,27 +81,85 @@ function ObbyGeometry.scaffold(folder, center, height, color)
     return truss
 end
 
--- A bridge made of alternating moving platforms.
-function ObbyGeometry.movingBridge(folder, fromPos, toPos, stepCount, color)
+-- An industrial scaffolding path using TrussParts and metal landings.
+-- Connects two positions with a combination of vertical ladders and flat platforms.
+function ObbyGeometry.scaffoldPath(folder, fromPos, toPos, color)
     local dir = toPos - fromPos
-    local stepSize = Vector3.new(8, 1.2, 6)
+    local mid = fromPos:Lerp(toPos, 0.5)
+    local height = math.abs(dir.Y)
     
-    for i = 1, stepCount do
-        local alpha = i / (stepCount + 1)
-        local basePos = fromPos:Lerp(toPos, alpha)
-        local pad = makePart(folder, "MovingPad_" .. i, basePos, stepSize, color, Enum.Material.Neon)
-        
-        -- Animation: left-right oscillation
-        task.spawn(function()
-            local t = math.random() * math.pi * 2
-            local offset = (i % 2 == 0) and 10 or -10
-            while pad and pad.Parent do
-                t += 0.016
-                pad.Position = basePos + Vector3.new(math.sin(t * 1.5) * offset, 0, 0)
-                task.wait()
-            end
+    -- v9: Random seed for "dynamic" feel
+    local seed = (fromPos.X + fromPos.Z)
+    local rng  = Random.new(seed)
+
+    -- 1. Support pillars with drop-in animation
+    local frameColor = Color3.fromRGB(80, 85, 95)
+    local width = 14
+    for i, offset in ipairs({
+        Vector3.new(-width/2, 0, -5), Vector3.new(width/2, 0, -5),
+        Vector3.new(-width/2, 0, 5),  Vector3.new(width/2, 0, 5)
+    }) do
+        local pSize = Vector3.new(1.4, height + 10, 1.4)
+        local pillar = makePart(
+            folder, "ScaffoldSupport",
+            mid + offset + Vector3.new(0, 50, 0), -- Start high
+            pSize, frameColor, Enum.Material.Metal
+        )
+        pillar.Transparency = 1
+        task.delay(i * 0.1, function()
+            TweenService:Create(pillar, TweenInfo.new(0.6, Enum.EasingStyle.Bounce), {
+                Position = mid + offset,
+                Transparency = 0.2
+            }):Play()
         end)
     end
+
+    -- 2. Central Truss Ladder with pop-in
+    local truss = Instance.new("TrussPart", folder)
+    truss.Name = "ScaffoldClimb"
+    truss.Anchored = true
+    truss.Size = Vector3.new(2, math.max(4, height), 2)
+    truss.Position = fromPos + Vector3.new(0, height/2 + 30, -2)
+    truss.Color = Color3.fromRGB(190, 190, 190)
+    truss.Transparency = 1
+    task.delay(0.5, function()
+        TweenService:Create(truss, TweenInfo.new(0.5, Enum.EasingStyle.QuadOut), {
+            Position = fromPos + Vector3.new(0, height/2, -2),
+            Transparency = 0
+        }):Play()
+    end)
+
+    -- 3. Staggered Metal Landing
+    local landingPos = toPos - Vector3.new(rng:NextNumber(-2, 2), 0.5, 4)
+    local landing = makePart(
+        folder, "ScaffoldLanding",
+        landingPos + Vector3.new(0, -10, 0),
+        Vector3.new(12, 1.2, 10),
+        Color3.fromRGB(40, 45, 60),
+        Enum.Material.DiamondPlate
+    )
+    landing.Transparency = 1
+    task.delay(0.8, function()
+        TweenService:Create(landing, TweenInfo.new(0.4, Enum.EasingStyle.BackOut), {
+            Position = landingPos,
+            Transparency = 0
+        }):Play()
+    end)
+    
+    -- 4. Final Neon connection
+    local bridge = makePart(
+        folder, "ScaffoldFinalBridge",
+        toPos - Vector3.new(0, 0.4 + 5, 2),
+        Vector3.new(8, 0.8, 6),
+        color, Enum.Material.Neon
+    )
+    bridge.Transparency = 1
+    task.delay(1.0, function()
+        TweenService:Create(bridge, TweenInfo.new(0.3), {
+            Position = toPos - Vector3.new(0, 0.4, 2),
+            Transparency = 0
+        }):Play()
+    end)
 end
 
 return ObbyGeometry

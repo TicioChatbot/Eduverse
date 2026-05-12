@@ -495,7 +495,26 @@ local function buildCtx()
 end
 
 -- ── Guide NPC ────────────────────────────────────────────────────────────────
-local function spawnGuide(folder, sceneTitle, teacherBrief)
+-- v12: Position the guide near the actual player spawn for the current
+-- gameplay template. The old hardcoded GUIDE_POS (8, 3, -95) was at floor
+-- level and far from the spawn, which made the guide appear "way down there"
+-- in obby_tower where the player spawns 20+ studs up in the air.
+local GUIDE_POSITIONS = {
+    obby_tower      = Vector3.new(6, 22, -40),  -- next to the obby spawn
+    obby_path       = Vector3.new(10, 28, -34),
+    arena_zones     = Vector3.new(10, 5, -78),
+    probability_lab = Vector3.new(10, 5, -78),
+    gallery_walk    = Vector3.new(8, 3, -95),
+}
+
+local function guidePosFor(gameMode, interactionTemplate)
+    local key = interactionTemplate and interactionTemplate ~= "" and interactionTemplate
+    if key and GUIDE_POSITIONS[key] then return GUIDE_POSITIONS[key] end
+    if gameMode == "obby" then return GUIDE_POSITIONS.obby_tower end
+    return Config.GUIDE_POS
+end
+
+local function spawnGuide(folder, sceneTitle, teacherBrief, gameMode, interactionTemplate)
     local model = AssetLibrary.get("Person")
     if not model then return end
     model.Name = "EduGuide"
@@ -508,7 +527,7 @@ local function spawnGuide(folder, sceneTitle, teacherBrief)
     if model:IsA("Model") then
         local ext = model:GetExtentsSize()
         model:ScaleTo(5 / math.max(ext.Y, 1))
-        model:PivotTo(CFrame.new(Config.GUIDE_POS))
+        model:PivotTo(CFrame.new(guidePosFor(gameMode, interactionTemplate)))
     end
     local anchor = getPrimaryPart(model) or model:FindFirstChildWhichIsA("BasePart")
     if anchor then
@@ -651,7 +670,7 @@ local function renderWorkshop(data)
     createStartGuide(folder, gameMode)
     renderer.render(data, folder, ctx)
 
-    spawnGuide(folder, title, data.teacher_brief)
+    spawnGuide(folder, title, data.teacher_brief, gameMode, interactionTemplate)
     SoundscapeEngine.play(gameMode, Config.SOUNDS)
     LightingEngine.apply(data.archetype or "default")
     SfxEngine.play("scene_load", Config)

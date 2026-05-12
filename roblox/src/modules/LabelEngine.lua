@@ -27,25 +27,32 @@
 local LabelEngine = {}
 
 -- ── Tunables (single source of truth) ────────────────────────────────────────
+-- v13: PIXEL-sized billboards instead of stud-sized.
+--   Stud-sized billboards scale with distance: at 12 studs they fill the
+--   screen, at 50 studs they're a tiny dot. Truncation appears because text
+--   wrap is computed on stud size, not pixel size.
+--   Pixel-sized billboards stay the same screen size regardless of distance.
+--   Combined with a fixed TextSize, text is always readable and never
+--   truncates. SizeOffset/StudsOffset still position the billboard in 3D.
 local CFG = {
-    TITLE_WIDTH_STUDS    = 8,
-    TITLE_HEIGHT_STUDS   = 1.6,
+    TITLE_W_PX           = 200,
+    TITLE_H_PX           = 32,
     TITLE_MAX_DISTANCE   = 90,
     TITLE_FONT           = Enum.Font.GothamBold,
-    TITLE_TEXT_SIZE      = 22,
+    TITLE_TEXT_SIZE      = 15,
 
-    DESC_WIDTH_STUDS     = 8,
-    DESC_HEIGHT_STUDS    = 3.2,
-    DESC_MAX_DISTANCE    = 10,
+    DESC_W_PX            = 340,
+    DESC_H_PX            = 130,
+    DESC_MAX_DISTANCE    = 14,
     DESC_FONT            = Enum.Font.Gotham,
-    DESC_TEXT_SIZE       = 15,
+    DESC_TEXT_SIZE       = 14,
 
     BG_TITLE             = Color3.fromRGB(10, 16, 38),
     BG_DESC              = Color3.fromRGB(8, 14, 32),
     BG_TRANSPARENCY      = 0.10,
     STROKE_THICKNESS     = 1.2,
 
-    OFFSET_GAP           = 1.5,
+    OFFSET_GAP           = 1.8,
     DESC_GAP             = 0.4,
 }
 
@@ -59,10 +66,11 @@ local function decorate(frame, accent)
     stroke.Transparency = 0.25
 end
 
-local function makeBillboard(parent, sizeXStuds, sizeYStuds, studsOffsetY, maxDist, name)
+local function makeBillboard(parent, sizeWpx, sizeHpx, studsOffsetY, maxDist, name)
     local bb = Instance.new("BillboardGui", parent)
     bb.Name           = name
-    bb.Size           = UDim2.new(sizeXStuds, 0, sizeYStuds, 0)
+    -- Pixel-sized: stays the same on-screen regardless of distance.
+    bb.Size           = UDim2.fromOffset(sizeWpx, sizeHpx)
     bb.StudsOffset    = Vector3.new(0, studsOffsetY, 0)
     bb.MaxDistance    = maxDist
     bb.LightInfluence = 0
@@ -72,18 +80,17 @@ end
 
 local function makeTextLabel(parent, text, font, color, textSize)
     local lbl = Instance.new("TextLabel", parent)
-    lbl.Size                   = UDim2.new(1, -10, 1, -6)
-    lbl.Position               = UDim2.new(0, 5, 0, 3)
+    lbl.Size                   = UDim2.new(1, -16, 1, -10)
+    lbl.Position               = UDim2.new(0, 8, 0, 5)
     lbl.BackgroundTransparency = 1
     lbl.Text                   = text
     lbl.TextColor3             = color
     lbl.Font                   = font
-    -- v11: fixed TextSize instead of TextScaled. The previous TextScaled
-    -- caused descriptions to fill the entire screen when the player got
-    -- close to a small object, because the billboard scales with view space
-    -- but the text was sized to fully fill the billboard. Fixed sizing keeps
-    -- both title and desc visually consistent regardless of object size.
-    lbl.TextSize               = textSize or 18
+    -- v13: BillboardGui sized in PIXELS (UDim2.fromOffset), TextSize fixed.
+    -- Pixel sizing means the box is the same on screen no matter how close
+    -- you stand → no more giant labels when you walk up to an object, and
+    -- no truncation because the wrap budget is the actual screen size.
+    lbl.TextSize               = textSize or 16
     lbl.TextScaled             = false
     lbl.TextWrapped            = true
     lbl.TextXAlignment         = Enum.TextXAlignment.Center
@@ -103,7 +110,7 @@ function LabelEngine.attach(objData, anchorPart, color)
     local titleY  = partH / 2 + CFG.OFFSET_GAP
     local titleBB = makeBillboard(
         anchorPart,
-        CFG.TITLE_WIDTH_STUDS, CFG.TITLE_HEIGHT_STUDS,
+        CFG.TITLE_W_PX, CFG.TITLE_H_PX,
         titleY, CFG.TITLE_MAX_DISTANCE, "EduTitle"
     )
     local titleFrame = Instance.new("Frame", titleBB)
@@ -118,11 +125,13 @@ function LabelEngine.attach(objData, anchorPart, color)
         return { title = titleBB }
     end
 
-    -- Description billboard (proximity only)
-    local descY  = titleY + CFG.TITLE_HEIGHT_STUDS + CFG.DESC_GAP
+    -- Description billboard (proximity only). StudsOffset stays in studs
+    -- because it positions the billboard above the part in world space; only
+    -- the on-screen Size is pixel-based.
+    local descY  = titleY + 1.4 + CFG.DESC_GAP
     local descBB = makeBillboard(
         anchorPart,
-        CFG.DESC_WIDTH_STUDS, CFG.DESC_HEIGHT_STUDS,
+        CFG.DESC_W_PX, CFG.DESC_H_PX,
         descY, CFG.DESC_MAX_DISTANCE, "EduDesc"
     )
     local descFrame = Instance.new("Frame", descBB)

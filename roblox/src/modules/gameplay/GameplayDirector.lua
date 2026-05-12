@@ -26,7 +26,10 @@ end
 function GameplayDirector:ensurePlayer(player)
     local uid = self:_uid(player)
     self.checkpoints[uid] = self.checkpoints[uid] or self.startCFrame
-    self.stages[uid] = self.stages[uid] or 1
+    if not self.stages[uid] then
+        self.stages[uid] = 1
+        pcall(function() player:SetAttribute("EduVerseStage", 1) end)
+    end
     return uid
 end
 

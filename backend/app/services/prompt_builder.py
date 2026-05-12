@@ -48,6 +48,9 @@ def build_user_prompt(topic: str, teacher_material: Optional[str] = None,
             "  • preguntas o respuestas concretas → úsalas LITERALMENTE como las escribió.\n"
             "  • un nivel/ángulo/dificultad → ajusta el tono y el quiz a eso.\n"
             "  • un tipo de juego (gallery/obby/arena/lab) → respétalo.\n"
+            "  • si pide que los estudiantes no se vean entre ellos o no copien →\n"
+            "    pon 'collaboration_mode': 'isolated'. Si quiere ambiente grupal, 'shared'.\n"
+            "    Default es 'competitive' (se ven, pero no se ven las respuestas).\n"
             "Las instrucciones del profesor SOBRESCRIBEN cualquier default de este sistema."
         )
 
@@ -99,6 +102,7 @@ CONCEPT_RESPONSE_SCHEMA: dict = {
         "archetype": {"type": "string", "enum": ALLOWED_ARCHETYPES},
         "game_mode": {"type": "string", "enum": ALLOWED_GAME_MODES},
         "interaction_template": {"type": "string", "enum": ALLOWED_INTERACTION_TEMPLATES},
+        "collaboration_mode": {"type": "string", "enum": ["shared", "competitive", "isolated"]},
         "mechanics": {"type": "object"},
         "objects": {
             "type": "array",
@@ -189,6 +193,7 @@ Si el usuario incluye un bloque `MATERIAL DE APOYO DEL PROFESOR` (texto entre `<
   "archetype": "solar_system" | "atom" | "cell" | "building" | "ecosystem" | "physics" | "math" | "historical" | "abstract",
   "game_mode": "gallery" | "arena" | "obby" | "lab",
   "interaction_template": "gallery_walk" | "arena_zones" | "obby_path" | "obby_tower" | "probability_lab",
+  "collaboration_mode": "shared" | "competitive" | "isolated",
   "mechanics": {{
     "difficulty": "easy" | "moderate" | "hard",
     "stage_count": 3 | 4 | 5 | 6,
@@ -210,6 +215,17 @@ Si el usuario incluye un bloque `MATERIAL DE APOYO DEL PROFESOR` (texto entre `<
 - "math": geometría, álgebra, números, funciones
 - "historical": eventos históricos, geografía, líneas de tiempo
 - "abstract": conceptos abstractos, filosofía, otros
+
+═══════════ MODO DE COLABORACIÓN ═══════════
+
+Decide cómo se perciben los estudiantes entre sí:
+- "shared": todos ven a todos y a sus caminos correctos (ambiente grupal, refuerzo).
+- "competitive" (default): ven a sus pares pero los caminos correctos son privados (anti-copia).
+- "isolated": cada estudiante en su propio mundo (evaluación formal, exámenes).
+
+Si el profesor lo pide explícitamente en sus notas, respétalo. Si el taller es
+evaluación / examen / "que no copien", usa "isolated". Si es práctica grupal o
+quiere ambiente de aula, usa "shared". Por default "competitive".
 
 ═══════════ PLANTILLA DE GAMEPLAY ═══════════
 

@@ -115,11 +115,20 @@ local function makePart(folder, name, position, size, color, material, delaySeco
     return part
 end
 
+-- v13: pixel-sized billboards. The callers still pass width/height in
+-- "studs units" (legacy), so we map them to a sensible pixel size with
+-- constant factors. This keeps the existing signatures working while
+-- producing on-screen labels that stay the same size at any distance.
+local STUD_TO_PX_X = 22
+local STUD_TO_PX_Y = 38
+
 local function makeBillboard(parent, text, studsOffset, width, height, textSize)
+    local sizeWpx = math.max(120, width * STUD_TO_PX_X)
+    local sizeHpx = math.max(36,  height * STUD_TO_PX_Y)
+
     local bb = Instance.new("BillboardGui")
-    bb.Size = UDim2.new(width, 0, height, 0)
+    bb.Size = UDim2.fromOffset(sizeWpx, sizeHpx)
     bb.StudsOffset = Vector3.new(0, studsOffset, 0)
-    -- Increased visibility distance so they don't pop in too late
     bb.MaxDistance = math.clamp(width * 6, 80, 150)
     bb.LightInfluence = 0
     bb.AlwaysOnTop = false
@@ -140,13 +149,13 @@ local function makeBillboard(parent, text, studsOffset, width, height, textSize)
     stroke.Parent = frame
 
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.92, 0, 0.86, 0)
-    label.Position = UDim2.new(0.04, 0, 0.07, 0)
+    label.Size = UDim2.new(1, -16, 1, -12)
+    label.Position = UDim2.new(0, 8, 0, 6)
     label.Text = text
     label.TextColor3 = Color3.new(1, 1, 1)
     label.BackgroundTransparency = 1
     label.Font = Enum.Font.GothamBold
-    label.TextSize = textSize or 18
+    label.TextSize = textSize or 16
     label.TextScaled = false
     label.TextWrapped = true
     label.Parent = frame

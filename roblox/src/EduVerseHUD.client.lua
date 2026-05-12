@@ -227,15 +227,34 @@ local function hasQuizData()
     return quizVal and quizVal.Value ~= "" and quizVal.Value ~= "[]"
 end
 
+-- v11: Game-mode aware quiz button. In modes where the gameplay IS the quiz
+-- (obby = step on pads, arena = walk into zones, lab = interact with stations)
+-- the UI quiz becomes READ-ONLY review, not an alternate way to answer. In
+-- gallery it stays as the primary input.
+local function currentGameMode()
+    local mv = ReplicatedStorage:FindFirstChild("EduVerse_GameMode")
+    return mv and tostring(mv.Value):lower() or ""
+end
+
+local function buttonTextFor(mode, available)
+    if not available then return "Quiz no disponible" end
+    if mode == "obby" then return "Ver preguntas (responde caminando)" end
+    if mode == "arena" then return "Ver preguntas (responde en zonas)" end
+    if mode == "lab" then return "Ver preguntas (responde en el lab)" end
+    return "Comenzar reto"
+end
+
 local function updateQuizButton()
     quizAvailable = hasQuizData()
     quizBtn.Active = quizAvailable
+    local mode = currentGameMode()
+    quizBtn.Text = buttonTextFor(mode, quizAvailable)
     if quizAvailable then
-        quizBtn.Text = "Comenzar reto"
         quizBtn.TextColor3 = Color3.new(1, 1, 1)
-        quizBtn.BackgroundColor3 = CLR.accent
+        quizBtn.BackgroundColor3 = (mode == "obby" or mode == "arena" or mode == "lab")
+            and Color3.fromRGB(50, 80, 130)  -- muted: it's read-only review here
+            or  CLR.accent
     else
-        quizBtn.Text = "Quiz no disponible"
         quizBtn.TextColor3 = CLR.textSub
         quizBtn.BackgroundColor3 = Color3.fromRGB(35, 45, 70)
     end
@@ -301,6 +320,10 @@ task.spawn(function()
     local quizVal = ReplicatedStorage:WaitForChild("EduVerse_Quiz", 30)
     if quizVal then
         quizVal.Changed:Connect(updateQuizButton)
+    end
+    local modeVal = ReplicatedStorage:WaitForChild("EduVerse_GameMode", 30)
+    if modeVal then
+        modeVal.Changed:Connect(updateQuizButton)
     end
     updateQuizButton()
 end)

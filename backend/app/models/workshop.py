@@ -182,7 +182,7 @@ class Workshop(BaseModel):
     )
     interaction_template: Optional[str] = Field(
         None,
-        description="Gameplay template: gallery_walk | arena_zones | obby_path | obby_tower | probability_lab"
+        description="Gameplay template: gallery_walk | arena_zones | obby_path | obby_tower | probability_lab | deduction_lab"
     )
     round_seconds: Optional[int] = Field(
         None,
@@ -216,6 +216,7 @@ class Workshop(BaseModel):
         allowed_modes = {"gallery", "arena", "obby", "lab"}
         allowed_templates = {
             "gallery_walk", "arena_zones", "obby_path", "obby_tower", "probability_lab",
+            "deduction_lab",
         }
         if self.game_mode not in allowed_modes:
             logger.warning(f"[Workshop] Unknown game_mode '{self.game_mode}' → 'gallery'")

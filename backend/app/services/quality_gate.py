@@ -132,11 +132,15 @@ def evaluate_workshop(workshop: Workshop, source_topic: str,
         errors.append("Los obbys requieren al menos 3 preguntas para sus etapas.")
     elif template == "arena_zones" and len(workshop.quiz) < 3:
         errors.append("arena_zones requiere al menos 3 preguntas para sus rondas.")
+    elif template == "deduction_lab" and len(workshop.quiz) < 3:
+        errors.append("deduction_lab requiere al menos 3 preguntas para desbloquear el quiz.")
 
     if template in {"obby_path", "obby_tower"} and workshop.game_mode != "obby":
         errors.append("Los obbys deben usar game_mode='obby'.")
     if template == "arena_zones" and workshop.game_mode != "arena":
         errors.append("arena_zones debe usar game_mode='arena'.")
+    if template == "deduction_lab" and workshop.game_mode != "lab":
+        errors.append("deduction_lab debe usar game_mode='lab'.")
 
     object_terms = {
         term.lower()

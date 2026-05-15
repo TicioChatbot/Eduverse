@@ -99,6 +99,9 @@
           },
           "ProbabilityLabRenderer": {
             "$path": "src/modules/renderers/ProbabilityLabRenderer.lua"
+          },
+          "DeductionLabRenderer": {
+            "$path": "src/modules/renderers/DeductionLabRenderer.lua"
           }
         }
       }

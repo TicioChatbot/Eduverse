@@ -29,6 +29,7 @@ Activate a safe fixture without calling Gemma:
 curl -sS http://127.0.0.1:8000/workshop/demo
 curl -sS -X POST http://127.0.0.1:8000/workshop/demo/ciclo-del-agua/activate
 curl -sS -X POST http://127.0.0.1:8000/workshop/demo/leyes-de-newton/activate
+curl -sS -X POST http://127.0.0.1:8000/workshop/demo/razonamiento-deductivo/activate
 curl -sS -X POST http://127.0.0.1:8000/workshop/demo/revolucion-francesa/activate
 ```
 
@@ -110,6 +111,8 @@ The backend includes versioned fixtures so a demo does not depend on live AI:
 
 - `ciclo-del-agua` -> `gallery`.
 - `leyes-de-newton` -> `obby`.
+- `razonamiento-deductivo` -> `lab` (`deduction_lab`).
+- `probabilidad-eventos` -> `gallery` (`probability_lab`).
 - `revolucion-francesa` -> `arena`.
 
 Use the dashboard "Demo segura" buttons, or the `/workshop/demo/{slug}/activate`

@@ -211,7 +211,7 @@ class GemmaService:
             "- Al menos una pregunta visual que mencione un objeto o acción visible.\n"
             "- Nada de labels genéricos como Objeto, Concepto o Elemento.\n"
             "- Variedad de comportamientos; no todos los objetos deben flotar.\n\n"
-            "- Usa una interaction_template válida: gallery_walk, arena_zones, obby_path, obby_tower o probability_lab.\n\n"
+            "- Usa una interaction_template válida: gallery_walk, arena_zones, obby_path, obby_tower, probability_lab o deduction_lab.\n\n"
             "JSON anterior para reparar:\n"
             f"{prior_json}"
         )

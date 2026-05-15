@@ -1,0 +1,197 @@
+{
+  "topic": "Razonamiento deductivo",
+  "scene_title": "Mansion de la Logica",
+  "scene_description": "Un escape room de premisas, proposiciones y conclusiones donde cada puerta se abre solo con una deduccion valida.",
+  "learning_goal": "Comprender que el razonamiento deductivo parte de afirmaciones o proposiciones generales para llegar a una conclusion particular, y que si las premisas son verdaderas y el argumento es valido, la conclusion debe ser verdadera.",
+  "teacher_brief": "Demo segura basada en la clase del 12 de mayo sobre razonamiento deductivo. La experiencia convierte la explicacion de aula en una investigacion: el estudiante recoge premisas, prueba conclusiones y aprende a detectar cuando alguien invierte la implicacion.\n\nLa idea central es que una proposicion es una afirmacion que puede ser verdadera o falsa. En una deduccion se conectan premisas: una regla general, un caso particular y una conclusion. Si las premisas son verdaderas y la forma del argumento es valida, la conclusion queda obligada por la logica.\n\nLa clase uso ejemplos cotidianos y academicos: colombianos y latinoamericanos, Sherlock Holmes, Samuel llegando tarde, numeros divisibles entre 4, mamiferos y serpientes, pH menor que 7, arboles protegidos por ley ambiental, metales que se dilatan y el ejemplo clasico de Socrates. Tambien se destaco que abogacia, criminalistica, medicina forense e investigacion cientifica dependen mucho de razonar desde reglas generales hacia casos concretos.\n\nEl error que mas debe evitar el estudiante es invertir la regla: que todos los colombianos sean latinoamericanos no permite concluir que todo latinoamericano sea colombiano. El lab refuerza esa trampa con Messi, tal como ocurrio en clase.",
+  "visual_metaphor": "Una biblioteca antigua con notas de evidencia, un altar de deduccion, una puerta logica y estaciones de trampa/proposicion.",
+  "estimated_duration": "7 min",
+  "archetype": "math",
+  "game_mode": "lab",
+  "interaction_template": "deduction_lab",
+  "collaboration_mode": "competitive",
+  "mechanics": {
+    "difficulty": "moderate",
+    "unlock_quiz_after_actions": 5,
+    "prep_time_seconds": 75,
+    "mini_events": [
+      "Recolectar premisa general",
+      "Recolectar premisa particular",
+      "Combinar premisas en el altar",
+      "Rechazar una inversion logica",
+      "Aplicar una proposicion cientifica",
+      "Cerrar el caso con profesiones deductivas"
+    ],
+    "deduction_cases": [
+      {
+        "id": "colombia",
+        "general": "Todos los colombianos son latinoamericanos.",
+        "case": "Ian es colombiano.",
+        "conclusion": "Ian es latinoamericano.",
+        "false_conclusion": "Ian es latinoamericano, entonces Ian es colombiano.",
+        "feedback": "La deduccion valida va de colombiano a latinoamericano. No se puede invertir la regla: Messi es latinoamericano y no es colombiano."
+      },
+      {
+        "id": "serpiente",
+        "general": "Todos los mamiferos tienen glandulas mamarias.",
+        "case": "Una serpiente no tiene glandulas mamarias.",
+        "conclusion": "La serpiente no es un mamifero.",
+        "feedback": "La conclusion descarta que la serpiente pertenezca al grupo de los mamiferos."
+      },
+      {
+        "id": "ph",
+        "general": "Toda sustancia con pH menor a 7 es acida.",
+        "case": "El jugo de limon tiene pH menor a 7.",
+        "conclusion": "El jugo de limon es acido.",
+        "feedback": "La regla general se aplica a un caso particular."
+      }
+    ]
+  },
+  "round_seconds": 20,
+  "objects": [
+    {
+      "name": "EquationBoard",
+      "shape": "cube",
+      "color": "#1C2A4A",
+      "size": {"x": 6, "y": 4, "z": 1},
+      "position": {"x": 0, "y": 6, "z": -96},
+      "label": "Mapa de premisas",
+      "description": "Tablero donde se ve la estructura: premisa general, premisa particular y conclusion. Es el mapa mental del escape room.",
+      "behavior": {"type": "pulse", "params": {"intensity": 0.04, "speed": 0.6}}
+    },
+    {
+      "name": "AltarDeduccion",
+      "shape": "cylinder",
+      "color": "#4C3B6E",
+      "size": {"x": 5, "y": 3, "z": 5},
+      "position": {"x": 0, "y": 4, "z": -100},
+      "label": "Altar de deduccion",
+      "description": "Aqui se combinan dos premisas para probar si la conclusion realmente se sigue de ellas.",
+      "behavior": {"type": "pulse", "params": {"intensity": 0.08, "speed": 0.8}}
+    },
+    {
+      "name": "Ruler",
+      "shape": "cube",
+      "color": "#D6A84D",
+      "size": {"x": 5, "y": 1, "z": 1},
+      "position": {"x": -18, "y": 5, "z": -86},
+      "label": "Regla general",
+      "description": "Representa las leyes, normas o verdades generales desde donde inicia el razonamiento deductivo.",
+      "behavior": {"type": "static", "params": {}}
+    },
+    {
+      "name": "NumberLine",
+      "shape": "cube",
+      "color": "#6EA8FF",
+      "size": {"x": 7, "y": 1, "z": 1},
+      "position": {"x": 20, "y": 5, "z": -85},
+      "label": "Caso concreto",
+      "description": "Ayuda a recordar el ejemplo de 16 divisible entre 4: un caso particular permite aplicar una regla.",
+      "behavior": {"type": "float", "params": {"amplitude": 0.4, "speed": 0.5}}
+    },
+    {
+      "name": "FlaskBlue",
+      "shape": "cylinder",
+      "color": "#42A5FF",
+      "size": {"x": 3, "y": 5, "z": 3},
+      "position": {"x": -24, "y": 5, "z": -110},
+      "label": "pH menor a 7",
+      "description": "Estacion cientifica de la clase: si una sustancia tiene pH menor a 7, entonces es acida.",
+      "behavior": {"type": "float", "params": {"amplitude": 0.5, "speed": 0.45}}
+    },
+    {
+      "name": "Tree",
+      "shape": "cylinder",
+      "color": "#58A55C",
+      "size": {"x": 5, "y": 7, "z": 5},
+      "position": {"x": 24, "y": 6, "z": -110},
+      "label": "Arbol protegido",
+      "description": "Recuerda el ejemplo legal: si un arbol tiene mas de 50 anos, puede estar protegido por la ley ambiental.",
+      "behavior": {"type": "static", "params": {}}
+    },
+    {
+      "name": "Podium",
+      "shape": "cube",
+      "color": "#C8C8D0",
+      "size": {"x": 6, "y": 4, "z": 4},
+      "position": {"x": 0, "y": 4, "z": -124},
+      "label": "Cierre del caso",
+      "description": "El podio muestra profesiones que usan deduccion: abogacia, criminalistica, medicina forense e investigacion cientifica.",
+      "behavior": {"type": "pulse", "params": {"intensity": 0.05, "speed": 0.55}}
+    },
+    {
+      "name": "Mannequin",
+      "shape": "cube",
+      "color": "#E8D7B8",
+      "size": {"x": 3, "y": 6, "z": 3},
+      "position": {"x": -10, "y": 5, "z": -70},
+      "label": "Aprendiz detective",
+      "description": "Figura que representa al estudiante siguiendo pistas al estilo Sherlock Holmes.",
+      "behavior": {"type": "float", "params": {"amplitude": 0.35, "speed": 0.5}}
+    },
+    {
+      "name": "Banner",
+      "shape": "cube",
+      "color": "#8F2F2F",
+      "size": {"x": 4, "y": 6, "z": 1},
+      "position": {"x": 12, "y": 7, "z": -70},
+      "label": "Regla de oro",
+      "description": "Si tus premisas son verdaderas y tu argumento es valido, la conclusion debe ser verdadera.",
+      "behavior": {"type": "static", "params": {}}
+    },
+    {
+      "name": "WoodCrate",
+      "shape": "cube",
+      "color": "#7A5635",
+      "size": {"x": 4, "y": 4, "z": 4},
+      "position": {"x": 28, "y": 4, "z": -74},
+      "label": "Caja de evidencias",
+      "description": "Guarda notas sobre Messi, Ian, Socrates, serpientes y reglas de clase. No toda evidencia permite cualquier conclusion.",
+      "behavior": {"type": "static", "params": {}}
+    }
+  ],
+  "quiz": [
+    {
+      "question": "En el Altar de deduccion viste dos premisas. Cual es la direccion del razonamiento deductivo?",
+      "options": ["De lo particular a lo general", "De lo general a lo particular", "De lo falso a lo verdadero", "De la duda a la suposicion"],
+      "correct_index": 1,
+      "feedback": "Correcto: deducir es partir de una regla general y aplicarla a un caso especifico.",
+      "difficulty": "easy"
+    },
+    {
+      "question": "Si todos los mamiferos tienen glandulas mamarias y una serpiente no las tiene, que conclusion es logica?",
+      "options": ["La serpiente es un mamifero especial", "La serpiente es necesariamente un ave", "La serpiente no es un mamifero", "Los mamiferos pueden ser reptiles"],
+      "correct_index": 2,
+      "feedback": "Bien: esa conclusion descarta que la serpiente pertenezca al grupo definido por la premisa.",
+      "difficulty": "medium"
+    },
+    {
+      "question": "En el tablero, que es una proposicion?",
+      "options": ["Una pregunta sin respuesta", "Una sugerencia para debatir", "Una afirmacion que puede ser verdadera o falsa", "Una conclusion siempre verdadera"],
+      "correct_index": 2,
+      "feedback": "Exacto: una proposicion afirma algo y por eso puede evaluarse como verdadero o falso.",
+      "difficulty": "easy"
+    },
+    {
+      "question": "Si un numero es divisible entre 4, entonces es par. El numero 16 es divisible entre 4. Por lo tanto:",
+      "options": ["16 es impar", "16 es par", "Todos los pares son divisibles entre 4", "El 4 no es par"],
+      "correct_index": 1,
+      "feedback": "Correcto: se aplica la regla general al caso concreto 16.",
+      "difficulty": "medium"
+    },
+    {
+      "question": "Que pasa si las premisas son verdaderas y el argumento es valido?",
+      "options": ["La conclusion podria ser falsa", "La conclusion es necesariamente verdadera", "El razonamiento se vuelve inductivo", "No se puede concluir nada"],
+      "correct_index": 1,
+      "feedback": "Bien: esa es la regla de oro del razonamiento deductivo.",
+      "difficulty": "medium"
+    },
+    {
+      "question": "En el Cierre del caso, que profesion se destaco como la que usa el razonamiento deductivo por excelencia?",
+      "options": ["Arquitectura", "Psicologia", "Abogacia", "Ingenieria civil"],
+      "correct_index": 2,
+      "feedback": "Exacto: la clase destaco la abogacia, junto con criminalistica, medicina forense e investigacion cientifica.",
+      "difficulty": "easy"
+    }
+  ]
+}

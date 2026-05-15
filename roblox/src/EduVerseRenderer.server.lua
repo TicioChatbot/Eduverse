@@ -13,7 +13,7 @@
         Poll /workshop/current every Config.POLL_INTERVAL seconds →
         On new session_id → renderWorkshop(data) →
             SceneDirector.stage(...)             — floor + camera focus
-            Renderer.render(data, folder, ctx)   — gallery | arena | obby
+            Renderer.render(data, folder, ctx)   — gallery | arena | obby | lab
             SfxEngine.play("scene_load", ...)
         Broadcast EduVerse_WorkshopLoaded to all clients.
 
@@ -55,6 +55,7 @@ local GalleryRenderer     = require(renderers:WaitForChild("GalleryRenderer"))
 local ArenaRenderer       = require(renderers:WaitForChild("ArenaRenderer"))
 local ObbyRenderer        = require(renderers:WaitForChild("ObbyRenderer"))
 local ProbabilityLabRenderer = require(renderers:WaitForChild("ProbabilityLabRenderer"))
+local DeductionLabRenderer = require(renderers:WaitForChild("DeductionLabRenderer"))
 
 -- ── Remote events / shared state values ──────────────────────────────────────
 local function getOrCreate(name, class)
@@ -504,6 +505,7 @@ local GUIDE_POSITIONS = {
     obby_path       = Vector3.new(10, 28, -34),
     arena_zones     = Vector3.new(10, 5, -78),
     probability_lab = Vector3.new(10, 5, -78),
+    deduction_lab   = Vector3.new(10, 5, -78),
     gallery_walk    = Vector3.new(8, 3, -95),
 }
 
@@ -665,6 +667,8 @@ local function renderWorkshop(data)
     local renderer = RENDERERS[gameMode] or GalleryRenderer
     if interactionTemplate == "probability_lab" then
         renderer = ProbabilityLabRenderer
+    elseif interactionTemplate == "deduction_lab" then
+        renderer = DeductionLabRenderer
     end
     local ctx = buildCtx()
     createStartGuide(folder, gameMode)

@@ -140,7 +140,12 @@ async def readiness(_: None = Depends(require_admin_key)):
         "roblox_poll_recent": roblox_recent,
         "safe_fixtures_available": all(
             slug in fixture_slugs
-            for slug in ("leyes-de-newton", "probabilidad-eventos", "revolucion-francesa")
+            for slug in (
+                "leyes-de-newton",
+                "probabilidad-eventos",
+                "revolucion-francesa",
+                "razonamiento-deductivo",
+            )
         ),
         "active_template": active.workshop.interaction_template if active else None,
         "active_quiz_ready": len(active.workshop.quiz) >= 3 if active else False,
@@ -224,11 +229,11 @@ async def generate_workshop(
         None, description="Inline supporting material (pasted text)."
     ),
     game_mode: Optional[str] = Query(
-        None, description="Force gallery|arena|obby. Empty = let archetype auto-pick."
+        None, description="Force gallery|arena|obby|lab. Empty = let archetype auto-pick."
     ),
     interaction_template: Optional[str] = Query(
         None,
-        description="Force gameplay template: gallery_walk|arena_zones|obby_path|obby_tower|probability_lab.",
+        description="Force gameplay template: gallery_walk|arena_zones|obby_path|obby_tower|probability_lab|deduction_lab.",
     ),
     round_seconds: Optional[int] = Query(
         None, ge=5, le=60, description="Per-question countdown (Arena/Obby)."
@@ -287,9 +292,9 @@ async def generate_workshop_with_material(
         description="Optional pasted material; combined with the uploaded file when both exist."),
     model: Optional[str] = Form(None),
     game_mode: Optional[str] = Form(None,
-        description="Force gallery|arena|obby. Empty = let archetype auto-pick."),
+        description="Force gallery|arena|obby|lab. Empty = let archetype auto-pick."),
     interaction_template: Optional[str] = Form(None,
-        description="Force gameplay template: gallery_walk|arena_zones|obby_path|obby_tower|probability_lab."),
+        description="Force gameplay template: gallery_walk|arena_zones|obby_path|obby_tower|probability_lab|deduction_lab."),
     round_seconds: Optional[int] = Form(None,
         description="Per-question countdown for Arena/Obby (5-60 s)."),
     num_questions: Optional[int] = Form(None,
@@ -433,7 +438,11 @@ async def activate_demo_fixture(
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
-    quality = evaluate_workshop(workshop, workshop.topic).to_dict()
+    quality = evaluate_workshop(
+        workshop,
+        workshop.topic,
+        expected_questions=len(workshop.quiz) or 4,
+    ).to_dict()
     session = session_manager.create_session(
         workshop=workshop,
         topic=f"[demo] {workshop.topic}",

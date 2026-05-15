@@ -28,6 +28,7 @@ ALLOWED_SHAPES: list[str] = ["esfera", "cubo", "cilindro", "cuña"]
 ALLOWED_DIFFICULTIES: list[str] = ["easy", "medium", "hard"]
 ALLOWED_INTERACTION_TEMPLATES: list[str] = [
     "gallery_walk", "arena_zones", "obby_path", "obby_tower", "probability_lab",
+    "deduction_lab",
 ]
 
 
@@ -235,10 +236,12 @@ Elige UNA plantilla. Tú NO inventas mecánicas nuevas; llenas contenido para es
 - "obby_path": recorrido horizontal donde cada pregunta abre el camino correcto.
 - "obby_tower": torre por etapas para temas de física/movimiento/fuerzas.
 - "probability_lab": laboratorio interactivo con dado, moneda, bolsa y muestras.
+- "deduction_lab": escape room de premisas, proposiciones, conclusiones y trampas lógicas.
 
 Reglas de elección:
 - Probabilidad, azar, conteo, dados, monedas o espacio muestral → "probability_lab".
 - Física, fuerza, energía, Newton, movimiento → "obby_tower".
+- Lógica, razonamiento deductivo, premisas, proposiciones, conclusiones o demostraciones → "deduction_lab".
 - Historia/sociales con debates o grupos → "arena_zones".
 - Geometría (triángulos, ángulos, polígonos, sólidos, área, volumen) → "gallery_walk".
 - Álgebra/ecuaciones con pasos secuenciales → "obby_path".
@@ -251,6 +254,7 @@ acciones del laboratorio: lanzar dado, lanzar moneda, meter pompones y sacar mue
 `mechanics` debe ser breve y parametrico, no narrativo. Ejemplos:
 - obby_tower → {{"difficulty":"moderate","stage_count":6,"prep_time_seconds":45}}
 - probability_lab → {{"unlock_quiz_after_actions":3,"prep_time_seconds":90}}
+- deduction_lab → {{"difficulty":"moderate","unlock_quiz_after_actions":5,"prep_time_seconds":75}}
 - arena_zones → {{"round_count":4,"lock_in_seconds":3,"prep_time_seconds":60}}
 
 ═══════════ OBJETOS ═══════════

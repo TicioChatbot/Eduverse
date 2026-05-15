@@ -509,9 +509,11 @@ remoteLoaded.OnClientEvent:Connect(function(info)
         gallery="Galería",
         arena="Arena",
         obby="Obby",
+        lab="Lab",
     }
     local templateIcons = {
         probability_lab = "Lab de probabilidad",
+        deduction_lab = "Lab deductivo",
         obby_tower = "Obby torre",
         obby_path = "Obby camino",
         arena_zones = "Arena",
@@ -548,8 +550,8 @@ task.spawn(function()
     if topicVal and topicVal.Value ~= "" then
         topicLabel.Text   = topicVal.Value
         sessionLabel.Text = "Sesión: " .. (sessionVal and sessionVal.Value or "?")
-        local modeIcons = { gallery="Galería", arena="Arena", obby="Obby" }
-        local templateIcons = { probability_lab="Lab de probabilidad", obby_tower="Obby torre", obby_path="Obby camino" }
+        local modeIcons = { gallery="Galería", arena="Arena", obby="Obby", lab="Lab" }
+        local templateIcons = { probability_lab="Lab de probabilidad", deduction_lab="Lab deductivo", obby_tower="Obby torre", obby_path="Obby camino" }
         modeLabel.Text  = templateIcons[templateVal and templateVal.Value] or modeIcons[modeVal and modeVal.Value] or ""
         updateQuizButton()
     end

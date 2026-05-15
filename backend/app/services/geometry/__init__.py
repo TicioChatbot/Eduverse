@@ -372,11 +372,17 @@ _MATH_GEOMETRY_TERMS = (
 _SHAPE_MAP = {"esfera": "sphere", "cubo": "cube", "cilindro": "cylinder", "cuña": "wedge"}
 _ALLOWED_TEMPLATES = {
     "gallery_walk", "arena_zones", "obby_path", "obby_tower", "probability_lab",
+    "deduction_lab",
 }
 _PROBABILITY_TERMS = (
     "probabilidad", "azar", "aleatorio", "aleatoria", "dado", "moneda",
     "conteo", "combinacion", "combinación", "permutacion", "permutación",
     "espacio muestral",
+)
+_DEDUCTION_TERMS = (
+    "razonamiento deductivo", "deductivo", "deduccion", "deducción",
+    "logica", "lógica", "premisa", "premisas", "proposicion",
+    "proposición", "conclusion", "conclusión", "silogismo",
 )
 
 
@@ -391,6 +397,10 @@ def _normalize_template(value: Optional[str]) -> Optional[str]:
         "trivia_path": "obby_path",
         "probability": "probability_lab",
         "lab": "probability_lab",
+        "deduction": "deduction_lab",
+        "deductive": "deduction_lab",
+        "deduccion": "deduction_lab",
+        "deducción": "deduction_lab",
     }
     template = aliases.get(template, template)
     return template if template in _ALLOWED_TEMPLATES else None
@@ -399,6 +409,8 @@ def _normalize_template(value: Optional[str]) -> Optional[str]:
 def _game_mode_for_template(template: Optional[str], fallback: str) -> str:
     if template == "probability_lab":
         return "gallery"
+    if template == "deduction_lab":
+        return "lab"
     if template in {"obby_path", "obby_tower"}:
         return "obby"
     if template == "arena_zones":
@@ -412,6 +424,8 @@ def _infer_template(topic: str, archetype: str, game_mode: str) -> str:
     topic_l = (topic or "").lower()
     if any(term in topic_l for term in _PROBABILITY_TERMS):
         return "probability_lab"
+    if any(term in topic_l for term in _DEDUCTION_TERMS):
+        return "deduction_lab"
     if archetype == "math":
         if any(term in topic_l for term in _MATH_GEOMETRY_TERMS):
             return "gallery_walk"
@@ -446,7 +460,7 @@ def run_archetype_engine(raw: dict, color_resolver,
 
     archetype = raw.get("archetype", "abstract").lower()
     template = _normalize_template(interaction_template_override or raw.get("interaction_template"))
-    if not template and game_mode_override:
+    if not template and game_mode_override and game_mode_override not in {"gallery", "arena", "obby", "lab"}:
         # Backward-compatible dashboard/API convenience: if a template was sent
         # in the old game_mode field, treat it as a template override.
         template = _normalize_template(game_mode_override)
@@ -460,12 +474,16 @@ def run_archetype_engine(raw: dict, color_resolver,
         game_mode = _ARCHETYPE_TO_GAME_MODE.get(archetype, "gallery")
     if not template:
         if explicit_game_mode:
-            template = {
-                "gallery": "gallery_walk",
-                "arena": "arena_zones",
-                "obby": "obby_path",
-                "lab": "probability_lab",
-            }.get(game_mode, "gallery_walk")
+            if game_mode == "lab":
+                template = _infer_template(raw.get("topic", ""), archetype, game_mode)
+                if template not in {"probability_lab", "deduction_lab"}:
+                    template = "probability_lab"
+            else:
+                template = {
+                    "gallery": "gallery_walk",
+                    "arena": "arena_zones",
+                    "obby": "obby_path",
+                }.get(game_mode, "gallery_walk")
         else:
             template = _infer_template(raw.get("topic", ""), archetype, game_mode)
     game_mode = _game_mode_for_template(template, game_mode)

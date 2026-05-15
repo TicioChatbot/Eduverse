@@ -291,7 +291,7 @@ def get_readiness_status():
             ("Backend", True, "API responde."),
             ("Sesión activa", checks.get("has_active_session"), active.get("topic") or "Ninguna"),
             ("Roblox poll reciente", checks.get("roblox_poll_recent"), f'{roblox.get("seconds_since_last_seen")}s desde último poll' if roblox.get("seen") else "Aún no visto"),
-            ("Fixtures seguros", checks.get("safe_fixtures_available"), "Newton, Probabilidad, Historia"),
+            ("Fixtures seguros", checks.get("safe_fixtures_available"), "Newton, Probabilidad, Historia, Deducción"),
             ("Quiz activo listo", checks.get("active_quiz_ready"), f'{checks.get("active_template") or "—"}'),
             ("Objetos activos", checks.get("active_objects_count", 0) >= 7, str(checks.get("active_objects_count", 0))),
         ]
@@ -447,6 +447,7 @@ def build_gradio_app() -> gr.Blocks:
                                         ("Obby camino", "obby_path"),
                                         ("Obby torre", "obby_tower"),
                                         ("Lab de probabilidad", "probability_lab"),
+                                        ("Lab deductivo", "deduction_lab"),
                                     ],
                                     value="auto",
                                 )
@@ -494,6 +495,7 @@ def build_gradio_app() -> gr.Blocks:
                                 demo_water_btn = gr.Button("Ciclo del agua", size="sm")
                                 demo_newton_btn = gr.Button("Leyes de Newton", size="sm")
                                 demo_history_btn = gr.Button("Revolución Francesa", size="sm")
+                                demo_deduction_btn = gr.Button("Deducción", size="sm")
 
                         with gr.Column(scale=1):
                             gr.Markdown("### Vista Previa del Taller")
@@ -645,6 +647,9 @@ def build_gradio_app() -> gr.Blocks:
                 demo_history_btn.click(fn=lambda pilot, replace: activate_demo("revolucion-francesa", pilot, replace),
                     inputs=[pilot_mode, replace_active],
                     outputs=[result_banner, preview_html, preview_json, activate_btn, last_session_state])
+                demo_deduction_btn.click(fn=lambda pilot, replace: activate_demo("razonamiento-deductivo", pilot, replace),
+                    inputs=[pilot_mode, replace_active],
+                    outputs=[result_banner, preview_html, preview_json, activate_btn, last_session_state])
 
             # ── CLASS PILOT ────────────────────────────────────────────────────
             with gr.Tab("✅ Clase Piloto") as tab_pilot:
@@ -660,6 +665,7 @@ def build_gradio_app() -> gr.Blocks:
                     with gr.Row():
                         pilot_newton_btn = gr.Button("Activar Newton Tower", elem_classes=["btn-primary"])
                         pilot_prob_btn = gr.Button("Activar Probability Lab", elem_classes=["btn-primary"])
+                        pilot_deduction_btn = gr.Button("Activar Deduction Lab", elem_classes=["btn-primary"])
                         pilot_arena_btn = gr.Button("Activar Arena Historia", elem_classes=["btn-secondary"])
                     pilot_preview_html = gr.HTML(label="Workshop activo")
                     pilot_banner = gr.HTML()
@@ -680,12 +686,14 @@ def build_gradio_app() -> gr.Blocks:
                 readiness_btn.click(fn=get_readiness_status, outputs=[readiness_box])
                 tab_pilot.select(fn=get_readiness_status, outputs=[readiness_box])
                 def pilot_activate_demo(slug):
-                    banner, html, _, _ = activate_demo(slug, True, True)
+                    banner, html, _, _, _ = activate_demo(slug, True, True)
                     return banner, html
 
                 pilot_newton_btn.click(fn=lambda: pilot_activate_demo("leyes-de-newton"),
                     outputs=[pilot_banner, pilot_preview_html])
                 pilot_prob_btn.click(fn=lambda: pilot_activate_demo("probabilidad-eventos"),
+                    outputs=[pilot_banner, pilot_preview_html])
+                pilot_deduction_btn.click(fn=lambda: pilot_activate_demo("razonamiento-deductivo"),
                     outputs=[pilot_banner, pilot_preview_html])
                 pilot_arena_btn.click(fn=lambda: pilot_activate_demo("revolucion-francesa"),
                     outputs=[pilot_banner, pilot_preview_html])

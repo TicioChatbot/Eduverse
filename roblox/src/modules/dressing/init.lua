@@ -43,10 +43,11 @@ local function buildRegistry()
     return registry
 end
 
--- gameMode override: if interaction_template is "probability_lab" we
--- force LabDressing regardless of the underlying archetype.
+-- gameMode override: if interaction_template is a lab template we force
+-- LabDressing regardless of the underlying archetype.
 function Dressing.apply(folder, archetype, gameMode, interactionTemplate)
-    local key = (interactionTemplate == "probability_lab") and "math" or (archetype or "abstract"):lower()
+    local key = (interactionTemplate == "probability_lab" or interactionTemplate == "deduction_lab")
+        and "math" or (archetype or "abstract"):lower()
     local mod = buildRegistry()[key]
     if not mod or type(mod.apply) ~= "function" then return end
     local ok, err = pcall(function()

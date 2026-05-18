@@ -56,17 +56,36 @@ _CUSTOM_CSS = """
 :root {
     --primary: #1E6B7A;
     --primary-glow: rgba(30, 107, 122, 0.2);
-    --bg-dark: #0f172a;
-    --bg-card: rgba(30, 41, 59, 0.4);
-    --text-main: #f8fafc;
+    --bg-card: rgba(255, 255, 255, 0.8); /* Light mode card */
+    --text-main: #1e293b; /* Dark text for light mode */
+    --text-sub: #475569;
+    
+    /* Gradio Overrides */
+    --button-primary-background-fill: #1E6B7A !important;
+    --button-primary-background-fill-hover: #E05A47 !important;
+    --button-primary-text-color: white !important;
+    --button-secondary-background-fill: rgba(30, 107, 122, 0.1) !important;
+    --button-secondary-text-color: #1E6B7A !important;
+    --input-border-color-focus: #1E6B7A !important;
+    --checkbox-label-text-color-selected: #1E6B7A !important;
+    --checkbox-border-color-selected: #1E6B7A !important;
+}
+
+.dark {
+    --bg-card: rgba(30, 41, 59, 0.4); /* Dark mode card */
+    --text-main: #f8fafc; /* Light text for dark mode */
     --text-sub: #94a3b8;
 }
 
 body, .gradio-container {
-    background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #020617 100%) !important;
+    background: radial-gradient(circle at 50% 0%, #f0f4f8 0%, #dbeafe 100%) !important;
     background-attachment: fixed !important;
     color: var(--text-main) !important;
     font-family: 'Inter', sans-serif !important;
+}
+
+body.dark, .dark .gradio-container {
+    background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #020617 100%) !important;
 }
 
 /* Header */
@@ -197,9 +216,9 @@ body, .gradio-container {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 .tab-nav button.selected {
-    background: #fff !important;
-    color: #000 !important;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2) !important;
+    background: #1E6B7A !important;
+    color: #fff !important;
+    box-shadow: 0 10px 15px -3px rgba(30, 107, 122, 0.4) !important;
 }
 
 /* Status Badges */

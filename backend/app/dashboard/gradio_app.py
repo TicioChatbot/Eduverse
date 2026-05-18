@@ -342,22 +342,34 @@ def build_gradio_app() -> gr.Blocks:
                     1. You are already viewing the **Teacher Dashboard**!
                     2. Authentication has been disabled for your convenience.
                     
-                    ## 🎮 Step 2: Play the Game
-                    1. Open this link to play the Roblox experience:
+                    ## 🧠 Step 2: Generate or Activate a Session
+                    Before playing, you need an active session. You have two options:
+                    - **Option A: Use a Preset Pilot (Recommended)**
+                      1. Go to the **New Session** tab.
+                      2. Scroll to the **Safe Demo (no AI)** section at the bottom.
+                      3. Click on any of the demos (e.g., *Probability*, *Newton's Laws*, *Deduction*). This will load a preset workshop without calling the AI.
+                      4. Alternatively, in the **Pilot Class** tab, you can click "Activate Newton Tower", etc.
+                    - **Option B: Create Your Own (Using AI)**
+                      1. Go to the **New Session** tab.
+                      2. Enter a **Workshop Topic** (e.g., "The Solar System", "French Revolution").
+                      3. Optionally, add instructions or paste text material.
+                      4. Click **🧠 Generate for review**. Wait for the AI to build the plan.
+                      5. If you like the preview, click **🚀 Activate and send to Roblox**.
+                    
+                    ## 🎮 Step 3: Play the Game
+                    1. Now that a session is active, open this link to play the Roblox experience:
                        👉 **[EduVerse Test on Roblox](https://www.roblox.com/games/88681612927918/EduVerse-Test)**
-                    2. The game will wait for a workshop to be created from this dashboard.
+                    2. The game will fetch the active session and build the world dynamically!
                     
                     ## 🎛️ Dashboard Features
                     In the dashboard, you can control the experience in real-time:
                     - **📊 Summary Tab**: View server health and live activity feed of students.
-                    - **🚀 New Session Tab**: 
-                        - Enter a topic (e.g., "Solar System") and let Gemma 4 generate the workshop.
-                        - **Game Mode**: Choose between *Gallery* (exploration), *Arena* (trivia), or *Obby* (obstacle course).
-                        - **Teacher Controls**: Adjust time per question, number of questions, and collaboration modes.
-                    - **✅ Pilot Class Tab**: 
-                        - Check the operational checklist to ensure everything is connected.
-                        - **Live Commands**: Send real-time announcements, hints, trigger confetti, or freeze students in the Roblox game!
+                    - **✅ Pilot Class Tab**: Send real-time announcements, hints, trigger confetti, or freeze students in the Roblox game!
                     - **📚 History & Results**: View past sessions and detailed quiz results.
+                    
+                    ---
+                    
+                    **Disclaimer**: The version used in the pilots shown in the video and mentioned in the write-up used an on-device Gemma model for transcription, which was then input into this Gradio interface using the Gradio API. However, to ensure a smooth showcase for the project submission, we provided a version that uses Google Cloud and picks up directly from the generated text.
                 """)
 
             # ── 1. GLOBAL SUMMARY (REDESIGNED) ───────────────────────────────────

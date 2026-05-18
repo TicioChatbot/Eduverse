@@ -66,10 +66,7 @@ async def root():
 
 # ── Mount Gradio Dashboard at /dashboard ─────────────────────────────────────
 gradio_app = build_gradio_app()
-dashboard_auth = None
-if settings.DASHBOARD_AUTH_ENABLED:
-    dashboard_auth = (settings.DASHBOARD_USER, settings.DASHBOARD_PASSWORD)
-app = gr.mount_gradio_app(app, gradio_app, path="/dashboard", auth=dashboard_auth)
+app = gr.mount_gradio_app(app, gradio_app, path="/dashboard")
 
 logger.info("✅ EduVerse backend ready — Dashboard at http://localhost:8000/dashboard")
 

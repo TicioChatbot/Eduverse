@@ -20,7 +20,6 @@ import httpx
 
 from app.core.config import settings
 from app.db import repository
-from app.dashboard.translations import TRANSLATIONS
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +46,7 @@ def _quality_note(data: dict) -> str:
     assets = quality.get("asset_matches") or []
     parts = []
     if assets:
-        parts.append("Assets reales: " + ", ".join(escape(str(a)) for a in assets[:6]))
+        parts.append("Real assets: " + ", ".join(escape(str(a)) for a in assets[:6]))
     if warnings:
         parts.append("Warnings: " + " · ".join(escape(str(w)) for w in warnings))
     return "<br><small>" + " | ".join(parts) + "</small>" if parts else ""
@@ -233,8 +232,8 @@ def _ts_to_local(iso_str: Optional[str]) -> str:
         dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
         # Relative time for live feed
         diff = datetime.now(timezone.utc) - dt
-        if diff.total_seconds() < 60: return "ahora"
-        if diff.total_seconds() < 3600: return f"hace {int(diff.total_seconds()/60)}m"
+        if diff.total_seconds() < 60: return "now"
+        if diff.total_seconds() < 3600: return f"{int(diff.total_seconds()/60)}m ago"
         return dt.strftime("%H:%M")
     except Exception:
         return iso_str
@@ -251,11 +250,11 @@ def get_health_status():
         resp = httpx.get(f"{_API}/workshop/health", timeout=5)
         data = resp.json()
         if data.get("status") == "ok":
-            active = data.get("active_topic") or "Ninguna"
-            return f'<div style="color:#10b981; font-weight:600; font-size:0.9rem">● Servidor Activo · {active}</div>'
-        return '<div style="color:#ef4444">○ Servidor desconectado</div>'
+            active = data.get("active_topic") or "None"
+            return f'<div style="color:#10b981; font-weight:600; font-size:0.9rem">● Active Server · {active}</div>'
+        return '<div style="color:#ef4444">○ Server disconnected</div>'
     except Exception:
-        return '<div style="color:#ef4444">○ Error de conexión</div>'
+        return '<div style="color:#ef4444">○ Connection error</div>'
 
 
 def _active_session_blocker(pilot_mode: bool, replace_active: bool) -> Optional[str]:
@@ -265,10 +264,10 @@ def _active_session_blocker(pilot_mode: bool, replace_active: bool) -> Optional[
         resp = httpx.get(f"{_API}/workshop/health", timeout=5)
         data = resp.json()
         if data.get("has_active_session"):
-            active = data.get("active_topic") or data.get("active_session_id") or "sesión activa"
+            active = data.get("active_topic") or data.get("active_session_id") or "active session"
             return (
-                "Modo clase piloto: ya hay una sesión activa "
-                f"({active}). Marca 'Reemplazar sesión activa' para cambiarla."
+                "Pilot class mode: there is already an active session "
+                f"({active}). Check 'Replace active session' to change it."
             )
     except Exception:
         return None
@@ -289,12 +288,12 @@ def get_readiness_status():
             return "✅" if ok else "⚠️"
 
         rows = [
-            ("Backend", True, "API responde."),
-            ("Sesión activa", checks.get("has_active_session"), active.get("topic") or "Ninguna"),
-            ("Roblox poll reciente", checks.get("roblox_poll_recent"), f'{roblox.get("seconds_since_last_seen")}s desde último poll' if roblox.get("seen") else "Aún no visto"),
-            ("Fixtures seguros", checks.get("safe_fixtures_available"), "Newton, Probabilidad, Historia, Deducción"),
-            ("Quiz activo listo", checks.get("active_quiz_ready"), f'{checks.get("active_template") or "—"}'),
-            ("Objetos activos", checks.get("active_objects_count", 0) >= 7, str(checks.get("active_objects_count", 0))),
+            ("Backend", True, "API responds."),
+            ("Active session", checks.get("has_active_session"), active.get("topic") or "None"),
+            ("Recent Roblox poll", checks.get("roblox_poll_recent"), f'{roblox.get("seconds_since_last_seen")}s since last poll' if roblox.get("seen") else "Not seen yet"),
+            ("Safe fixtures", checks.get("safe_fixtures_available"), "Newton, Probability, History, Deduction"),
+            ("Active quiz ready", checks.get("active_quiz_ready"), f'{checks.get("active_template") or "—"}'),
+            ("Active objects", checks.get("active_objects_count", 0) >= 7, str(checks.get("active_objects_count", 0))),
         ]
         items = "".join(
             f"<li><strong>{mark(ok)} {escape(name)}</strong>: {escape(str(detail))}</li>"
@@ -302,9 +301,9 @@ def get_readiness_status():
         )
         return (
             '<div class="status-ok">'
-            '<strong>Checklist de clase piloto</strong>'
+            '<strong>Pilot class checklist</strong>'
             f'<ul>{items}</ul>'
-            f'<small>Última actualización: {escape(str(data.get("timestamp", "")))}</small>'
+            f'<small>Last update: {escape(str(data.get("timestamp", "")))}</small>'
             '</div>'
         )
     except Exception as exc:
@@ -322,7 +321,6 @@ def build_gradio_app() -> gr.Blocks:
             <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
         '''
     ) as demo:
-        t = TRANSLATIONS["en"]
         gr.HTML("""
             <div class="eduverse-header">
                 <h1>EduVerse</h1>
@@ -330,17 +328,40 @@ def build_gradio_app() -> gr.Blocks:
             </div>
         """)
 
-        with gr.Row():
-            lang_selector = gr.Dropdown(
-                choices=["English", "Spanish"],
-                value="English",
-                label="Language / Idioma",
-                scale=1
-            )
-
         with gr.Tabs():
+            # ── 0. JUDGE GUIDE ──────────────────────────────────────────────────
+            with gr.Tab("🏆 Judge Guide"):
+                gr.Markdown("""
+                    # 🏆 Hackathon Judge Guide
+                    
+                    Welcome to the **EduVerse** project! This guide will help you understand what you are seeing and how to test the platform.
+                    
+                    EduVerse is a platform that uses AI (Google's Gemma 4) to dynamically generate interactive educational workshops in Roblox based on a topic provided by a teacher.
+                    
+                    ## 🛠️ Step 1: Setup the Server & Dashboard
+                    1. You are already viewing the **Teacher Dashboard**!
+                    2. Authentication has been disabled for your convenience.
+                    
+                    ## 🎮 Step 2: Play the Game
+                    1. Open this link to play the Roblox experience:
+                       👉 **[EduVerse Test on Roblox](https://www.roblox.com/games/88681612927918/EduVerse-Test)**
+                    2. The game will wait for a workshop to be created from this dashboard.
+                    
+                    ## 🎛️ Dashboard Features
+                    In the dashboard, you can control the experience in real-time:
+                    - **📊 Summary Tab**: View server health and live activity feed of students.
+                    - **🚀 New Session Tab**: 
+                        - Enter a topic (e.g., "Solar System") and let Gemma 4 generate the workshop.
+                        - **Game Mode**: Choose between *Gallery* (exploration), *Arena* (trivia), or *Obby* (obstacle course).
+                        - **Teacher Controls**: Adjust time per question, number of questions, and collaboration modes.
+                    - **✅ Pilot Class Tab**: 
+                        - Check the operational checklist to ensure everything is connected.
+                        - **Live Commands**: Send real-time announcements, hints, trigger confetti, or freeze students in the Roblox game!
+                    - **📚 History & Results**: View past sessions and detailed quiz results.
+                """)
+
             # ── 1. GLOBAL SUMMARY (REDESIGNED) ───────────────────────────────────
-            with gr.Tab("📊 Panel / Dashboard") as tab_summary:
+            with gr.Tab("📊 Dashboard") as tab_summary:
                 with gr.Row():
                     # Left: Main Stats and Health
                     with gr.Column(scale=2):
@@ -352,17 +373,17 @@ def build_gradio_app() -> gr.Blocks:
                             answers_card = gr.HTML()
                             accuracy_card = gr.HTML()
                         
-                        gr.Markdown(f"### {t['quick_control']}")
+                        gr.Markdown("### Quick Control")
                         with gr.Row():
-                            btn_new = gr.Button(t["create_session"], variant="primary")
-                            btn_pilot = gr.Button(t["pilot_mode"], variant="secondary")
+                            btn_new = gr.Button("🚀 Create Session", variant="primary")
+                            btn_pilot = gr.Button("🧪 Pilot Mode", variant="secondary")
 
                     # Right: Live Activity Feed
                     with gr.Column(scale=1):
-                        gr.Markdown(f"### {t['live_activity']}")
+                        gr.Markdown("### Live Activity")
                         live_feed = gr.HTML(elem_classes=["activity-feed"])
 
-                def reload_summary(lang):
+                def reload_summary():
                     srv_html = get_health_status()
                     try:
                         stats = repository.get_global_stats()
@@ -374,7 +395,6 @@ def build_gradio_app() -> gr.Blocks:
                         return f'<div class="stat-card"><span class="stat-number">{number}</span><span class="stat-label">{label}</span></div>'
 
                     # Build activity feed HTML
-                    t_local = TRANSLATIONS["en" if lang == "English" else "es"]
                     try:
                         recent = repository.get_recent_activity(12)
                         feed_html = ""
@@ -395,139 +415,139 @@ def build_gradio_app() -> gr.Blocks:
                             </div>
                             """
                         if not recent:
-                            feed_html = f'<div style="padding:40px; text-align:center; color:#475569">{t_local["no_recent_activity"]}</div>'
+                            feed_html = '<div style="padding:40px; text-align:center; color:#475569">No recent activity.</div>'
                     except Exception as e:
                         feed_html = f"Error: {e}"
 
                     return (
                         srv_html,
-                        card("📚", sess_n, t_local["sessions"]),
-                        card("👤", stud_n, t_local["students"]),
-                        card("✏️", ans_n, t_local["answers"]),
-                        card("🎯", f"{acc}%", t_local["global_accuracy"]),
+                        card("📚", sess_n, "Sessions"),
+                        card("👤", stud_n, "Students"),
+                        card("✏️", ans_n, "Answers"),
+                        card("🎯", f"{acc}%", "Global Accuracy"),
                         feed_html
                     )
 
-                tab_summary.select(fn=reload_summary, inputs=[lang_selector], outputs=[status_box, sessions_card, students_card, answers_card, accuracy_card, live_feed])
-                demo.load(fn=reload_summary, inputs=[lang_selector], outputs=[status_box, sessions_card, students_card, answers_card, accuracy_card, live_feed])
+                tab_summary.select(fn=reload_summary, outputs=[status_box, sessions_card, students_card, answers_card, accuracy_card, live_feed])
+                demo.load(fn=reload_summary, outputs=[status_box, sessions_card, students_card, answers_card, accuracy_card, live_feed])
 
             # ── 2. NEW SESSION ───────────────────────────────────────────────────
-            with gr.Tab("🚀 Nueva Sesión / New Session"):
+            with gr.Tab("🚀 New Session"):
                 with gr.Column():
                     gr.Markdown(
-                        f"## {t['new_session_title']}\n"
-                        f"{t['new_session_desc']}"
+                        "## 🎓 Create New Educational Session\n"
+                        "1) Enter the **topic**, optionally upload material and adjust controls.\n"
+                        "2) **Generate for review** creates the workshop but doesn't send it to Roblox yet.\n"
+                        "3) Read the questions, and if you like them click **Activate and send to Roblox**."
                     )
                     with gr.Row():
                         with gr.Column(scale=2):
-                            topic_input = gr.Textbox(label=t["topic_label"], placeholder=t["topic_placeholder"], lines=1)
-                            details_input = gr.Textbox(label=t["instructions_label"], placeholder=t["instructions_placeholder"], lines=2)
+                            topic_input = gr.Textbox(label="📖 Workshop Topic", placeholder="Ex: The Solar System, The Mitochondria, French Revolution...", lines=1)
+                            details_input = gr.Textbox(label="📝 Instructions (optional)", placeholder="Ex: 9th grade, emphasis on economic causes...", lines=2)
                             with gr.Row():
                                 material_file = gr.File(
-                                    label=t["material_label"],
+                                    label="📎 Support Material (PDF/DOCX/TXT)",
                                     file_types=[".pdf", ".docx", ".txt", ".md"],
                                     file_count="single",
                                 )
                                 material_input = gr.Textbox(
-                                    label=t["material_text_label"],
-                                    placeholder=t["material_text_placeholder"],
+                                    label="...or paste text from the book",
+                                    placeholder="Literal text of the chapter, definitions...",
                                     lines=4,
                                 )
 
                             # ── Teacher controls (NEW) ─────────────────────
-                            gr.Markdown(f"### {t['teacher_controls']}")
+                            gr.Markdown("### 🎛 Teacher Controls")
                             with gr.Row():
                                 mode_input = gr.Dropdown(
-                                    label=t["game_mode"],
+                                    label="🎮 Game Mode",
                                     choices=[
-                                        (t["mode_auto"], "auto"),
-                                        (t["mode_gallery"], "gallery"),
-                                        (t["mode_arena"], "arena"),
-                                        (t["mode_obby"], "obby"),
+                                        ("Auto (AI decides based on topic)", "auto"),
+                                        ("🖼 Gallery — 3D exploration", "gallery"),
+                                        ("⚔️ Arena — zone trivia", "arena"),
+                                        ("🏃 Obby — obstacle course by answers", "obby"),
                                     ],
                                     value="auto",
                                 )
                                 template_input = gr.Dropdown(
-                                    label=t["interactive_template"],
+                                    label="🕹 Interactive Template",
                                     choices=[
-                                        (t["template_auto"], "auto"),
-                                        (t["template_gallery"], "gallery_walk"),
-                                        (t["template_arena"], "arena_zones"),
-                                        (t["template_obby_path"], "obby_path"),
-                                        (t["template_obby_tower"], "obby_tower"),
-                                        (t["template_prob_lab"], "probability_lab"),
-                                        (t["template_deduction_lab"], "deduction_lab"),
+                                        ("Auto (recommended)", "auto"),
+                                        ("Guided Gallery", "gallery_walk"),
+                                        ("Zone Arena", "arena_zones"),
+                                        ("Path Obby", "obby_path"),
+                                        ("Tower Obby", "obby_tower"),
+                                        ("Probability Lab", "probability_lab"),
+                                        ("Deduction Lab", "deduction_lab"),
                                     ],
                                     value="auto",
                                 )
                                 round_input = gr.Slider(
-                                    label=t["time_per_question"],
+                                    label="⏱ Time per question (Arena/Obby)",
                                     minimum=8, maximum=45, step=1, value=12,
                                 )
                                 stages_input = gr.Slider(
-                                    label=t["num_stages"],
+                                    label="🪜 Number of stages / questions",
                                     minimum=3, maximum=10, step=1, value=5,
                                 )
                                 collab_input = gr.Dropdown(
-                                    label=t["collab_mode"],
-                                    info=t["collab_info"],
+                                    label="👥 Collaboration Mode",
+                                    info="How students perceive each other.",
                                     choices=[
-                                        (t["collab_competitive"], "competitive"),
-                                        (t["collab_shared"], "shared"),
-                                        (t["collab_isolated"], "isolated"),
+                                        ("Competitive (see others, not their answers)", "competitive"),
+                                        ("Shared (everyone sees everything)", "shared"),
+                                        ("Isolated (each student in their own world)", "isolated"),
                                     ],
                                     value="competitive",
                                 )
                             review_first = gr.Checkbox(
-                                label=t["review_before_send"],
+                                label="👀 Review before sending to Roblox (recommended)",
                                 value=True,
                             )
                             with gr.Row():
                                 pilot_mode = gr.Checkbox(
-                                    label=t["pilot_class_mode"],
+                                    label="🧪 Pilot class mode",
                                     value=True,
                                 )
                                 replace_active = gr.Checkbox(
-                                    label=t["replace_active_session"],
+                                    label="Replace active session",
                                     value=False,
                                 )
 
                             with gr.Row():
                                 generate_btn = gr.Button(
-                                    t["generate_to_review"],
+                                    "🧠 Generate for review",
                                     elem_classes=["btn-primary"], size="lg",
                                 )
 
-                            gr.Markdown(f"### {t['safe_demo_title']}")
+                            gr.Markdown("### Safe Demo (no AI)")
                             with gr.Row():
-                                demo_prob_btn = gr.Button(t["probabilidad"], size="sm")
-                                demo_water_btn = gr.Button(t["water_cycle"], size="sm")
-                                demo_newton_btn = gr.Button(t["newton_laws"], size="sm")
-                                demo_history_btn = gr.Button(t["french_revolution"], size="sm")
-                                demo_deduction_btn = gr.Button(t["deduction"], size="sm")
+                                demo_prob_btn = gr.Button("🎲 Probability", size="sm")
+                                demo_water_btn = gr.Button("Water Cycle", size="sm")
+                                demo_newton_btn = gr.Button("Newton's Laws", size="sm")
+                                demo_history_btn = gr.Button("French Revolution", size="sm")
+                                demo_deduction_btn = gr.Button("Deduction", size="sm")
 
                         with gr.Column(scale=1):
-                            gr.Markdown(f"### {t['workshop_preview']}")
-                            preview_html = gr.HTML(label=t["summary"])
+                            gr.Markdown("### Workshop Preview")
+                            preview_html = gr.HTML(label="Summary")
                             
-                            with gr.Accordion(t["raw_metadata"], open=False):
-                                preview_json = gr.JSON(label=t["json_label"])
+                            with gr.Accordion("🔍 Raw Metadata (JSON)", open=False):
+                                preview_json = gr.JSON(label="JSON")
                             
                             activate_btn = gr.Button(
-                                t["activate_and_send"],
+                                "🚀 Activate and send to Roblox",
                                 variant="primary",
                                 visible=False,
                             )
                             result_banner = gr.HTML()
                             last_session_state = gr.State(value="")
 
-                def _workshop_to_html(data: dict, lang: str) -> str:
+                def _workshop_to_html(data: dict) -> str:
                     workshop = data.get("workshop") or data
                     if not workshop: return ""
                     
-                    t_local = TRANSLATIONS["en" if lang == "English" else "es"]
-                    
-                    title = workshop.get("scene_title", t_local["untitled_workshop"])
+                    title = workshop.get("scene_title", "Untitled Workshop")
                     desc = workshop.get("scene_description", "")
                     goal = workshop.get("learning_goal", "")
                     mode = workshop.get("game_mode", "gallery")
@@ -548,18 +568,18 @@ def build_gradio_app() -> gr.Blocks:
                         <p style="color:var(--text-sub); font-size:0.95rem; margin-bottom:20px;">{escape(desc)}</p>
                         
                         <div style="background:rgba(139, 92, 246, 0.1); border-left:4px solid var(--primary); padding:12px 16px; border-radius:8px; margin-bottom:20px;">
-                            <strong style="color:var(--primary); font-size:0.85rem; text-transform:uppercase;">{t_local['learning_goal_label']}</strong><br>
+                            <strong style="color:var(--primary); font-size:0.85rem; text-transform:uppercase;">Learning Goal</strong><br>
                             <span style="color:#ddd; font-size:0.9rem;">{escape(goal)}</span>
                         </div>
                         
                         <div style="display:flex; gap:16px;">
                             <div style="flex:1; background:rgba(255,255,255,0.02); padding:12px; border-radius:12px; text-align:center;">
                                 <span style="display:block; font-size:1.5rem; font-weight:800; color:#fff;">{objs}</span>
-                                <span style="font-size:0.7rem; color:var(--text-sub); text-transform:uppercase; letter-spacing:1px;">{t_local['objects_label']}</span>
+                                <span style="font-size:0.7rem; color:var(--text-sub); text-transform:uppercase; letter-spacing:1px;">Objects</span>
                             </div>
                             <div style="flex:1; background:rgba(255,255,255,0.02); padding:12px; border-radius:12px; text-align:center;">
                                 <span style="display:block; font-size:1.5rem; font-weight:800; color:#fff;">{quiz}</span>
-                                <span style="font-size:0.7rem; color:var(--text-sub); text-transform:uppercase; letter-spacing:1px;">{t_local['questions_label']}</span>
+                                <span style="font-size:0.7rem; color:var(--text-sub); text-transform:uppercase; letter-spacing:1px;">Questions</span>
                             </div>
                         </div>
                     </div>
@@ -567,10 +587,10 @@ def build_gradio_app() -> gr.Blocks:
 
                 def do_generate(topic, details, inline_material, uploaded_file,
                                 game_mode, interaction_template, round_seconds, stages,
-                                collab_mode, review_first, pilot_mode, replace_active, lang):
+                                collab_mode, review_first, pilot_mode, replace_active):
                     topic = (topic or "").strip()
                     if not topic:
-                        return ('<div class="status-error">❌ El tema no puede estar vacío.</div>',
+                        return ('<div class="status-error">❌ Topic cannot be empty.</div>',
                                 "", {}, gr.update(visible=False), "")
                     
                     blocker = _active_session_blocker(pilot_mode, replace_active)
@@ -606,8 +626,8 @@ def build_gradio_app() -> gr.Blocks:
                         sid = data.get("session_id", "")
                         sent = data.get("status") == "generated"
                         
-                        banner = f'<div class="status-ok">✅ Sesión <strong>{sid}</strong> lista.</div>'
-                        html = _workshop_to_html(data, lang)
+                        banner = f'<div class="status-ok">✅ Session <strong>{sid}</strong> ready.</div>'
+                        html = _workshop_to_html(data)
                         
                         return banner, html, data.get("workshop") or data, gr.update(visible=not sent), sid
                     except Exception as e:
@@ -617,21 +637,21 @@ def build_gradio_app() -> gr.Blocks:
                     fn=do_generate,
                     inputs=[topic_input, details_input, material_input, material_file,
                             mode_input, template_input, round_input, stages_input,
-                            collab_input, review_first, pilot_mode, replace_active, lang_selector],
+                            collab_input, review_first, pilot_mode, replace_active],
                     outputs=[result_banner, preview_html, preview_json, activate_btn, last_session_state],
                 )
 
                 def do_activate(sid):
-                    if not sid: return '<div class="status-error">❌ No hay sesión.</div>', gr.update(visible=True)
+                    if not sid: return '<div class="status-error">❌ No session found.</div>', gr.update(visible=True)
                     try:
                         httpx.post(f"{_API}/workshop/sessions/{sid}/activate", params=_admin_params(), timeout=20)
-                        return f'<div class="status-ok">🚀 Sesión {sid} enviada.</div>', gr.update(visible=False)
+                        return f'<div class="status-ok">🚀 Session {sid} sent.</div>', gr.update(visible=False)
                     except Exception as e:
                         return f'<div class="status-error">❌ {e}</div>', gr.update(visible=True)
 
                 activate_btn.click(fn=do_activate, inputs=[last_session_state], outputs=[result_banner, activate_btn])
 
-                def activate_demo(slug, pilot_mode=True, replace_active=True, lang="English"):
+                def activate_demo(slug, pilot_mode=True, replace_active=True):
                     blocker = _active_session_blocker(pilot_mode, replace_active)
                     if blocker:
                         return f'<div class="status-error">❌ {escape(blocker)}</div>', "", {}, gr.update(visible=False), ""
@@ -640,56 +660,57 @@ def build_gradio_app() -> gr.Blocks:
                         if resp.status_code != 200:
                             return f'<div class="status-error">❌ Error demo: {escape(_api_error(resp))}</div>', "", {}, gr.update(visible=False), ""
                         data = resp.json()
-                        banner = f'<div class="status-ok">✅ Demo activa: <strong>{escape(str(data.get("session_id","?")))}</strong></div>'
-                        html = _workshop_to_html(data, lang)
+                        banner = f'<div class="status-ok">✅ Demo active: <strong>{escape(str(data.get("session_id","?")))}</strong></div>'
+                        html = _workshop_to_html(data)
                         return banner, html, data.get("workshop") or data, gr.update(visible=False), data.get("session_id", "")
                     except Exception as e:
                         return f'<div class="status-error">❌ Error demo: {e}</div>', "", {}, gr.update(visible=False), ""
 
-                demo_prob_btn.click(fn=lambda pilot, replace, lang: activate_demo("probabilidad-eventos", pilot, replace, lang),
-                    inputs=[pilot_mode, replace_active, lang_selector],
+                demo_prob_btn.click(fn=lambda pilot, replace: activate_demo("probabilidad-eventos", pilot, replace),
+                    inputs=[pilot_mode, replace_active],
                     outputs=[result_banner, preview_html, preview_json, activate_btn, last_session_state])
-                demo_water_btn.click(fn=lambda pilot, replace, lang: activate_demo("ciclo-del-agua", pilot, replace, lang),
-                    inputs=[pilot_mode, replace_active, lang_selector],
+                demo_water_btn.click(fn=lambda pilot, replace: activate_demo("ciclo-del-agua", pilot, replace),
+                    inputs=[pilot_mode, replace_active],
                     outputs=[result_banner, preview_html, preview_json, activate_btn, last_session_state])
-                demo_newton_btn.click(fn=lambda pilot, replace, lang: activate_demo("leyes-de-newton", pilot, replace, lang),
-                    inputs=[pilot_mode, replace_active, lang_selector],
+                demo_newton_btn.click(fn=lambda pilot, replace: activate_demo("leyes-de-newton", pilot, replace),
+                    inputs=[pilot_mode, replace_active],
                     outputs=[result_banner, preview_html, preview_json, activate_btn, last_session_state])
-                demo_history_btn.click(fn=lambda pilot, replace, lang: activate_demo("revolucion-francesa", pilot, replace, lang),
-                    inputs=[pilot_mode, replace_active, lang_selector],
+                demo_history_btn.click(fn=lambda pilot, replace: activate_demo("revolucion-francesa", pilot, replace),
+                    inputs=[pilot_mode, replace_active],
                     outputs=[result_banner, preview_html, preview_json, activate_btn, last_session_state])
-                demo_deduction_btn.click(fn=lambda pilot, replace, lang: activate_demo("razonamiento-deductivo", pilot, replace, lang),
-                    inputs=[pilot_mode, replace_active, lang_selector],
+                demo_deduction_btn.click(fn=lambda pilot, replace: activate_demo("razonamiento-deductivo", pilot, replace),
+                    inputs=[pilot_mode, replace_active],
                     outputs=[result_banner, preview_html, preview_json, activate_btn, last_session_state])
 
             # ── CLASS PILOT ────────────────────────────────────────────────────
-            with gr.Tab("✅ Clase Piloto / Pilot Class") as tab_pilot:
+            with gr.Tab("✅ Pilot Class") as tab_pilot:
                 with gr.Column():
                     gr.Markdown(
-                        f"## {t['checklist_title']}\n"
-                        f"{t['checklist_desc']}"
+                        "## Operational Checklist\n"
+                        "Use this view before starting the class: confirm backend, Roblox polling, "
+                        "active fixture and quiz ready."
                     )
                     readiness_box = gr.HTML()
-                    readiness_btn = gr.Button(t["refresh_checklist"], elem_classes=["btn-secondary"])
-                    gr.Markdown(f"### {t['recommended_fixtures']}")
+                    readiness_btn = gr.Button("🔄 Refresh checklist", elem_classes=["btn-secondary"])
+                    gr.Markdown("### Recommended Fixtures")
                     with gr.Row():
-                        pilot_newton_btn = gr.Button(t["activate_newton"], elem_classes=["btn-primary"])
-                        pilot_prob_btn = gr.Button(t["activate_prob"], elem_classes=["btn-primary"])
-                        pilot_deduction_btn = gr.Button(t["activate_deduction"], elem_classes=["btn-primary"])
-                        pilot_arena_btn = gr.Button(t["activate_arena"], elem_classes=["btn-secondary"])
-                    pilot_preview_html = gr.HTML(label=t["active_workshop"])
+                        pilot_newton_btn = gr.Button("Activate Newton Tower", elem_classes=["btn-primary"])
+                        pilot_prob_btn = gr.Button("Activate Probability Lab", elem_classes=["btn-primary"])
+                        pilot_deduction_btn = gr.Button("Activate Deduction Lab", elem_classes=["btn-primary"])
+                        pilot_arena_btn = gr.Button("Activate History Arena", elem_classes=["btn-secondary"])
+                    pilot_preview_html = gr.HTML(label="Active Workshop")
                     pilot_banner = gr.HTML()
                     
-                    gr.Markdown(f"### {t['live_commands']}")
+                    gr.Markdown("### 📡 Live Commands (Real-time)")
                     with gr.Row():
                         with gr.Column(scale=3):
-                            live_msg = gr.Textbox(label=t["student_message"], placeholder=t["message_placeholder"], lines=1)
+                            live_msg = gr.Textbox(label="Message for students", placeholder="Write an announcement or hint...", lines=1)
                         with gr.Column(scale=1):
-                            broadcast_btn = gr.Button(t["announcement"], variant="primary")
+                            broadcast_btn = gr.Button("📢 Announcement", variant="primary")
                     with gr.Row():
-                        hint_btn = gr.Button(t["send_hint"], size="sm")
-                        confetti_btn = gr.Button(t["confetti"], size="sm")
-                        freeze_btn = gr.Button(t["freeze"], size="sm")
+                        hint_btn = gr.Button("💡 Send Hint", size="sm")
+                        confetti_btn = gr.Button("✨ Confetti", size="sm")
+                        freeze_btn = gr.Button("❄️ Freeze", size="sm")
                     live_status = gr.HTML()
                     pilot_session_state = gr.State(value="")
 
@@ -710,13 +731,13 @@ def build_gradio_app() -> gr.Blocks:
 
                 def send_signal(sig_type, msg):
                     if sig_type in ("broadcast", "hint") and not msg.strip():
-                        return '<div class="status-error">❌ Escribe un mensaje primero.</div>'
+                        return '<div class="status-error">❌ Write a message first.</div>'
                     try:
                         httpx.post(f"{_API}/workshop/signal", params=_admin_params(), json={
                             "type": sig_type,
                             "data": {"message": msg.strip()}
                         }, timeout=5)
-                        return f'<div class="status-ok">📡 Señal <strong>{sig_type}</strong> enviada.</div>'
+                        return f'<div class="status-ok">📡 Signal <strong>{sig_type}</strong> sent.</div>'
                     except Exception as e:
                         return f'<div class="status-error">❌ {e}</div>'
 
@@ -726,20 +747,20 @@ def build_gradio_app() -> gr.Blocks:
                 freeze_btn.click(fn=lambda: send_signal("fx", "freeze"), outputs=[live_status])
 
             # ── 3. SESSION HISTORY ───────────────────────────────────────────────
-            with gr.Tab("📚 Historial / History") as tab_history:
+            with gr.Tab("📚 History") as tab_history:
                 with gr.Column():
-                    gr.Markdown(f"{t['session_history']}")
+                    gr.Markdown("## Session History\nAll generated sessions. Reactivate any session to send it to Roblox again.")
                     hist_mode_filter = gr.Dropdown(
-                        label=t["filter_by_mode"],
-                        choices=[t["all"], "gallery", "obby", "arena"],
-                        value=t["all"],
+                        label="Filter by mode",
+                        choices=["all", "gallery", "obby", "arena"],
+                        value="all",
                     )
-                    sessions_table = gr.Dataframe(headers=["ID", "Tema / Topic", "Modo / Mode", "Plantilla / Template", "Título / Title", "Objs", "Quiz", "Creada / Created", "Activa / Active"], datatype=["str"]*9, interactive=False)
+                    sessions_table = gr.Dataframe(headers=["ID", "Topic", "Mode", "Template", "Title", "Objs", "Quiz", "Created", "Active"], datatype=["str"]*9, interactive=False)
                     
-                    gr.Markdown(f"### {t['reactivate_session']}")
+                    gr.Markdown("### 🔁 Reactivate Session")
                     with gr.Row():
-                        hist_session_id = gr.Textbox(label=t["session_id_label"], placeholder=t["session_id_placeholder"], scale=3)
-                        hist_activate_btn = gr.Button(t["reactivate_btn"], elem_classes=["btn-primary"], scale=1)
+                        hist_session_id = gr.Textbox(label="Session ID", placeholder="Paste the ID here...", scale=3)
+                        hist_activate_btn = gr.Button("▶ Reactivate", elem_classes=["btn-primary"], scale=1)
                     hist_status = gr.HTML()
                 
                 def load_hist(mode_filter):
@@ -753,7 +774,7 @@ def build_gradio_app() -> gr.Blocks:
                             except Exception:
                                 workshop = {}
                             mode = workshop.get("game_mode") or "gallery"
-                            if mode_filter not in ["todos", "All", "Todos"] and mode != mode_filter:
+                            if mode_filter != "all" and mode != mode_filter:
                                 continue
                             out.append([
                                 r["id"],
@@ -764,17 +785,17 @@ def build_gradio_app() -> gr.Blocks:
                                 r.get("objects_count",0),
                                 r.get("quiz_count",0),
                                 _ts_to_local(r.get("created_at")),
-                                "✅ Sí" if r.get("is_active") else "—",
+                                "✅ Yes" if r.get("is_active") else "—",
                             ])
                         return out
                     except Exception:
                         return []
 
                 def hist_auth(sid):
-                    if not sid.strip(): return '<div class="status-error">❌ ID vacío.</div>'
+                    if not sid.strip(): return '<div class="status-error">❌ Empty ID.</div>'
                     try:
                         resp = httpx.post(f"{_API}/workshop/sessions/{sid.strip()}/activate", params=_admin_params(), timeout=10)
-                        if resp.status_code == 200: return f'<div class="status-ok">✅ Sesión {sid} reactivada.</div>'
+                        if resp.status_code == 200: return f'<div class="status-ok">✅ Session {sid} reactivated.</div>'
                         return f'<div class="status-error">❌ Error: {resp.text}</div>'
                     except Exception as e: return f'<div class="status-error">❌ {e}</div>'
 
@@ -783,21 +804,21 @@ def build_gradio_app() -> gr.Blocks:
                 hist_activate_btn.click(fn=hist_auth, inputs=[hist_session_id], outputs=[hist_status])
 
             # ── 4. QUIZ RESULTS ──────────────────────────────────────────────────
-            with gr.Tab("🏆 Resultados Quiz / Quiz Results"):
+            with gr.Tab("🏆 Quiz Results"):
                 with gr.Column():
-                    gr.Markdown(f"{t['quiz_results_title']}")
+                    gr.Markdown("## 🏆 Results by Session")
                     with gr.Row():
-                        res_session_id = gr.Textbox(label=t["session_id_label"], placeholder=t["session_id_placeholder"], scale=3)
-                        res_load_btn = gr.Button(t["view_results_btn"], elem_classes=["btn-primary"], scale=1)
+                        res_session_id = gr.Textbox(label="Session ID", placeholder="Ex: b4b5e5...", scale=3)
+                        res_load_btn = gr.Button("📊 View Results", elem_classes=["btn-primary"], scale=1)
                     res_summary = gr.HTML()
                     with gr.Row():
-                        res_students = gr.Dataframe(headers=["Estudiante / Student", "Correctas / Correct", "Total", "Precisión / Precision"], datatype=["str", "number", "number", "str"], interactive=False)
-                        res_questions = gr.Dataframe(headers=["Pregunta # / Question #", "Intentos / Attempts", "Correctas / Correct", "% Acierto / % Accuracy"], datatype=["number"]*3 + ["str"], interactive=False)
+                        res_students = gr.Dataframe(headers=["Student", "Correct", "Total", "Accuracy"], datatype=["str", "number", "number", "str"], interactive=False)
+                        res_questions = gr.Dataframe(headers=["Question #", "Attempts", "Correct", "% Accuracy"], datatype=["number"]*3 + ["str"], interactive=False)
                     
-                    res_events = gr.Dataframe(headers=["Evento / Event", "Conteo / Count"], datatype=["str", "number"], interactive=False)
+                    res_events = gr.Dataframe(headers=["Event", "Count"], datatype=["str", "number"], interactive=False)
 
                 def load_res(sid):
-                    if not sid.strip(): return '<div class="status-error">❌ ID vacío.</div>', [], [], []
+                    if not sid.strip(): return '<div class="status-error">❌ Empty ID.</div>', [], [], []
                     try:
                         clean_sid = sid.strip()
                         summary = repository.get_session_summary(clean_sid)
@@ -805,9 +826,9 @@ def build_gradio_app() -> gr.Blocks:
                         event_summary = repository.get_gameplay_event_summary(clean_sid)
                         e_rows = [[et, c] for et, c in sorted((event_summary.get("by_type") or {}).items())]
                         if summary.get("total_answers", 0) == 0 and not e_rows:
-                            return '<div class="status-error">📭 No hay respuestas aún.</div>', [], [], []
+                            return '<div class="status-error">📭 No answers yet.</div>', [], [], []
                         
-                        html = f'<div class="status-ok">📊 Sesión <strong>{sid}</strong>: {summary["unique_students"]} alumnos</div>'
+                        html = f'<div class="status-ok">📊 Session <strong>{sid}</strong>: {summary["unique_students"]} students</div>'
                         s_rows = [[s["student_name"], s["correct"], s["total"], _color_pct(s["pct"])] for s in summary.get("students", [])]
                         q_rows = [[q["question_index"]+1, q["attempts"], q["correct"], _color_pct(q["accuracy"])] for q in q_stats]
                         return html, s_rows, q_rows, e_rows
@@ -816,98 +837,27 @@ def build_gradio_app() -> gr.Blocks:
                 res_load_btn.click(fn=load_res, inputs=[res_session_id], outputs=[res_summary, res_students, res_questions, res_events])
 
             # ── 5. STUDENT PROFILE ───────────────────────────────────────────────
-            with gr.Tab("👤 Perfil / Profile"):
+            with gr.Tab("👤 Student Profile"):
                 with gr.Column():
-                    gr.Markdown(f"{t['student_search_title']}")
+                    gr.Markdown("## Student Search (Cross-session history)")
                     with gr.Row():
-                        prof_student_id = gr.Textbox(label=t["student_id_label"], placeholder=t["student_id_placeholder"], scale=3)
-                        prof_load_btn = gr.Button(t["search_btn"], elem_classes=["btn-primary"], scale=1)
+                        prof_student_id = gr.Textbox(label="Username / Roblox ID", placeholder="Ex: TeacherAdmin...", scale=3)
+                        prof_load_btn = gr.Button("🔍 Search", elem_classes=["btn-primary"], scale=1)
                     prof_summary = gr.HTML()
-                    prof_history = gr.Dataframe(headers=["Sesión / Session", "Tema / Topic", "Pregunta # / Question #", "Respuesta / Answer", "Fecha / Date"], datatype=["str", "str", "number", "str", "str"], interactive=False)
+                    prof_history = gr.Dataframe(headers=["Session", "Topic", "Question #", "Answer", "Date"], datatype=["str", "str", "number", "str", "str"], interactive=False)
 
                 def load_prof(sid):
-                    if not sid.strip(): return '<div class="status-error">❌ ID vacío.</div>', []
+                    if not sid.strip(): return '<div class="status-error">❌ Empty ID.</div>', []
                     try:
                         recs = repository.get_student_history(sid.strip())
-                        if not recs: return '<div class="status-error">📭 No hay registros para el estudiante.</div>', []
+                        if not recs: return '<div class="status-error">📭 No records for the student.</div>', []
                         c = sum(1 for r in recs if r["is_correct"])
                         pct = round(c/len(recs)*100, 1)
-                        html = f'<div class="status-ok">👤 <strong>{recs[0].get("student_name", sid)}</strong>: {len(recs)} respuestas · Precisión: {_color_pct(pct)}</div>'
+                        html = f'<div class="status-ok">👤 <strong>{recs[0].get("student_name", sid)}</strong>: {len(recs)} answers · Accuracy: {_color_pct(pct)}</div>'
                         rows = [[r.get("session_id","—"), r.get("topic","—")[:30], r["question_index"]+1, "✅" if r["is_correct"] else "❌", _ts_to_local(r.get("timestamp"))] for r in recs]
                         return html, rows
                     except Exception as e: return f'<div class="status-error">❌ {e}</div>', []
 
                 prof_load_btn.click(fn=load_prof, inputs=[prof_student_id], outputs=[prof_summary, prof_history])
-
-                def update_ui_language(lang):
-                    t_local = TRANSLATIONS["en" if lang == "English" else "es"]
-                    return {
-                        topic_input: gr.update(label=t_local["topic_label"], placeholder=t_local["topic_placeholder"]),
-                        details_input: gr.update(label=t_local["instructions_label"], placeholder=t_local["instructions_placeholder"]),
-                        material_file: gr.update(label=t_local["material_label"]),
-                        material_input: gr.update(label=t_local["material_text_label"], placeholder=t_local["material_text_placeholder"]),
-                        mode_input: gr.update(label=t_local["game_mode"], choices=[
-                            (t_local["mode_auto"], "auto"),
-                            (t_local["mode_gallery"], "gallery"),
-                            (t_local["mode_arena"], "arena"),
-                            (t_local["mode_obby"], "obby"),
-                        ]),
-                        template_input: gr.update(label=t_local["interactive_template"], choices=[
-                            (t_local["template_auto"], "auto"),
-                            (t_local["template_gallery"], "gallery_walk"),
-                            (t_local["template_arena"], "arena_zones"),
-                            (t_local["template_obby_path"], "obby_path"),
-                            (t_local["template_obby_tower"], "obby_tower"),
-                            (t_local["template_prob_lab"], "probability_lab"),
-                            (t_local["template_deduction_lab"], "deduction_lab"),
-                        ]),
-                        round_input: gr.update(label=t_local["time_per_question"]),
-                        stages_input: gr.update(label=t_local["num_stages"]),
-                        collab_input: gr.update(label=t_local["collab_mode"], info=t_local["collab_info"], choices=[
-                            (t_local["collab_competitive"], "competitive"),
-                            (t_local["collab_shared"], "shared"),
-                            (t_local["collab_isolated"], "isolated"),
-                        ]),
-                        review_first: gr.update(label=t_local["review_before_send"]),
-                        pilot_mode: gr.update(label=t_local["pilot_class_mode"]),
-                        replace_active: gr.update(label=t_local["replace_active_session"]),
-                        generate_btn: gr.update(value=t_local["generate_to_review"]),
-                        demo_prob_btn: gr.update(value=t_local["probabilidad"]),
-                        demo_water_btn: gr.update(value=t_local["water_cycle"]),
-                        demo_newton_btn: gr.update(value=t_local["newton_laws"]),
-                        demo_history_btn: gr.update(value=t_local["french_revolution"]),
-                        demo_deduction_btn: gr.update(value=t_local["deduction"]),
-                        activate_btn: gr.update(value=t_local["activate_and_send"]),
-                        readiness_btn: gr.update(value=t_local["refresh_checklist"]),
-                        pilot_newton_btn: gr.update(value=t_local["activate_newton"]),
-                        pilot_prob_btn: gr.update(value=t_local["activate_prob"]),
-                        pilot_deduction_btn: gr.update(value=t_local["activate_deduction"]),
-                        pilot_arena_btn: gr.update(value=t_local["activate_arena"]),
-                        live_msg: gr.update(label=t_local["student_message"], placeholder=t_local["message_placeholder"]),
-                        broadcast_btn: gr.update(value=t_local["announcement"]),
-                        hint_btn: gr.update(value=t_local["send_hint"]),
-                        confetti_btn: gr.update(value=t_local["confetti"]),
-                        freeze_btn: gr.update(value=t_local["freeze"]),
-                        hist_mode_filter: gr.update(label=t_local["filter_by_mode"], choices=[t_local["all"], "gallery", "obby", "arena"]),
-                        hist_session_id: gr.update(label=t_local["session_id_label"], placeholder=t_local["session_id_placeholder"]),
-                        hist_activate_btn: gr.update(value=t_local["reactivate_btn"]),
-                        res_session_id: gr.update(label=t_local["session_id_label"], placeholder=t_local["session_id_placeholder"]),
-                        res_load_btn: gr.update(value=t_local["view_results_btn"]),
-                        prof_student_id: gr.update(label=t_local["student_id_label"], placeholder=t_local["student_id_placeholder"]),
-                        prof_load_btn: gr.update(value=t_local["search_btn"]),
-                    }
-
-                lang_selector.change(fn=update_ui_language, inputs=[lang_selector], outputs=[
-                    topic_input, details_input, material_file, material_input,
-                    mode_input, template_input, round_input, stages_input,
-                    collab_input, review_first, pilot_mode, replace_active,
-                    generate_btn, demo_prob_btn, demo_water_btn, demo_newton_btn,
-                    demo_history_btn, demo_deduction_btn, activate_btn,
-                    readiness_btn, pilot_newton_btn, pilot_prob_btn, pilot_deduction_btn,
-                    pilot_arena_btn, live_msg, broadcast_btn, hint_btn,
-                    confetti_btn, freeze_btn, hist_mode_filter, hist_session_id,
-                    hist_activate_btn, res_session_id, res_load_btn,
-                    prof_student_id, prof_load_btn
-                ])
 
     return demo

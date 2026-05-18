@@ -1,3 +1,34 @@
+# 🏆 Hackathon Judge Guide
+
+Welcome to the **EduVerse** project! This guide will help you understand what you are seeing and how to test the platform.
+
+EduVerse is a platform that uses AI (Google's Gemma 4) to dynamically generate interactive educational workshops in Roblox based on a topic provided by a teacher.
+
+## 🛠️ Step 1: Setup the Server & Dashboard
+1. Follow the **Backend Setup** instructions below to install dependencies and start the server.
+2. Once the server is running, open the **Teacher Dashboard** at:
+   👉 **[http://localhost:8000/dashboard](http://localhost:8000/dashboard)**
+   *(Note: Authentication has been disabled for your convenience).*
+
+## 🎮 Step 2: Play the Game
+1. Open this link to play the Roblox experience:
+   👉 **[EduVerse Test on Roblox](https://www.roblox.com/games/88681612927918/EduVerse-Test)**
+2. The game will wait for a workshop to be created from the dashboard.
+
+## 🎛️ Gradio Dashboard Features
+In the dashboard, you can control the experience in real-time:
+- **Dashboard Tab**: View server health and live activity feed of students.
+- **New Session Tab**: 
+    - Enter a topic (e.g., "Solar System") and let Gemma 4 generate the workshop.
+    - **Game Mode**: Choose between *Gallery* (exploration), *Arena* (trivia), or *Obby* (obstacle course).
+    - **Teacher Controls**: Adjust time per question, number of questions, and collaboration modes (Competitive, Shared, Isolated).
+- **Pilot Class Tab**: 
+    - Check the operational checklist to ensure everything is connected.
+    - **Live Commands**: Send real-time announcements, hints, trigger confetti, or freeze students in the Roblox game!
+- **History & Results**: View past sessions and detailed quiz results for students.
+
+---
+
 # 🌌 EduVerse
 
 **EduVerse** is a deterministic, AI-driven educational platform that bridges the gap between semantic learning models and immersive 3D environments. By integrating **Google's Gemma 4** via a FastAPI backend and **Roblox** via a custom polling engine, EduVerse translates abstract educational concepts (e.g., *The Solar System*, *Photosynthesis*) into interactive, spatial mini-games and quizzes dynamically.

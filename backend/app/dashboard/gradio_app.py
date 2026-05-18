@@ -54,8 +54,8 @@ def _quality_note(data: dict) -> str:
 # ── Custom Advanced CSS / Theme ─────────────────────────────────────────────
 _CUSTOM_CSS = """
 :root {
-    --primary: #8b5cf6;
-    --primary-glow: rgba(139, 92, 246, 0.2);
+    --primary: #1E6B7A;
+    --primary-glow: rgba(30, 107, 122, 0.2);
     --bg-dark: #0f172a;
     --bg-card: rgba(30, 41, 59, 0.4);
     --text-main: #f8fafc;
@@ -103,7 +103,7 @@ body, .gradio-container {
 .stat-card:hover {
     transform: translateY(-8px);
     border-color: var(--primary);
-    box-shadow: 0 20px 40px -20px rgba(139, 92, 246, 0.4);
+    box-shadow: 0 20px 40px -20px rgba(30, 107, 122, 0.4);
 }
 .stat-number {
     font-family: 'Outfit', sans-serif;
@@ -322,9 +322,18 @@ def build_gradio_app() -> gr.Blocks:
         '''
     ) as demo:
         gr.HTML("""
-            <div class="eduverse-header">
-                <h1>EduVerse</h1>
-                <p>Advanced Learning Intelligence</p>
+            <div class="eduverse-header" style="text-align: center; padding: 20px;">
+                <h1 style="font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 3.5rem; letter-spacing: 2px; margin-bottom: 0;">
+                    <span style="color: #1E6B7A;">E</span>
+                    <span style="color: #E05A47;">D</span>
+                    <span style="color: #F1B52F;">U</span>
+                    <span style="color: #6FA8DC;">V</span>
+                    <span style="color: #E05A47;">E</span>
+                    <span style="color: #F1B52F;">R</span>
+                    <span style="color: #6AA84F;">S</span>
+                    <span style="color: #38761D;">E</span>
+                </h1>
+                <p style="font-family: 'Inter', sans-serif; font-size: 1.2rem; color: #7f8c8d; margin-top: 5px;">AI-Generated Educational Worlds</p>
             </div>
         """)
 
@@ -345,10 +354,9 @@ def build_gradio_app() -> gr.Blocks:
                     ## 🧠 Step 2: Generate or Activate a Session
                     Before playing, you need an active session. You have two options:
                     - **Option A: Use a Preset Pilot (Recommended)**
-                      1. Go to the **New Session** tab.
-                      2. Scroll to the **Safe Demo (no AI)** section at the bottom.
-                      3. Click on any of the demos (e.g., *Probability*, *Newton's Laws*, *Deduction*). This will load a preset workshop without calling the AI.
-                      4. Alternatively, in the **Pilot Class** tab, you can click "Activate Newton Tower", etc.
+                      1. Go to the **Pilot Class** tab.
+                      2. In the **Recommended Fixtures** section, click on any of the buttons (e.g., *Activate Newton Tower*, *Activate Probability Lab*, *Activate Deduction Lab*).
+                      3. This will immediately load a pre-generated workshop without calling the AI.
                     - **Option B: Create Your Own (Using AI)**
                       1. Go to the **New Session** tab.
                       2. Enter a **Workshop Topic** (e.g., "The Solar System", "French Revolution").

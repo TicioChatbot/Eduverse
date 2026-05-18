@@ -13,10 +13,9 @@ EduVerse is a platform that uses AI (Google's Gemma 4) to dynamically generate i
 ## 🧠 Step 2: Generate or Activate a Session
 Before playing, you need an active session. You have two options:
 - **Option A: Use a Preset Pilot (Recommended)**
-  1. Go to the **New Session** tab.
-  2. Scroll to the **Safe Demo (no AI)** section at the bottom.
-  3. Click on any of the demos (e.g., *Probability*, *Newton's Laws*, *Deduction*). This will load a preset workshop without calling the AI.
-  4. Alternatively, in the **Pilot Class** tab, you can click "Activate Newton Tower", etc.
+  1. Go to the **Pilot Class** tab.
+  2. In the **Recommended Fixtures** section, click on any of the buttons (e.g., *Activate Newton Tower*, *Activate Probability Lab*, *Activate Deduction Lab*).
+  3. This will immediately load a pre-generated workshop without calling the AI.
 - **Option B: Create Your Own (Using AI)**
   1. Go to the **New Session** tab.
   2. Enter a **Workshop Topic** (e.g., "The Solar System", "French Revolution").
